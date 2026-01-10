@@ -220,6 +220,36 @@ body {
     align-items: center;
 }
 
+.sidebar-header-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.pin-top-btn {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition-fast);
+}
+
+.pin-top-btn:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.pin-top-btn.active {
+    color: var(--primary-color);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* 桌面端专用类 */
+.desktop-only {
+    display: block;
+}
+
 .app-title {
     font-size: var(--font-size-xl);
     font-weight: 600;
@@ -1586,13 +1616,17 @@ body {
         z-index: 1000;
         transition: left 0.3s ease;
     }
-    
+
     .sidebar.open {
         left: 0;
     }
-    
+
     .sidebar-overlay.show {
         display: block;
+    }
+
+    .desktop-only {
+        display: none;
     }
     
     .main-content {
@@ -1697,6 +1731,10 @@ body {
 
 /* 小屏幕优化 */
 @media (min-width: 321px) and (max-width: 480px) {
+    .desktop-only {
+        display: none;
+    }
+
     .color-picker {
         gap: var(--spacing-sm) !important;
     }
@@ -1974,6 +2012,10 @@ body {
 
 /* 超小屏幕优化 */
 @media (max-width: 320px) {
+    .desktop-only {
+        display: none;
+    }
+
     .modal-content {
         width: 98%;
         max-width: 200px !important;

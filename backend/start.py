@@ -16,6 +16,11 @@ from backend.utils.logger import app_logger
 # 获取当前目录
 current_dir = Path(__file__).parent
 
+# 设置全局窗口
+window = None
+
+# 设置默认窗口置顶为false
+window_on_top = False
 
 def get_resource_path(relative_path):
     """获取资源文件的绝对路径，支持打包后的可执行文件"""
@@ -36,9 +41,21 @@ def get_resource_path(relative_path):
     
     return resource_path
 
-
-def start_app():
+def start_app(window):
     """启动TodoList桌面应用"""
+
+    def bind(window):
+        """绑定窗口置顶按钮点击事件"""
+        button = window.dom.get_element('#pin-top-btn')
+        button.events.click += click_handler
+
+    def click_handler(e):
+        """窗口置顶按钮点击事件"""
+        global window_on_top
+        window_on_top = not window_on_top
+        app_logger.info("TodoList 应用当前是否设置置顶：" + str(window_on_top))
+        window.on_top = window_on_top
+
     app_logger.info("=" * 60)
     app_logger.info("TodoList 应用启动")
     app_logger.info("=" * 60)
@@ -57,7 +74,7 @@ def start_app():
 
     # 创建窗口
     app_logger.info("创建应用窗口...")
-    webview.create_window(
+    window = webview.create_window(
         'Todo List App',
         frontend_path,
         js_api=api,
@@ -67,7 +84,7 @@ def start_app():
     )
 
     app_logger.info("启动webview...")
-    webview.start(ssl=True, debug=True)
+    webview.start(bind, window, ssl=True, debug=True)
     
     # 应用关闭时停止提醒服务
     app_logger.info("停止任务提醒服务...")
@@ -75,6 +92,5 @@ def start_app():
     app_logger.info("TodoList 应用已关闭")
     app_logger.info("=" * 60)
 
-
 if __name__ == '__main__':
-    start_app()
+    start_app(window)

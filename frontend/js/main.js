@@ -4,6 +4,7 @@ class App {
     constructor() {
         this.isInitialized = false;
         this.modules = [];
+        this.onTop = false;
     }
     
     // 初始化应用
@@ -71,7 +72,15 @@ class App {
                 Utils.ThemeManager.toggle();
             });
         }
-        
+
+        // 窗口置顶按钮（仅桌面端）
+        const pinTopBtn = document.getElementById('pin-top-btn');
+        if (pinTopBtn) {
+            pinTopBtn.addEventListener('click', () => {
+                this.toggleWindowOnTop();
+            });
+        }
+
         // 移动端菜单按钮
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         if (mobileMenuBtn) {
@@ -176,6 +185,11 @@ class App {
         if (searchInput) {
             setTimeout(() => searchInput.focus(), 100);
         }
+
+        // 初始化窗口置顶按钮状态
+        const pinTopBtn = document.getElementById('pin-top-btn');
+        pinTopBtn.classList?.remove('active');
+        pinTopBtn.title = '窗口置顶';
     }
     
     // 恢复用户设置
@@ -296,6 +310,22 @@ class App {
             sidebar.classList.remove('open');
             overlay.classList.remove('show');
         }
+    }
+
+    // 切换窗口置顶状态
+    async toggleWindowOnTop() {
+        // 更新按钮状态
+        const pinTopBtn = document.getElementById('pin-top-btn');
+        if (this.onTop) {
+            pinTopBtn.classList.remove('active');
+            pinTopBtn.title = '窗口置顶';
+        } else {
+            pinTopBtn.classList.add('active');
+            pinTopBtn.title = '取消置顶';
+        }
+        this.onTop = !this.onTop;
+        // 显示提示消息
+        Utils.showToast(this.onTop ? '窗口已设置置顶' : '窗口已取消置顶', 'success');
     }
 }
 
