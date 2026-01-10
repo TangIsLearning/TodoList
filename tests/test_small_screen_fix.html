@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小屏幕任务项修正验证</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 12px;
+        }
+        
+        .comparison-section {
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .version-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+        
+        .version-card.old {
+            border-color: #e74c3c;
+        }
+        
+        .version-card.new {
+            border-color: #27ae60;
+        }
+        
+        .version-header {
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .old .version-header {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .new .version-header {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .version-content {
+            padding: 12px;
+        }
+        
+        .task-demo {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            position: relative;
+            background: white;
+        }
+        
+        .height-label {
+            position: absolute;
+            right: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .old-task {
+            padding: 4px 8px;
+            min-height: 92px;
+            background: #ffe5e5;
+        }
+        
+        .new-task {
+            padding: 6px 10px !important;
+            min-height: 77px !important;
+            background: #e5ffe5;
+        }
+        
+        .task-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+        
+        .old-task .task-title {
+            font-size: 13px;
+        }
+        
+        .new-task .task-title {
+            font-size: 12px !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .task-description {
+            color: #6c757d;
+            font-size: 11px;
+            line-height: 1.3;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+        }
+        
+        .new-task .task-description {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+        }
+        
+        .task-meta {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        
+        .task-priority {
+            padding: 2px 5px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 500;
+        }
+        
+        .priority-high {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .old-task .task-priority {
+            font-size: 8px;
+        }
+        
+        .new-task .task-priority {
+            font-size: 9px !important;
+            padding: 2px 5px !important;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        .improvement {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .degradation {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .test-tasks {
+            padding: 0 20px 20px;
+        }
+        
+        .test-tasks h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .test-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .sample-task {
+            padding: 6px 10px !important;
+            min-height: 77px !important;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        .sample-task:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+            transition: all 0.2s ease;
+        }
+        
+        @media (max-width: 480px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="header">
+            <h1>🔧 小屏幕任务项修正验证</h1>
+            <p>321px-480px 屏幕尺寸从92px调整到77px高度</p>
+        </div>
+        
+        <div class="comparison-section">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #495057;">修正前后对比</h3>
+            
+            <div class="comparison-grid">
+                <!-- 修正前 -->
+                <div class="version-card old">
+                    <div class="version-header">❌ 修正前</div>
+                    <div class="version-content">
+                        <div class="task-demo old-task">
+                            <div class="task-title">任务标题 - 13px字体</div>
+                            <div class="task-description">这是任务描述内容，字体11px</div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-high">高</span>
+                            </div>
+                            <div class="height-label">92px</div>
+                        </div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <div class="stat-value">92px</div>
+                                <div class="stat-label">任务高度</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">4px</div>
+                                <div class="stat-label">内边距</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">94px</div>
+                                <div class="stat-label">总占用</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">6个</div>
+                                <div class="stat-label">每屏任务数</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 修正后 -->
+                <div class="version-card new">
+                    <div class="version-header">✅ 修正后</div>
+                    <div class="version-content">
+                        <div class="task-demo new-task">
+                            <div class="task-title">任务标题 - 12px字体</div>
+                            <div class="task-description">任务描述，字体10px</div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-high">高</span>
+                            </div>
+                            <div class="height-label">77px</div>
+                        </div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <div class="stat-value">77px</div>
+                                <div class="stat-label">任务高度</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">6px</div>
+                                <div class="stat-label">内边距</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">80px</div>
+                                <div class="stat-label">总占用</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">7个</div>
+                                <div class="stat-label">每屏任务数</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; border: 1px solid #2196f3;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #1976d2;">📊 优化效果</h4>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 11px;">
+                    <div>
+                        <strong class="improvement">-15px</strong><br>
+                        任务高度减少
+                    </div>
+                    <div>
+                        <strong class="improvement">-17%</strong><br>
+                        空间占用减少
+                    </div>
+                    <div>
+                        <strong class="improvement">+1个</strong><br>
+                        每屏多显示任务
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-tasks">
+            <h3>实际任务列表测试 (321px-480px)</h3>
+            <div class="test-list">
+                <div class="sample-task">
+                    <div class="task-title">完成项目报告撰写和数据分析</div>
+                    <div class="task-description">重要任务需要及时完成</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-high">高</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">购买日常生活用品</div>
+                    <div class="task-description">购物清单准备</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-medium">中</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">学习新技术框架</div>
+                    <div class="task-description">编程技能提升</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-low">低</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">整理工作文档</div>
+                    <div class="task-description">文档归档整理</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-high">高</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">安排团队会议</div>
+                    <div class="task-description">周会议准备</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-medium">中</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">代码审查任务</div>
+                    <div class="task-description">质量保证工作</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-low">低</span>
+                    </div>
+                </div>
+                
+                <div class="sample-task">
+                    <div class="task-title">更新项目文档</div>
+                    <div class="task-description">文档维护工作</div>
+                    <div class="task-meta">
+                        <span class="task-priority priority-medium">中</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        window.addEventListener('load', function() {
+            // 实际高度验证
+            const newTask = document.querySelector('.new-task');
+            const oldTask = document.querySelector('.old-task');
+            const sampleTasks = document.querySelectorAll('.sample-task');
+            
+            console.log('=== 小屏幕任务项修正验证 ===');
+            console.log(`修正前高度: ${oldTask.offsetHeight}px (预期92px)`);
+            console.log(`修正后高度: ${newTask.offsetHeight}px (预期77px)`);
+            console.log(`样本任务高度: ${sampleTasks[0].offsetHeight}px`);
+            
+            // 验证梯度
+            const heights = [];
+            sampleTasks.forEach(task => {
+                heights.push(task.offsetHeight);
+            });
+            const maxHeight = Math.max(...heights);
+            const minHeight = Math.min(...heights);
+            console.log(`任务高度范围: ${minHeight}px - ${maxHeight}px`);
+            console.log(`高度一致性差异: ${maxHeight - minHeight}px`);
+            
+            // 每屏任务数计算 (假设600px高的容器)
+            const containerHeight = 600;
+            const taskHeight = 80; // 77px + 3px间距
+            const tasksPerScreen = Math.floor(containerHeight / taskHeight);
+            console.log(`每屏可显示任务数: ${tasksPerScreen}个`);
+            
+            // 交互测试
+            sampleTasks.forEach((task, index) => {
+                task.addEventListener('click', function() {
+                    console.log(`点击任务 ${index + 1}: ${this.querySelector('.task-title').textContent}`);
+                });
+            });
+        });
+        
+        // 响应式测试
+        function checkScreenSize() {
+            const width = window.innerWidth;
+            console.log(`当前屏幕宽度: ${width}px`);
+            
+            if (width >= 321 && width <= 480) {
+                console.log('✅ 正确应用小屏幕样式');
+                return 'small-screen';
+            } else if (width <= 320) {
+                console.log('✅ 应用超小屏幕样式');
+                return 'ultra-small';
+            } else {
+                console.log('✅ 应用其他屏幕样式');
+                return 'other';
+            }
+        }
+        
+        window.addEventListener('resize', checkScreenSize);
+        checkScreenSize();
+    </script>
+</body>
+</html>

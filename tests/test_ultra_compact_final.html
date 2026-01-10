@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超小屏幕任务优化测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 320px;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        /* 搜索框样式 */
+        .search-section {
+            background: #f8f9fa;
+            padding: 6px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .search-container {
+            display: flex;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+        
+        .search-input-wrapper {
+            display: flex;
+            flex: 1;
+            position: relative;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 4px 6px !important;
+            border: 1px solid #dee2e6;
+            border-radius: 4px 0 0 4px;
+            background-color: white;
+            color: #212529;
+            font-size: 10px !important;
+            min-height: 28px !important;
+        }
+        
+        .search-btn {
+            padding: 4px 6px !important;
+            border: 1px solid #dee2e6;
+            border-left: none;
+            background-color: #e9ecef;
+            color: #212529;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            font-size: 10px !important;
+            min-height: 28px !important;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .test-header {
+            background: #007bff;
+            color: white;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .test-info {
+            background: #e7f3ff;
+            padding: 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        /* 导入主要样式 */
+        .tasks-container {
+            padding: 2px !important;
+        }
+        
+        .tasks-list {
+            gap: 2px !important;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 基础任务项样式 */
+        .task-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 2px 4px !important;
+            min-height: 50px !important;
+            position: relative;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            margin-bottom: 0 !important;
+            transition: all 0.2s ease;
+        }
+        
+        .task-item:hover {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .task-header {
+            display: flex;
+            gap: 4px !important;
+            margin-bottom: 0 !important;
+            align-items: center !important;
+            flex: 1 !important;
+        }
+        
+        .task-content {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            min-width: 0 !important;
+        }
+        
+        .task-checkbox {
+            width: 10px !important;
+            height: 10px !important;
+            border: 1px solid #6c757d;
+            border-radius: 2px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 0 !important;
+        }
+        
+        .task-checkbox.checked {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        
+        .task-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-weight: bold;
+            font-size: 7px !important;
+        }
+        
+        .task-title {
+            font-size: 11px !important;
+            font-weight: 400 !important;
+            margin-bottom: 0 !important;
+            line-height: 1.0 !important;
+            color: #212529;
+            -webkit-line-clamp: 1 !important;
+            line-clamp: 1 !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }
+        
+        .task-description {
+            display: none !important;
+        }
+        
+        .task-meta {
+            display: flex;
+            gap: 1px !important;
+            align-items: center !important;
+            flex-shrink: 0 !important;
+            margin-left: auto !important;
+        }
+        
+        .task-priority,
+        .task-category {
+            padding: 1px 2px !important;
+            font-size: 7px !important;
+            border-radius: 1px !important;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .task-priority.high {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .task-priority.medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .task-priority.low {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .task-category {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .task-due-date {
+            font-size: 8px !important;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 1px !important;
+            opacity: 1 !important;
+        }
+        
+        .task-action-btn {
+            padding: 1px 2px !important;
+            font-size: 7px !important;
+            min-width: 16px !important;
+            background: none;
+            border: 1px solid #dee2e6;
+            border-radius: 1px !important;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .task-action-btn:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
+        
+        .task-item.completed .task-title {
+            opacity: 0.6 !important;
+            text-decoration: line-through !important;
+        }
+        
+        .task-item.completed {
+            opacity: 0.8 !important;
+            background-color: #f8f9fa !important;
+        }
+        
+        .stats {
+            background: #f8f9fa;
+            padding: 8px;
+            font-size: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            📱 超小屏幕任务列表优化测试 (320px)
+        </div>
+        
+        <div class="test-info">
+            <strong>测试目标：</strong>50px高度任务项 + 紧凑搜索框<br>
+            <strong>优化内容：</strong>任务项、搜索框、按钮全面缩小
+        </div>
+        
+        <!-- 搜索区域 -->
+        <div class="search-section">
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <input type="text" class="search-input" placeholder="搜索任务...">
+                </div>
+                <button class="search-btn">🔍</button>
+            </div>
+        </div>
+        
+        <div class="tasks-container">
+            <div class="tasks-list">
+                <!-- 任务1 - 正常任务 -->
+                <div class="task-item">
+                    <div class="task-header">
+                        <div class="task-checkbox"></div>
+                        <div class="task-content">
+                            <div class="task-title">完成项目报告撰写和数据分析</div>
+                            <div class="task-description">这是隐藏的描述</div>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-priority high">高</span>
+                            <span class="task-category">工作</span>
+                            <span class="task-due-date">今天</span>
+                            <div class="task-actions">
+                                <button class="task-action-btn">编辑</button>
+                                <button class="task-action-btn">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 任务2 - 已完成 -->
+                <div class="task-item completed">
+                    <div class="task-header">
+                        <div class="task-checkbox checked"></div>
+                        <div class="task-content">
+                            <div class="task-title">购买日常生活用品和食品</div>
+                            <div class="task-description">这是隐藏的描述</div>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-priority low">低</span>
+                            <span class="task-category">生活</span>
+                            <span class="task-due-date">昨天</span>
+                            <div class="task-actions">
+                                <button class="task-action-btn">编辑</button>
+                                <button class="task-action-btn">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 任务3 - 中等优先级 -->
+                <div class="task-item">
+                    <div class="task-header">
+                        <div class="task-checkbox"></div>
+                        <div class="task-content">
+                            <div class="task-title">学习新技术框架和编程语言</div>
+                            <div class="task-description">这是隐藏的描述</div>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-priority medium">中</span>
+                            <span class="task-category">学习</span>
+                            <span class="task-due-date">明天</span>
+                            <div class="task-actions">
+                                <button class="task-action-btn">编辑</button>
+                                <button class="task-action-btn">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 任务4 - 长标题 -->
+                <div class="task-item">
+                    <div class="task-header">
+                        <div class="task-checkbox"></div>
+                        <div class="task-content">
+                            <div class="task-title">这是一个非常长的任务标题用来测试文本溢出省略号效果是否正常工作</div>
+                            <div class="task-description">这是隐藏的描述</div>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-priority high">高</span>
+                            <span class="task-category">测试</span>
+                            <span class="task-due-date">下周</span>
+                            <div class="task-actions">
+                                <button class="task-action-btn">编辑</button>
+                                <button class="task-action-btn">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 任务5 - 无优先级 -->
+                <div class="task-item">
+                    <div class="task-header">
+                        <div class="task-checkbox"></div>
+                        <div class="task-content">
+                            <div class="task-title">简单任务记录</div>
+                            <div class="task-description">这是隐藏的描述</div>
+                        </div>
+                        <div class="task-meta">
+                            <span class="task-category">其他</span>
+                            <span class="task-due-date">无日期</span>
+                            <div class="task-actions">
+                                <button class="task-action-btn">编辑</button>
+                                <button class="task-action-btn">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div>任务高度</div>
+                <div class="stat-value">50px</div>
+            </div>
+            <div class="stat">
+                <div>字体大小</div>
+                <div class="stat-value">11px</div>
+            </div>
+            <div class="stat">
+                <div>内边距</div>
+                <div class="stat-value">2px</div>
+            </div>
+            <div class="stat">
+                <div>间距</div>
+                <div class="stat-value">2px</div>
+            </div>
+            <div class="stat">
+                <div>搜索框高度</div>
+                <div class="stat-value">28px</div>
+            </div>
+            <div class="stat">
+                <div>搜索字体</div>
+                <div class="stat-value">10px</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 交互功能测试
+        document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('click', function() {
+                this.classList.toggle('checked');
+                const taskItem = this.closest('.task-item');
+                taskItem.classList.toggle('completed');
+            });
+        });
+        
+        document.querySelectorAll('.task-action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                console.log('按钮点击:', this.textContent);
+            });
+        });
+        
+        // 显示任务项实际高度的测试
+        window.addEventListener('load', function() {
+            const taskItems = document.querySelectorAll('.task-item');
+            console.log('任务项高度测试:');
+            taskItems.forEach((item, index) => {
+                const height = item.offsetHeight;
+                console.log(`任务${index + 1}: ${height}px`);
+            });
+        });
+    </script>
+</body>
+</html>

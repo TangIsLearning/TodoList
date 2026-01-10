@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>测试数据传输按钮</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>测试数据传输按钮</h1>
+    <button id="data-transfer-btn">🔗 数据共享</button>
+    <div id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+
+        function log(message) {
+            console.log(message);
+            const p = document.createElement('p');
+            p.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logDiv.appendChild(p);
+        }
+
+        log('页面加载完成');
+
+        const btn = document.getElementById('data-transfer-btn');
+        log('按钮元素: ' + (btn ? '找到' : '未找到'));
+
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                log('按钮被点击!');
+                e.preventDefault();
+                e.stopPropagation();
+                alert('按钮点击成功！');
+            });
+            log('事件监听器已添加');
+        }
+
+        // 使用onclick作为备用方案
+        function onClickHandler() {
+            log('onclick handler被调用');
+            alert('onclick handler触发！');
+        }
+    </script>
+</body>
+</html>

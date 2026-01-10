@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索清空功能测试</title>
+    <link rel="stylesheet" href="frontend/css/main.css">
+    <link rel="stylesheet" href="frontend/css/components.css">
+    <style>
+        .test-container {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .feature-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .feature-list li {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+        }
+        .feature-list li::before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+        }
+        .demo-header {
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>搜索清空功能测试</h1>
+        
+        <div class="demo-header">
+            <h3>测试搜索框（包含清空按钮）</h3>
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <input type="text" id="search-input" placeholder="搜索任务..." class="search-input">
+                    <button type="button" id="search-clear-btn" class="search-clear-btn" title="清空搜索">×</button>
+                </div>
+                <button id="search-btn" class="search-btn">🔍</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>功能特性</h3>
+            <ul class="feature-list">
+                <li>输入框为空时，清空按钮隐藏</li>
+                <li>输入框有内容时，清空按钮自动显示</li>
+                <li>点击清空按钮可一键清空搜索内容</li>
+                <li>清空后自动更新搜索结果</li>
+                <li>清空按钮有hover效果，提升交互体验</li>
+                <li>响应式设计，移动端也能正常使用</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>测试用例</h3>
+            <button class="test-button" onclick="testEmptyInput()">测试空输入状态</button>
+            <button class="test-button" onclick="testTyping()">测试输入时显示清空按钮</button>
+            <button class="test-button" onclick="testClearButton()">测试清空按钮功能</button>
+            <button class="test-button" onclick="testAutoClear()">测试自动清空状态</button>
+            <button class="test-button" onclick="testMobileView()">测试移动端响应式</button>
+        </div>
+
+        <div class="test-section">
+            <h3>测试结果</h3>
+            <div id="test-results">
+                <p>点击上方按钮进行测试...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>键盘快捷键支持</h3>
+            <p>支持 Ctrl/Cmd + K 快速聚焦搜索框</p>
+            <button class="test-button" onclick="testKeyboardShortcut()">测试键盘快捷键</button>
+        </div>
+    </div>
+
+    <script src="frontend/js/utils.js"></script>
+    <script>
+        // 模拟搜索功能
+        let searchQuery = '';
+
+        function log(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff';
+            const resultItem = document.createElement('div');
+            resultItem.innerHTML = `<div style="padding: 8px; margin: 5px 0; border-left: 3px solid ${color}; background: white;">
+                <strong>[${timestamp}]</strong> ${message}
+            </div>`;
+            resultsDiv.appendChild(resultItem);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function updateSearchClearButton() {
+            const searchInput = document.getElementById('search-input');
+            const searchClearBtn = document.getElementById('search-clear-btn');
+            
+            if (searchInput && searchClearBtn) {
+                if (searchInput.value.trim()) {
+                    searchClearBtn.classList.add('visible');
+                } else {
+                    searchClearBtn.classList.remove('visible');
+                }
+            }
+        }
+
+        function clearSearch() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                searchQuery = '';
+                updateSearchClearButton();
+                log('搜索内容已清空', 'success');
+            }
+        }
+
+        function handleSearchInput() {
+            const searchInput = document.getElementById('search-input');
+            searchQuery = searchInput.value.trim();
+            updateSearchClearButton();
+            if (searchQuery) {
+                log(`搜索: "${searchQuery}"`, 'info');
+            }
+        }
+
+        // 测试函数
+        function testEmptyInput() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = '';
+            updateSearchClearButton();
+            
+            setTimeout(() => {
+                const clearBtn = document.getElementById('search-clear-btn');
+                if (clearBtn.classList.contains('visible')) {
+                    log('❌ 测试失败：空输入时清空按钮应该隐藏', 'error');
+                } else {
+                    log('✅ 测试通过：空输入时清空按钮正确隐藏', 'success');
+                }
+            }, 100);
+        }
+
+        function testTyping() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = 'test search';
+            updateSearchClearButton();
+            
+            setTimeout(() => {
+                const clearBtn = document.getElementById('search-clear-btn');
+                if (clearBtn.classList.contains('visible')) {
+                    log('✅ 测试通过：输入时清空按钮正确显示', 'success');
+                } else {
+                    log('❌ 测试失败：输入时清空按钮应该显示', 'error');
+                }
+            }, 100);
+        }
+
+        function testClearButton() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = 'content to clear';
+            updateSearchClearButton();
+            
+            setTimeout(() => {
+                clearSearch();
+                setTimeout(() => {
+                    if (searchInput.value === '') {
+                        log('✅ 测试通过：清空按钮功能正常', 'success');
+                    } else {
+                        log('❌ 测试失败：清空按钮功能异常', 'error');
+                    }
+                }, 100);
+            }, 100);
+        }
+
+        function testAutoClear() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = 'auto test';
+            updateSearchClearButton();
+            
+            // 模拟用户删除所有内容
+            searchInput.value = '';
+            updateSearchClearButton();
+            
+            setTimeout(() => {
+                const clearBtn = document.getElementById('search-clear-btn');
+                if (!clearBtn.classList.contains('visible')) {
+                    log('✅ 测试通过：清空内容后按钮自动隐藏', 'success');
+                } else {
+                    log('❌ 测试失败：清空内容后按钮应该自动隐藏', 'error');
+                }
+            }, 100);
+        }
+
+        function testMobileView() {
+            // 模拟移动端视口
+            const originalWidth = window.innerWidth;
+            
+            // 检查响应式样式是否正确应用
+            const searchContainer = document.querySelector('.search-container');
+            if (searchContainer) {
+                log('✅ 搜索容器结构正确', 'success');
+            } else {
+                log('❌ 搜索容器结构异常', 'error');
+            }
+            
+            const searchInputWrapper = document.querySelector('.search-input-wrapper');
+            if (searchInputWrapper) {
+                log('✅ 搜索输入包装器结构正确', 'success');
+            } else {
+                log('❌ 搜索输入包装器结构异常', 'error');
+            }
+            
+            log('响应式设计已应用，可调整浏览器窗口大小测试移动端效果', 'info');
+        }
+
+        function testKeyboardShortcut() {
+            log('请按 Ctrl/Cmd + K 测试键盘快捷键', 'info');
+            
+            // 模拟快捷键
+            const event = new KeyboardEvent('keydown', {
+                key: 'k',
+                ctrlKey: true
+            });
+            document.dispatchEvent(event);
+        }
+
+        // 初始化事件监听
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search-input');
+            const searchClearBtn = document.getElementById('search-clear-btn');
+            const searchBtn = document.getElementById('search-btn');
+            
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearchInput);
+                searchInput.addEventListener('change', updateSearchClearButton);
+            }
+            
+            if (searchClearBtn) {
+                searchClearBtn.addEventListener('click', clearSearch);
+            }
+            
+            if (searchBtn) {
+                searchBtn.addEventListener('click', () => {
+                    if (searchQuery) {
+                        log(`执行搜索: "${searchQuery}"`, 'info');
+                    } else {
+                        log('请输入搜索内容', 'info');
+                    }
+                });
+            }
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                    log('键盘快捷键触发：搜索框已聚焦', 'success');
+                }
+            });
+            
+            // 初始化清空按钮状态
+            updateSearchClearButton();
+            
+            log('搜索清空功能测试页面已加载', 'success');
+        });
+    </script>
+</body>
+</html>

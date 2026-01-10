@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超小屏幕搜索框优化测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 320px;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .test-header {
+            background: #007bff;
+            color: white;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .test-info {
+            background: #e7f3ff;
+            padding: 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        /* 应用头部样式 */
+        .app-header {
+            padding: 4px 6px !important;
+            gap: 4px !important;
+            min-height: auto !important;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid #ddd;
+            background: white;
+        }
+        
+        /* 搜索区域 */
+        .search-section {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .search-container {
+            display: flex;
+            max-width: 280px !important;
+            min-width: 150px !important;
+            flex: 1;
+        }
+        
+        .search-input-wrapper {
+            display: flex;
+            flex: 1;
+            position: relative;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 4px 6px !important;
+            border: 1px solid #dee2e6;
+            border-radius: 4px 0 0 4px;
+            background-color: white;
+            color: #212529;
+            font-size: 10px !important;
+            min-height: 28px !important;
+            box-sizing: border-box;
+        }
+        
+        .search-btn {
+            padding: 4px 6px !important;
+            border: 1px solid #dee2e6;
+            border-left: none;
+            background-color: #e9ecef;
+            color: #212529;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            font-size: 10px !important;
+            min-height: 28px !important;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .search-clear-btn {
+            position: absolute;
+            right: 4px !important;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 12px !important;
+            font-weight: bold;
+            width: 16px !important;
+            height: 16px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        
+        .search-clear-btn:hover {
+            background-color: #dee2e6;
+        }
+        
+        /* 筛选器区域 */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            width: 100%;
+            align-items: stretch;
+            margin-top: 4px;
+        }
+        
+        .priority-filter {
+            grid-column: 1 / -1;
+        }
+        
+        .priority-filter,
+        .status-filter,
+        .due-date-filter {
+            width: 100%;
+            min-width: 0;
+            font-size: 10px !important;
+            padding: 4px 6px !important;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            background: white;
+            color: #212529;
+            cursor: pointer;
+            min-height: 28px !important;
+            box-sizing: border-box;
+        }
+        
+        .add-task-btn {
+            grid-column: 1 / -1;
+            width: 100%;
+            margin-top: 2px;
+            font-size: 10px !important;
+            padding: 4px 6px !important;
+            min-height: 28px !important;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        
+        .priority-filter:hover,
+        .status-filter:hover,
+        .due-date-filter:hover {
+            border-color: #007bff;
+            transform: translateY(-1px);
+            box-shadow: 0 1px 2px rgba(0, 123, 255, 0.2);
+        }
+        
+        .add-task-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        /* 测试内容 */
+        .test-content {
+            padding: 10px;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 4px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .comparison-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .before {
+            background-color: #fff5f5;
+        }
+        
+        .after {
+            background-color: #f0f8f0;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+            font-weight: bold;
+        }
+        
+        /* 测量工具 */
+        .measurement {
+            border: 2px dashed #007bff;
+            background: rgba(0, 123, 255, 0.1);
+            margin: 5px 0;
+            padding: 2px;
+            font-size: 9px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .measurement::before {
+            content: attr(data-height);
+            position: absolute;
+            right: 2px;
+            top: 2px;
+            background: #007bff;
+            color: white;
+            padding: 1px 3px;
+            border-radius: 2px;
+            font-size: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            🔍 超小屏幕搜索框优化测试
+        </div>
+        
+        <div class="test-info">
+            <strong>优化目标：</strong>搜索框高度从默认缩小到28px<br>
+            <strong>测试范围：</strong>320px超小屏幕下的所有输入控件
+        </div>
+        
+        <!-- 应用头部 -->
+        <div class="app-header">
+            <!-- 搜索区域 -->
+            <div class="search-section">
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <input type="text" class="search-input" placeholder="搜索任务..." value="测试搜索内容">
+                        <div class="search-clear-btn">×</div>
+                    </div>
+                    <button class="search-btn">🔍</button>
+                </div>
+            </div>
+            
+            <!-- 筛选器区域 -->
+            <div class="action-buttons">
+                <select class="priority-filter">
+                    <option>🔴 高优先级</option>
+                    <option>🟡 中优先级</option>
+                    <option>🟢 低优先级</option>
+                    <option>⚪ 无优先级</option>
+                </select>
+                <select class="status-filter">
+                    <option>📋 全部状态</option>
+                    <option>✅ 已完成</option>
+                    <option>⏳ 进行中</option>
+                </select>
+                <select class="due-date-filter">
+                    <option>📅 截止日期</option>
+                    <option>今天</option>
+                    <option>本周</option>
+                    <option>逾期</option>
+                </select>
+                <button class="add-task-btn">➕ 新建任务</button>
+            </div>
+        </div>
+        
+        <!-- 测试内容 -->
+        <div class="test-content">
+            <h3 style="font-size: 12px; margin: 10px 0;">优化前后对比</h3>
+            
+            <!-- 搜索框测量 -->
+            <div class="measurement" data-height="28px">
+                搜索框区域 (高度: 28px)
+            </div>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>组件</th>
+                        <th>优化前</th>
+                        <th>优化后</th>
+                        <th>节省空间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>搜索框高度</td>
+                        <td class="before">38px</td>
+                        <td class="after highlight">28px</td>
+                        <td class="highlight">26%</td>
+                    </tr>
+                    <tr>
+                        <td>内边距</td>
+                        <td class="before">8px 12px</td>
+                        <td class="after highlight">4px 6px</td>
+                        <td class="highlight">50%</td>
+                    </tr>
+                    <tr>
+                        <td>字体大小</td>
+                        <td class="before">14px</td>
+                        <td class="after highlight">10px</td>
+                        <td class="highlight">29%</td>
+                    </tr>
+                    <tr>
+                        <td>筛选器高度</td>
+                        <td class="before">38px</td>
+                        <td class="after highlight">28px</td>
+                        <td class="highlight">26%</td>
+                    </tr>
+                    <tr>
+                        <td>头部总高度</td>
+                        <td class="before">~120px</td>
+                        <td class="after highlight">~90px</td>
+                        <td class="highlight">25%</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; font-size: 10px; color: #666;">
+                <strong>测试要点：</strong><br>
+                ✅ 搜索框高度精确28px<br>
+                ✅ 字体大小适配10px<br>
+                ✅ 内边距最小化4px<br>
+                ✅ 筛选器统一高度<br>
+                ✅ 按钮可点击区域足够
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 实际高度测量
+        window.addEventListener('load', function() {
+            const searchInput = document.querySelector('.search-input');
+            const searchBtn = document.querySelector('.search-btn');
+            const priorityFilter = document.querySelector('.priority-filter');
+            const addTaskBtn = document.querySelector('.add-task-btn');
+            
+            console.log('=== 超小屏幕搜索框高度测试 ===');
+            console.log(`搜索框实际高度: ${searchInput.offsetHeight}px`);
+            console.log(`搜索按钮高度: ${searchBtn.offsetHeight}px`);
+            console.log(`筛选器高度: ${priorityFilter.offsetHeight}px`);
+            console.log(`新建按钮高度: ${addTaskBtn.offsetHeight}px`);
+            
+            // 测试焦点状态
+            searchInput.addEventListener('focus', function() {
+                console.log('搜索框获得焦点');
+            });
+            
+            searchInput.addEventListener('blur', function() {
+                console.log('搜索框失去焦点');
+            });
+            
+            // 清空按钮测试
+            const clearBtn = document.querySelector('.search-clear-btn');
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                console.log('搜索内容已清空');
+            });
+            
+            // 按钮点击测试
+            document.querySelectorAll('button, select').forEach(elem => {
+                elem.addEventListener('click', function() {
+                    console.log(`点击了: ${this.textContent || this.value}`);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

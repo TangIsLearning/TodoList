@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>截止时间校验测试</title>
+    <link rel="stylesheet" href="frontend/css/main.css">
+    <link rel="stylesheet" href="frontend/css/components.css">
+    <link rel="stylesheet" href="frontend/css/pikaday.css">
+</head>
+<body>
+    <div class="container">
+        <h1>截止时间校验功能测试</h1>
+        
+        <div class="task-form">
+            <div class="form-group">
+                <label>任务标题</label>
+                <input type="text" id="task-title" placeholder="输入任务标题">
+            </div>
+            
+            <div class="form-group datetime-group">
+                <label>截止日期和时间（可选）</label>
+                <div class="datetime-inputs">
+                    <div class="input-wrapper">
+                        <input type="text" id="task-due-date-picker" placeholder="YYYY-MM-DD" readonly>
+                        <button type="button" class="clear-btn clear-date">×</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="time" id="task-due-time" class="time-input">
+                        <button type="button" class="clear-btn clear-time">×</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" onclick="testValidation()">测试校验</button>
+            </div>
+        </div>
+        
+        <div class="test-results">
+            <h3>测试用例</h3>
+            <div id="test-cases">
+                <div class="test-case">
+                    <h4>测试1: 只选择日期，不选择时间</h4>
+                    <button onclick="testCase1()">执行测试</button>
+                    <div id="test1-result" class="test-result"></div>
+                </div>
+                
+                <div class="test-case">
+                    <h4>测试2: 只选择时间，不选择日期</h4>
+                    <button onclick="testCase2()">执行测试</button>
+                    <div id="test2-result" class="test-result"></div>
+                </div>
+                
+                <div class="test-case">
+                    <h4>测试3: 选择过去的时间</h4>
+                    <button onclick="testCase3()">执行测试</button>
+                    <div id="test3-result" class="test-result"></div>
+                </div>
+                
+                <div class="test-case">
+                    <h4>测试4: 选择正确的时间</h4>
+                    <button onclick="testCase4()">执行测试</button>
+                    <div id="test4-result" class="test-result"></div>
+                </div>
+                
+                <div class="test-case">
+                    <h4>测试5: 都不选择</h4>
+                    <button onclick="testCase5()">执行测试</button>
+                    <div id="test5-result" class="test-result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="frontend/js/utils.js"></script>
+    <script>
+        // 模拟校验函数
+        function testValidation() {
+            const dateStr = document.getElementById('task-due-date-picker').value || null;
+            const timeStr = document.getElementById('task-due-time').value || null;
+            
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            
+            alert('校验结果: ' + (validation.valid ? '通过' : '失败') + 
+                  (validation.valid ? '' : '\n错误信息: ' + validation.message));
+        }
+        
+        function testCase1() {
+            document.getElementById('task-due-date-picker').value = '2025-12-26';
+            document.getElementById('task-due-time').value = '';
+            const dateStr = '2025-12-26';
+            const timeStr = '';
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            document.getElementById('test1-result').innerHTML = 
+                `<span class="${validation.valid ? 'success' : 'error'}">${validation.valid ? '通过' : '失败'}: ${validation.message}</span>`;
+        }
+        
+        function testCase2() {
+            document.getElementById('task-due-date-picker').value = '';
+            document.getElementById('task-due-time').value = '10:00';
+            const dateStr = '';
+            const timeStr = '10:00';
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            document.getElementById('test2-result').innerHTML = 
+                `<span class="${validation.valid ? 'success' : 'error'}">${validation.valid ? '通过' : '失败'}: ${validation.message}</span>`;
+        }
+        
+        function testCase3() {
+            const now = new Date();
+            const pastDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 昨天
+            const dateStr = pastDate.toISOString().split('T')[0];
+            const timeStr = '09:00';
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            document.getElementById('test3-result').innerHTML = 
+                `<span class="${validation.valid ? 'success' : 'error'}">${validation.valid ? '通过' : '失败'}: ${validation.message}</span>`;
+        }
+        
+        function testCase4() {
+            const now = new Date();
+            const futureDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 明天
+            const dateStr = futureDate.toISOString().split('T')[0];
+            const timeStr = '15:00';
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            document.getElementById('test4-result').innerHTML = 
+                `<span class="${validation.valid ? 'success' : 'error'}">${validation.valid ? '通过' : '失败'}: ${validation.message}</span>`;
+        }
+        
+        function testCase5() {
+            document.getElementById('task-due-date-picker').value = '';
+            document.getElementById('task-due-time').value = '';
+            const dateStr = '';
+            const timeStr = '';
+            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            document.getElementById('test5-result').innerHTML = 
+                `<span class="${validation.valid ? 'success' : 'error'}">${validation.valid ? '通过' : '失败'}: ${validation.message}</span>`;
+        }
+    </script>
+    
+    <style>
+        .test-results {
+            margin-top: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+        }
+        
+        .test-case {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            border: 1px solid var(--border-color);
+        }
+        
+        .test-result {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .success {
+            color: var(--success-color);
+            background: rgba(40, 167, 69, 0.1);
+        }
+        
+        .error {
+            color: var(--danger-color);
+            background: rgba(220, 53, 69, 0.1);
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: var(--primary-hover);
+        }
+    </style>
+</body>
+</html>

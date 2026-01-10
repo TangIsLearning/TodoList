@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务项空间占用可视化分析</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .analysis-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 8px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .size-btn {
+            padding: 8px 16px;
+            border: 2px solid #007bff;
+            background: white;
+            color: #007bff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .size-btn:hover {
+            background: #007bff;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .size-btn.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .size-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .size-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .screen-size {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .space-info {
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .space-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .task-demo {
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .task-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            position: relative;
+            margin-bottom: 16px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .task-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .task-height-indicator {
+            position: absolute;
+            right: -30px;
+            top: 0;
+            bottom: 0;
+            width: 25px;
+            background: linear-gradient(90deg, rgba(0,123,255,0.1), rgba(0,123,255,0.3));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #007bff;
+            border: 1px solid #007bff;
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        /* 各尺寸任务样式 */
+        .task-ultra-large {
+            padding: 48px;
+            min-height: 316px;
+        }
+        
+        .task-large {
+            padding: 32px;
+            min-height: 264px;
+        }
+        
+        .task-medium {
+            padding: 24px;
+            min-height: 228px;
+        }
+        
+        .task-tablet {
+            padding: 16px;
+            min-height: 172px;
+        }
+        
+        .task-small {
+            padding: 6px 10px;
+            min-height: 77px;
+        }
+        
+        .task-ultra-small {
+            padding: 2px 4px !important;
+            min-height: 50px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+        }
+        
+        .task-content {
+            flex: 1;
+        }
+        
+        .task-title {
+            font-weight: 500;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        
+        .task-description {
+            color: #6c757d;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        
+        .task-meta {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .task-priority {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .priority-high {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .priority-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .priority-low {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .efficiency-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .efficiency-excellent {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .efficiency-good {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .efficiency-normal {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .summary-stats {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 2px solid #dee2e6;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .size-card:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="analysis-container">
+        <div class="header">
+            <h1>📊 任务项空间占用可视化分析</h1>
+            <p>各屏幕尺寸下任务项的高度、内边距、间距详细对比</p>
+        </div>
+        
+        <div class="controls">
+            <button class="size-btn active" onclick="highlightAll()">显示全部</button>
+            <button class="size-btn" onclick="highlightSize('ultra-large')">超大屏 ≥1600px</button>
+            <button class="size-btn" onclick="highlightSize('large')">大屏 1200px+</button>
+            <button class="size-btn" onclick="highlightSize('medium')">中屏 1025px+</button>
+            <button class="size-btn" onclick="highlightSize('tablet')">平板 768px+</button>
+            <button class="size-btn" onclick="highlightSize('small')">小屏 321px+</button>
+            <button class="size-btn" onclick="highlightSize('ultra-small')">超小屏 ≤320px</button>
+        </div>
+        
+        <div class="comparison-grid">
+            <!-- 超大屏幕 -->
+            <div class="size-card" data-size="ultra-large">
+                <div class="card-header">
+                    <span>🖥️ 超大屏幕</span>
+                    <span class="screen-size">≥1600px</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">316px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">48px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">24px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">340px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-ultra-large">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 24px;">任务标题 - 大字体显示</div>
+                            <div class="task-description" style="font-size: 18px; -webkit-line-clamp: 5;">
+                                这是任务的详细描述，在大屏幕上可以显示更多内容。Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                            </div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-high">高优先级</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">316px</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 大屏幕 -->
+            <div class="size-card" data-size="large">
+                <div class="card-header">
+                    <span>🖥️ 大屏幕</span>
+                    <span class="screen-size">1200px+</span>
+                    <span class="efficiency-badge efficiency-normal">标准</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">264px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">32px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">24px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">288px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-large">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 20px;">任务标题 - 中等字体</div>
+                            <div class="task-description" style="font-size: 16px; -webkit-line-clamp: 4;">
+                                这是任务的详细描述，在大屏幕上可以显示较多内容。Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                            </div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-medium">中优先级</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">264px</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 中等屏幕 -->
+            <div class="size-card" data-size="medium">
+                <div class="card-header">
+                    <span>💻 中等屏幕</span>
+                    <span class="screen-size">1025px+</span>
+                    <span class="efficiency-badge efficiency-good">优化</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">228px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">24px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">16px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">244px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-medium">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 16px;">任务标题 - 标准字体</div>
+                            <div class="task-description" style="font-size: 14px; -webkit-line-clamp: 3;">
+                                这是任务的详细描述，中屏幕显示适中的内容。Lorem ipsum dolor sit amet.
+                            </div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-low">低优先级</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">228px</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 平板 -->
+            <div class="size-card" data-size="tablet">
+                <div class="card-header">
+                    <span>📱 平板</span>
+                    <span class="screen-size">768px+</span>
+                    <span class="efficiency-badge efficiency-good">良好</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">172px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">16px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">8px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">180px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-tablet">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 16px;">任务标题</div>
+                            <div class="task-description" style="font-size: 14px; -webkit-line-clamp: 2;">
+                                这是任务的描述，平板设备上显示较少内容。
+                            </div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-high">高</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">172px</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 小屏幕 -->
+            <div class="size-card" data-size="small">
+                <div class="card-header">
+                    <span>📱 小屏幕</span>
+                    <span class="screen-size">321px+</span>
+                    <span class="efficiency-badge efficiency-excellent">优秀</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">77px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">6px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">3px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">80px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-small">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 12px;">任务标题 - 紧凑显示</div>
+                            <div class="task-description" style="font-size: 10px; -webkit-line-clamp: 1;">
+                                简短描述。
+                            </div>
+                            <div class="task-meta">
+                                <span class="task-priority priority-medium" style="font-size: 9px;">中</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">77px</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 超小屏幕 -->
+            <div class="size-card" data-size="ultra-small">
+                <div class="card-header">
+                    <span>📱 超小屏幕</span>
+                    <span class="screen-size">≤320px</span>
+                    <span class="efficiency-badge efficiency-excellent">极致</span>
+                </div>
+                <div class="space-info">
+                    <div class="space-metrics">
+                        <div class="metric">
+                            <span class="metric-label">任务高度</span>
+                            <span class="metric-value">50px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">内边距</span>
+                            <span class="metric-value">2px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">任务间距</span>
+                            <span class="metric-value">2px</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">总占用</span>
+                            <span class="metric-value">52px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-demo">
+                    <div class="task-item task-ultra-small">
+                        <div class="task-content">
+                            <div class="task-title" style="font-size: 11px; margin-bottom: 0;">任务标题 - 单行显示</div>
+                            <div class="task-meta" style="margin-top: 4px;">
+                                <span class="task-priority priority-high" style="font-size: 7px; padding: 1px 3px;">高</span>
+                                <span style="font-size: 8px; color: #6c757d;">今天</span>
+                            </div>
+                        </div>
+                        <div class="task-height-indicator">50px</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-value">85%</div>
+                <div class="stat-label">超小屏空间节省率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">11倍</div>
+                <div class="stat-label">显示密度提升倍数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">52px</div>
+                <div class="stat-label">最小任务占用空间</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">6种</div>
+                <div class="stat-label">响应式断点数量</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function highlightSize(size) {
+            const cards = document.querySelectorAll('.size-card');
+            cards.forEach(card => {
+                if (size === 'all' || card.dataset.size === size) {
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                } else {
+                    card.style.opacity = '0.3';
+                    card.style.transform = 'scale(0.95)';
+                }
+            });
+        }
+        
+        function highlightAll() {
+            const cards = document.querySelectorAll('.size-card');
+            cards.forEach(card => {
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            });
+        }
+        
+        // 实际高度测量验证
+        window.addEventListener('load', function() {
+            const taskItems = document.querySelectorAll('.task-item');
+            console.log('=== 任务项实际高度验证 ===');
+            
+            taskItems.forEach((item, index) => {
+                const actualHeight = item.offsetHeight;
+                const indicator = item.querySelector('.task-height-indicator');
+                const expectedHeight = indicator.textContent.replace('px', '');
+                
+                console.log(`${item.className.match(/task-(\w+)/)[1]}: 实际${actualHeight}px, 期望${expectedHeight}px, 差异${Math.abs(actualHeight - parseInt(expectedHeight))}px`);
+            });
+            
+            // 添加点击事件
+            taskItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    console.log(`点击了任务项: ${this.querySelector('.task-title').textContent}`);
+                });
+            });
+        });
+        
+        // 响应式测试
+        function testResponsive() {
+            const width = window.innerWidth;
+            console.log(`当前屏幕宽度: ${width}px`);
+            
+            let size = 'unknown';
+            if (width >= 1600) size = 'ultra-large';
+            else if (width >= 1200) size = 'large';
+            else if (width >= 1025) size = 'medium';
+            else if (width >= 768) size = 'tablet';
+            else if (width >= 321) size = 'small';
+            else size = 'ultra-small';
+            
+            console.log(`对应尺寸类别: ${size}`);
+            return size;
+        }
+        
+        window.addEventListener('resize', testResponsive);
+        testResponsive();
+    </script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/asset/todo_icon.ico" type="image/x-icon">
+    <title>Todo List App</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pikaday.css">
+</head>
+<body>
+<div class="app-container">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1 class="app-title">📝 Todo List</h1>
+            <button id="theme-toggle" class="theme-toggle-btn" title="切换主题">🌙</button>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-container">
+            <div class="stat-item">
+                <span class="stat-label">总任务</span>
+                <span id="total-tasks" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">已完成</span>
+                <span id="completed-tasks" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">完成率</span>
+                <span id="completion-rate" class="stat-value">0%</span>
+            </div>
+        </div>
+
+        <!-- 分类管理 -->
+        <div class="categories-section">
+            <h3>分类</h3>
+            <div class="category-list" id="category-list">
+                <button class="category-item active" data-category="all">
+                    <span>📋 全部</span>
+                    <span class="category-count">0</span>
+                </button>
+            </div>
+            <button id="add-category-btn" class="add-category-btn">+ 添加分类</button>
+        </div>
+
+        <!-- 数据传输按钮 -->
+        <div class="data-transfer-section">
+            <button id="data-transfer-btn" class="data-transfer-btn" title="数据传输" onclick="window.openDataTransferModal()">
+                🔗 数据共享
+            </button>
+        </div>
+    </aside>
+
+    <!-- 移动端遮罩层 -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 顶部操作栏 -->
+        <header class="app-header">
+            <!-- 移动端菜单按钮 -->
+            <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <input type="text" id="search-input" placeholder="搜索任务..." class="search-input">
+                    <button type="button" id="search-clear-btn" class="search-clear-btn" title="清空搜索">×</button>
+                </div>
+                <button id="search-btn" class="search-btn">🔍</button>
+            </div>
+
+            <div class="action-buttons">
+                <button id="view-toggle-btn" class="view-toggle-btn" title="切换视图">
+                    📅 日历视图
+                </button>
+
+                <select id="priority-filter" class="priority-filter">
+                    <option value="all">所有优先级</option>
+                    <option value="high">🔴 高优先级</option>
+                    <option value="medium">🟡 中优先级</option>
+                    <option value="low">🟢 低优先级</option>
+                    <option value="none">⚪ 无优先级</option>
+                </select>
+
+                <select id="status-filter" class="status-filter">
+                    <option value="all">所有状态</option>
+                    <option value="completed">已完成</option>
+                    <option value="uncompleted">未完成</option>
+                    <option value="pending">未完成未逾期</option>
+                    <option value="overdue">未完成已逾期</option>
+                </select>
+
+                <select id="due-date-filter" class="due-date-filter">
+                    <option value="all">所有时间</option>
+                    <option value="today">今天</option>
+                    <option value="tomorrow">明天</option>
+                    <option value="week">本周内</option>
+                    <option value="month">本月内</option>
+                    <option value="no-due-date">无截止日期</option>
+                </select>
+
+                <button id="add-task-btn" class="add-task-btn">+ 新建任务</button>
+            </div>
+        </header>
+
+        <!-- 任务列表 -->
+        <div class="tasks-container" id="tasks-view">
+            <div id="tasks-list" class="tasks-list">
+                <!-- 任务项将通过JavaScript动态添加 -->
+            </div>
+
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">📝</div>
+                <h3>暂无任务</h3>
+                <p>点击"新建任务"按钮创建你的第一个任务</p>
+            </div>
+
+            <!-- 分页组件 -->
+            <div id="pagination" class="pagination">
+                <div class="pagination-info">
+                    <span id="pagination-showing">显示 0-0 共 0 条</span>
+                    <select id="page-size-select" class="page-size-select">
+                        <option value="10">10条/页</option>
+                        <option value="20">20条/页</option>
+                        <option value="50">50条/页</option>
+                        <option value="100">100条/页</option>
+                    </select>
+                </div>
+                <div class="pagination-controls">
+                    <button id="pagination-first" class="pagination-btn" disabled>首页</button>
+                    <button id="pagination-prev" class="pagination-btn" disabled>上一页</button>
+                    <div id="pagination-numbers" class="pagination-numbers">
+                        <!-- 页码按钮将动态生成 -->
+                    </div>
+                    <button id="pagination-next" class="pagination-btn" disabled>下一页</button>
+                    <button id="pagination-last" class="pagination-btn" disabled>末页</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日历视图 -->
+        <div class="calendar-container" id="calendar-view" style="display: none;">
+            <div class="calendar-header">
+                <button id="prev-month" class="calendar-nav-btn">◀</button>
+                <h2 id="current-month-year" class="calendar-title"></h2>
+                <button id="next-month" class="calendar-nav-btn">▶</button>
+            </div>
+            <div class="calendar-weekdays">
+                <div class="calendar-weekday">日</div>
+                <div class="calendar-weekday">一</div>
+                <div class="calendar-weekday">二</div>
+                <div class="calendar-weekday">三</div>
+                <div class="calendar-weekday">四</div>
+                <div class="calendar-weekday">五</div>
+                <div class="calendar-weekday">六</div>
+            </div>
+            <div id="calendar-days" class="calendar-days">
+                <!-- 日历日期将通过JavaScript动态添加 -->
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 任务创建/编辑模态框 -->
+<div id="task-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">新建任务</h2>
+            <button class="modal-close" id="modal-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="task-form" class="task-form">
+                <div class="form-group">
+                    <label for="task-title">任务标题 *</label>
+                    <input type="text" id="task-title" required maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="task-description">任务描述</label>
+                    <textarea id="task-description" rows="3" maxlength="500"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-priority">优先级</label>
+                        <select id="task-priority">
+                            <option value="none">⚪ 无</option>
+                            <option value="low">🟢 低</option>
+                            <option value="medium">🟡 中</option>
+                            <option value="high">🔴 高</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="task-category">分类</label>
+                        <select id="task-category">
+                            <option value="">无分类</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 更多选项 -->
+                <div class="more-options-section">
+                    <button type="button" id="more-options-toggle" class="more-options-toggle">
+                        <span class="toggle-icon">+</span> 更多选项
+                    </button>
+
+                    <div id="more-options-content" class="more-options-content" style="display: none;">
+                        <div class="form-group datetime-group">
+                            <label>截止日期和时间 <span
+                                    style="color: #666; font-size: 12px;">（可选）</span></label>
+                            <div class="datetime-inputs">
+                                <div class="input-wrapper">
+                                    <input type="text" id="task-due-date-picker" class="picker-input"
+                                           placeholder="YYYY-MM-DD" readonly>
+                                    <button type="button" class="clear-btn clear-date" title="清空日期">×</button>
+                                </div>
+                                <div class="input-wrapper">
+                                    <input type="time" id="task-due-time" class="time-input">
+                                    <button type="button" class="clear-btn clear-time" title="清空时间">×</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务
+                            <input type="checkbox" id="is-recurring"></span>
+                        <div id="recurring-options" class="recurring-options" style="display: none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="recurrence-type">重复周期</label>
+                                    <select id="recurrence-type">
+                                        <option value="">请选择</option>
+                                        <option value="weekly">按周</option>
+                                        <option value="monthly">按月</option>
+                                        <option value="yearly">按年</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="recurrence-count">循环次数</label>
+                                    <input type="number" id="recurrence-count" min="1" max="999"
+                                           placeholder="留空表示无限循环">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" id="cancel-btn" class="cancel-btn">取消</button>
+            <button type="submit" form="task-form" id="save-btn" class="save-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 分类创建模态框 -->
+<div id="category-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="category-modal-title">新建分类</h2>
+            <button class="modal-close" id="category-modal-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="category-form" class="category-form">
+                <div class="form-group">
+                    <label for="category-name">分类名称 *</label>
+                    <input type="text" id="category-name" required maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label for="category-color">颜色</label>
+                    <div class="color-picker">
+                        <input type="color" id="category-color" value="#007bff">
+                        <div class="color-presets">
+                            <button type="button" data-color="#007bff" style="background: #007bff;"></button>
+                            <button type="button" data-color="#28a745" style="background: #28a745;"></button>
+                            <button type="button" data-color="#dc3545" style="background: #dc3545;"></button>
+                            <button type="button" data-color="#ffc107" style="background: #ffc107;"></button>
+                            <button type="button" data-color="#6f42c1" style="background: #6f42c1;"></button>
+                            <button type="button" data-color="#fd7e14" style="background: #fd7e14;"></button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" id="category-cancel-btn" class="cancel-btn">取消</button>
+            <button type="submit" form="category-form" class="save-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 确认对话框模态框 -->
+<div id="confirm-dialog" class="modal">
+    <div class="modal-content confirm-dialog-content">
+        <div class="modal-header">
+            <h2>确认操作</h2>
+        </div>
+        <div class="modal-body">
+            <p id="confirm-message"></p>
+        </div>
+        <div class="modal-footer">
+            <button id="confirm-cancel" class="cancel-btn">取消</button>
+            <button id="confirm-ok" class="danger-btn">确认</button>
+        </div>
+    </div>
+</div>
+
+<!-- 数据传输模态框 -->
+<div id="data-transfer-modal" class="modal">
+    <div class="modal-content data-transfer-modal-content">
+        <div class="modal-header">
+            <h2>数据传输</h2>
+            <button class="modal-close" id="data-transfer-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- 操作选择 -->
+            <div class="transfer-mode-selector">
+                <button id="share-mode-btn" class="mode-btn active">
+                    <span class="mode-icon">📤</span>
+                    <span class="mode-text">共享数据</span>
+                </button>
+                <button id="receive-mode-btn" class="mode-btn">
+                    <span class="mode-icon">📥</span>
+                    <span class="mode-text">接收数据</span>
+                </button>
+            </div>
+
+            <!-- 共享模式 -->
+            <div id="share-mode-panel" class="mode-panel active">
+                <div class="panel-section">
+                    <h3>当前数据摘要</h3>
+                    <div class="data-summary" id="share-data-summary">
+                        <p>加载中...</p>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>共享设置</h3>
+                    <button id="start-share-btn" class="action-btn primary-btn">启动共享</button>
+                    <button id="stop-share-btn" class="action-btn danger-btn" style="display: none;">停止共享</button>
+                </div>
+
+                <div class="panel-section" id="share-status" style="display: none;">
+                    <h3>共享状态</h3>
+                    <div class="status-info">
+                        <p><strong>IP地址:</strong> <span id="share-ip">--</span></p>
+                        <p><strong>端口:</strong> <span id="share-port">--</span></p>
+                        <p class="status-active"><span class="status-dot"></span> 正在共享数据</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 接收模式 -->
+            <div id="receive-mode-panel" class="mode-panel">
+                <div class="panel-section">
+                    <h3>扫描设备</h3>
+                    <button id="scan-devices-btn" class="action-btn primary-btn">扫描局域网设备</button>
+                </div>
+
+                <div class="panel-section" id="device-list-section" style="display: none;">
+                    <h3>可用设备</h3>
+                    <div class="device-list" id="device-list">
+                        <p>未找到设备</p>
+                    </div>
+                </div>
+
+                <div class="panel-section" id="receive-data-preview-section" style="display: none;">
+                    <h3>接收到的数据预览</h3>
+                    <div class="data-summary" id="receive-data-summary">
+                        <p>等待接收数据...</p>
+                    </div>
+                    <div class="import-warning" id="import-warning" style="display: none;">
+                        <p class="warning-icon">⚠️</p>
+                        <p><strong>注意:</strong> 导入数据将覆盖当前所有数据，建议先备份数据！</p>
+                    </div>
+                    <div class="import-actions">
+                        <button id="confirm-import-btn" class="action-btn danger-btn">确认导入</button>
+                        <button id="cancel-import-btn" class="action-btn cancel-btn">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 加载提示 -->
+<div id="loading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>加载中...</p>
+</div>
+
+<!-- JavaScript文件 -->
+<script src="js/pikaday.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/data-cache.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/logger.js"></script>
+<script src="js/todo.js"></script>
+<script src="js/category.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/dataTransfer.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

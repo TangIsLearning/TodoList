@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模态框布局测试</title>
+    <link rel="stylesheet" href="frontend/css/main.css">
+    <link rel="stylesheet" href="frontend/css/components.css">
+    <link rel="stylesheet" href="frontend/css/pikaday.css">
+    <style>
+        .test-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-button {
+            margin: 10px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .description {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>模态框布局测试</h1>
+        
+        <div class="description">
+            <h3>测试目标</h3>
+            <p>验证模态框在内容增加后能够正确处理滚动，确保保存按钮始终可见且无需下拉整个页面即可访问。</p>
+        </div>
+
+        <button class="test-button" onclick="showTaskModal()">测试任务模态框</button>
+        <button class="test-button" onclick="showTaskModalWithError()">测试带错误提示的模态框</button>
+        <button class="test-button" onclick="showCategoryModal()">测试分类模态框</button>
+
+        <div class="description">
+            <h3>预期行为</h3>
+            <ul>
+                <li>模态框最大高度为90vh</li>
+                <li>头部固定，不滚动</li>
+                <li>底部按钮固定，不滚动</li>
+                <li>内容区域可滚动</li>
+                <li>错误消息显示时不会破坏布局</li>
+            </ul>
+        </div>
+
+        <div id="test-results">
+            <h3>测试结果</h3>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <!-- 任务创建/编辑模态框 -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">新建任务</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <form id="task-form" class="task-form">
+                    <div class="form-group">
+                        <label for="task-title">任务标题 *</label>
+                        <input type="text" id="task-title" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="task-description">任务描述</label>
+                        <textarea id="task-description" rows="3" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task-priority">优先级</label>
+                            <select id="task-priority">
+                                <option value="none">⚪ 无</option>
+                                <option value="low">🟢 低</option>
+                                <option value="medium">🟡 中</option>
+                                <option value="high">🔴 高</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task-category">分类</label>
+                            <select id="task-category">
+                                <option value="">无分类</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 更多选项 -->
+                    <div class="more-options-section">
+                        <button type="button" id="more-options-toggle" class="more-options-toggle">
+                            <span class="toggle-icon">+</span> 更多选项
+                        </button>
+                        
+                        <div id="more-options-content" class="more-options-content" style="display: none;">
+                            <div class="form-group datetime-group">
+                                <label>截止日期和时间 <span
+                                        style="color: #666; font-size: 12px;">（可选）</span></label>
+                                <div class="datetime-inputs">
+                                    <div class="input-wrapper">
+                                        <input type="text" id="task-due-date-picker" class="picker-input" placeholder="YYYY-MM-DD" readonly>
+                                        <button type="button" class="clear-btn clear-date" title="清空日期">×</button>
+                                    </div>
+                                    <div class="input-wrapper">
+                                        <input type="time" id="task-due-time" class="time-input">
+                                        <button type="button" class="clear-btn clear-time" title="清空时间">×</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="cancel-btn" class="cancel-btn" onclick="closeModal('task-modal')">取消</button>
+                <button type="submit" form="task-form" id="save-btn" class="save-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分类创建模态框 -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="category-modal-title">新建分类</h2>
+                <button class="modal-close" id="category-modal-close" onclick="closeModal('category-modal')">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <form id="category-form" class="category-form">
+                    <div class="form-group">
+                        <label for="category-name">分类名称 *</label>
+                        <input type="text" id="category-name" required maxlength="20">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category-color">颜色</label>
+                        <div class="color-picker">
+                            <input type="color" id="category-color" value="#007bff">
+                            <div class="color-presets">
+                                <button type="button" data-color="#007bff" style="background: #007bff;"></button>
+                                <button type="button" data-color="#28a745" style="background: #28a745;"></button>
+                                <button type="button" data-color="#dc3545" style="background: #dc3545;"></button>
+                                <button type="button" data-color="#ffc107" style="background: #ffc107;"></button>
+                                <button type="button" data-color="#6f42c1" style="background: #6f42c1;"></button>
+                                <button type="button" data-color="#fd7e14" style="background: #fd7e14;"></button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="category-cancel-btn" class="cancel-btn" onclick="closeModal('category-modal')">取消</button>
+                <button type="submit" form="category-form" class="save-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="frontend/js/utils.js"></script>
+    <script>
+        function showTaskModal() {
+            document.getElementById('task-modal').classList.add('show');
+            logResult('任务模态框已显示，测试滚动行为');
+        }
+
+        function showTaskModalWithError() {
+            showTaskModal();
+            // 展开更多选项
+            const moreOptionsContent = document.getElementById('more-options-content');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            moreOptionsContent.style.display = 'block';
+            toggleIcon.textContent = '-';
+            
+            // 模拟错误状态
+            const datePicker = document.getElementById('task-due-date-picker');
+            const timeInput = document.getElementById('task-due-time');
+            
+            datePicker.value = '2025-12-26';
+            datePicker.style.borderColor = '#dc3545';
+            
+            // 添加错误消息
+            let errorContainer = document.querySelector('.datetime-error');
+            if (!errorContainer) {
+                errorContainer = document.createElement('div');
+                errorContainer.className = 'datetime-error';
+                errorContainer.textContent = '选择了日期必须同时选择时间';
+                errorContainer.style.display = 'block';
+                const datetimeGroup = document.querySelector('.datetime-group');
+                datetimeGroup.appendChild(errorContainer);
+            }
+            
+            logResult('错误状态已模拟，检查布局是否正常');
+        }
+
+        function showCategoryModal() {
+            document.getElementById('category-modal').classList.add('show');
+            logResult('分类模态框已显示');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        function logResult(message) {
+            const resultsDiv = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const resultItem = document.createElement('div');
+            resultItem.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            resultItem.style.padding = '5px';
+            resultItem.style.borderBottom = '1px solid #eee';
+            resultsDiv.appendChild(resultItem);
+        }
+
+        // 初始化更多选项切换
+        document.getElementById('more-options-toggle').addEventListener('click', function() {
+            const moreOptionsContent = document.getElementById('more-options-content');
+            const toggleIcon = this.querySelector('.toggle-icon');
+            
+            if (moreOptionsContent.style.display === 'none' || moreOptionsContent.style.display === '') {
+                moreOptionsContent.style.display = 'block';
+                toggleIcon.textContent = '-';
+            } else {
+                moreOptionsContent.style.display = 'none';
+                toggleIcon.textContent = '+';
+            }
+        });
+
+        // 添加实时校验
+        document.getElementById('task-due-date-picker').addEventListener('input', validateDateTime);
+        document.getElementById('task-due-time').addEventListener('input', validateDateTime);
+
+        function validateDateTime() {
+            const dateStr = document.getElementById('task-due-date-picker').value || null;
+            const timeStr = document.getElementById('task-due-time').value || null;
+            
+            // 获取或创建错误消息容器
+            let errorContainer = document.querySelector('.datetime-error');
+            if (!errorContainer) {
+                errorContainer = document.createElement('div');
+                errorContainer.className = 'datetime-error';
+                const datetimeGroup = document.querySelector('.datetime-group');
+                if (datetimeGroup) {
+                    datetimeGroup.appendChild(errorContainer);
+                }
+            }
+            
+            // 执行校验
+            if (window.Utils && window.Utils.DateTimeValidator) {
+                const validation = window.Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+                
+                // 显示或隐藏错误消息
+                if (!validation.valid) {
+                    errorContainer.textContent = validation.message;
+                    errorContainer.style.display = 'block';
+                    document.getElementById('task-due-date-picker').style.borderColor = '#e74c3c';
+                    document.getElementById('task-due-time').style.borderColor = '#e74c3c';
+                } else {
+                    errorContainer.style.display = 'none';
+                    document.getElementById('task-due-date-picker').style.borderColor = '';
+                    document.getElementById('task-due-time').style.borderColor = '';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

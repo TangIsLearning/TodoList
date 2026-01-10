@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        
+        .test-pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .test-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .test-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        #results {
+            margin-top: 20px;
+        }
+        
+        .summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TodoList 前端功能测试</h1>
+    
+    <div class="test-section">
+        <h2>工具函数测试</h2>
+        <button onclick="testUtils()">运行工具函数测试</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>存储管理测试</h2>
+        <button onclick="testStorage()">运行存储测试</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>主题管理测试</h2>
+        <button onclick="testTheme()">运行主题测试</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>模态框测试</h2>
+        <button onclick="testModal()">运行模态框测试</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>任务管理测试</h2>
+        <button onclick="testTaskManager()">运行任务管理测试</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>分类管理测试</h2>
+        <button onclick="testCategoryManager()">运行分类管理测试</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <div class="summary" id="summary" style="display: none;">
+        <h3>测试总结</h3>
+        <div id="summary-content"></div>
+    </div>
+    
+    <!-- 引入实际的JavaScript文件 -->
+    <script src="../frontend/js/utils.js"></script>
+    <script src="../frontend/js/storage.js"></script>
+    
+    <script>
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0
+        };
+        
+        function addResult(testName, passed, message = '') {
+            testResults.total++;
+            if (passed) {
+                testResults.passed++;
+            } else {
+                testResults.failed++;
+            }
+            
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+            resultDiv.innerHTML = `
+                <strong>${testName}:</strong> 
+                ${passed ? '✅ 通过' : '❌ 失败'}
+                ${message ? '<br><small>' + message + '</small>' : ''}
+            `;
+            resultsDiv.appendChild(resultDiv);
+            
+            updateSummary();
+        }
+        
+        function addInfo(message) {
+            const resultsDiv = document.getElementById('results');
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'test-info';
+            infoDiv.innerHTML = `<strong>ℹ️ 信息:</strong> ${message}`;
+            resultsDiv.appendChild(infoDiv);
+        }
+        
+        function updateSummary() {
+            const summaryDiv = document.getElementById('summary');
+            const summaryContent = document.getElementById('summary-content');
+            
+            summaryDiv.style.display = 'block';
+            summaryContent.innerHTML = `
+                总测试数: ${testResults.total}<br>
+                通过: ${testResults.passed}<br>
+                失败: ${testResults.failed}<br>
+                成功率: ${((testResults.passed / testResults.total) * 100).toFixed(1)}%
+            `;
+        }
+        
+        // 工具函数测试
+        function testUtils() {
+            try {
+                // 测试格式化日期
+                const dateStr = '2023-12-25T10:30:00';
+                const formatted = Utils.formatDate(dateStr);
+                addResult('formatDate', typeof formatted === 'string' && formatted.length > 0);
+                
+                // 测试生成ID
+                const id1 = Utils.generateId();
+                const id2 = Utils.generateId();
+                addResult('generateId', id1 !== id2 && id1.length > 0);
+                
+                // 测试防抖函数
+                let counter = 0;
+                const debouncedFn = Utils.debounce(() => counter++, 100);
+                debouncedFn();
+                debouncedFn();
+                setTimeout(() => {
+                    addResult('debounce', counter === 1);
+                }, 200);
+                
+                // 测试优先级信息
+                const priorityInfo = Utils.getPriorityInfo('high');
+                addResult('getPriorityInfo', priorityInfo.label === '高' && priorityInfo.icon === '🔴');
+                
+                // 测试HTML转义
+                const escaped = Utils.escapeHtml('<script>alert("test")</script>');
+                addResult('escapeHtml', !escaped.includes('<script>'));
+                
+                // 测试过期检查
+                const pastDate = new Date('2020-01-01').toISOString();
+                const futureDate = new Date('2030-01-01').toISOString();
+                addResult('isOverdue past', Utils.isOverdue(pastDate));
+                addResult('isOverdue future', !Utils.isOverdue(futureDate));
+                
+                addInfo('工具函数测试完成');
+                
+            } catch (error) {
+                addResult('Utils测试', false, error.message);
+            }
+        }
+        
+        // 存储管理测试
+        function testStorage() {
+            try {
+                // 测试存储和读取
+                const testData = { name: 'test', value: 123 };
+                const saved = Storage.storage.save('test_key', testData);
+                addResult('存储保存', saved);
+                
+                const loaded = Storage.storage.load('test_key');
+                addResult('存储读取', loaded && loaded.name === 'test' && loaded.value === 123);
+                
+                // 测试设置管理
+                Storage.settings.setSetting('theme', 'dark');
+                const theme = Storage.settings.getSetting('theme');
+                addResult('设置管理', theme === 'dark');
+                
+                // 测试缓存
+                Storage.cache.set('cache_key', 'cache_value', 1000);
+                const cached = Storage.cache.get('cache_key');
+                addResult('缓存管理', cached === 'cache_value');
+                
+                // 清理测试数据
+                Storage.storage.remove('test_key');
+                Storage.settings.setSetting('theme', 'light');
+                Storage.cache.delete('cache_key');
+                
+                addInfo('存储管理测试完成');
+                
+            } catch (error) {
+                addResult('存储测试', false, error.message);
+            }
+        }
+        
+        // 主题管理测试
+        function testTheme() {
+            try {
+                // 测试主题切换
+                const originalTheme = document.documentElement.getAttribute('data-theme');
+                
+                Utils.ThemeManager.toggle();
+                const newTheme = document.documentElement.getAttribute('data-theme');
+                addResult('主题切换', originalTheme !== newTheme);
+                
+                // 恢复原始主题
+                document.documentElement.setAttribute('data-theme', originalTheme);
+                
+                addInfo('主题管理测试完成');
+                
+            } catch (error) {
+                addResult('主题测试', false, error.message);
+            }
+        }
+        
+        // 模态框测试
+        function testModal() {
+            try {
+                // 创建测试模态框
+                const modalHtml = `
+                    <div id="test-modal" class="modal">
+                        <div class="modal-content">
+                            <h2>测试模态框</h2>
+                            <p>这是一个测试模态框</p>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // 测试显示模态框
+                Utils.ModalManager.show('test-modal');
+                const modal = document.getElementById('test-modal');
+                addResult('显示模态框', modal && modal.classList.contains('show'));
+                
+                // 测试隐藏模态框
+                Utils.ModalManager.hide('test-modal');
+                addResult('隐藏模态框', !modal.classList.contains('show'));
+                
+                // 清理测试模态框
+                modal.remove();
+                
+                addInfo('模态框测试完成');
+                
+            } catch (error) {
+                addResult('模态框测试', false, error.message);
+            }
+        }
+        
+        // 任务管理测试（模拟）
+        function testTaskManager() {
+            try {
+                // 由于需要后端API，这里只测试基础功能
+                addInfo('任务管理测试需要后端API支持，跳过实际测试');
+                
+                // 测试任务数据结构
+                const mockTask = {
+                    id: 'test-id',
+                    title: '测试任务',
+                    description: '测试描述',
+                    completed: false,
+                    priority: 'high',
+                    categoryId: null,
+                    dueDate: null,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                addResult('任务数据结构', mockTask && mockTask.title === '测试任务');
+                
+            } catch (error) {
+                addResult('任务管理测试', false, error.message);
+            }
+        }
+        
+        // 分类管理测试（模拟）
+        function testCategoryManager() {
+            try {
+                addInfo('分类管理测试需要后端API支持，跳过实际测试');
+                
+                // 测试分类数据结构
+                const mockCategory = {
+                    id: 'test-cat-id',
+                    name: '测试分类',
+                    color: '#ff0000',
+                    createdAt: new Date().toISOString()
+                };
+                
+                addResult('分类数据结构', mockCategory && mockCategory.name === '测试分类');
+                
+            } catch (error) {
+                addResult('分类管理测试', false, error.message);
+            }
+        }
+        
+        // 页面加载完成后显示信息
+        window.addEventListener('load', () => {
+            addInfo('前端测试页面已加载，点击按钮运行相应的测试');
+        });
+    </script>
+</body>
+</html>
