@@ -682,6 +682,141 @@
     font-weight: normal;
 }
 
+/* 任务标签样式 */
+.task-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.task-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: white;
+    border: none;
+    cursor: default;
+    transition: opacity 0.2s;
+}
+
+.task-tag:hover {
+    opacity: 0.8;
+}
+
+/* 标签选择器样式 */
+.tags-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--bg-primary);
+    min-height: 40px;
+}
+
+.tag-selector-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.tag-selector-item:hover {
+    opacity: 0.85;
+}
+
+.tag-selector-item.selected {
+    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary-color);
+}
+
+.tag-selector-item .tag-count {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-left: 4px;
+}
+
+.tag-selector-item .tag-delete {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-left: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.tag-selector-item .tag-delete:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* 新增标签按钮 */
+.tag-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px dashed var(--border-color);
+}
+
+.tag-add-btn:hover {
+    background-color: var(--border-color);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* 标签编辑模式 */
+.tag-input-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tag-input-mode input {
+    width: 80px;
+    padding: 4px 8px;
+    border: 1px solid var(--primary-color);
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.tag-input-mode .btn-cancel {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+}
+
+.tag-input-mode .btn-cancel:hover {
+    background-color: var(--border-color);
+}
+
 .task-actions {
     display: flex;
     gap: var(--spacing-sm);

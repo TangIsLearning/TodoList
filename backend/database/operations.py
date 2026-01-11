@@ -5,11 +5,11 @@ TodoList应用的数据库操作
 import json
 from datetime import datetime
 from pathlib import Path
-from .models import Task, Category
 import sqlite3
 import os
 import sys
 from backend.utils.logger import backend_logger
+from backend.database.models import Tag, Task, Category
 
 
 def get_app_data_dir():
@@ -68,6 +68,30 @@ def _migrate_database(cursor):
     for column_name, column_def in new_columns:
         if column_name not in columns:
             cursor.execute(f'ALTER TABLE tasks ADD COLUMN {column_name} {column_def}')
+
+    # 检查并创建标签相关表
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE tags (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                color TEXT DEFAULT '#6c757d',
+                created_at TEXT
+            )
+        ''')
+
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_tags'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE task_tags (
+                task_id TEXT NOT NULL,
+                tag_id TEXT NOT NULL,
+                PRIMARY KEY (task_id, tag_id),
+                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+            )
+        ''')
 
 
 class TodoDatabase:
@@ -171,7 +195,12 @@ class TodoDatabase:
         
         conn.commit()
         conn.close()
-        
+
+        # 处理标签
+        tags = task_data.get('tags', [])
+        if tags:
+            self.update_task_tags(task.id, tags)
+
         return task.to_dict()
     
     def get_all_tasks(self):
@@ -214,7 +243,8 @@ class TodoDatabase:
                 'recurrenceCount': row[10],
                 'parentTaskId': row[11],
                 'createdAt': row[12],
-                'updatedAt': row[13]
+                'updatedAt': row[13],
+                'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
         
@@ -318,8 +348,26 @@ class TodoDatabase:
         
         # 搜索关键词
         if search_query:
-            where_clauses.append('(title LIKE ? OR description LIKE ?)')
-            params.extend([f'%{search_query}%', f'%{search_query}%'])
+            # 检查是否为标签搜索（以 # 开头）
+            if search_query.startswith('#'):
+                # 标签搜索
+                tag_name = search_query[1:]  # 移除 #
+                where_clauses.append('''
+                    id IN (SELECT task_id FROM task_tags WHERE tag_id IN (
+                        SELECT id FROM tags WHERE name LIKE ?
+                    ))
+                ''')
+                params.append(f'%{tag_name}%')
+            else:
+                # 普通文本搜索（同时搜索标题、描述和标签）
+                where_clauses.append('''
+                    (title LIKE ? OR description LIKE ? OR id IN (
+                        SELECT task_id FROM task_tags WHERE tag_id IN (
+                            SELECT id FROM tags WHERE name LIKE ?
+                        )
+                    ))
+                ''')
+                params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
         
         # 构建完整的WHERE子句
         where_sql = ' AND '.join(where_clauses) if where_clauses else '1=1'
@@ -371,7 +419,8 @@ class TodoDatabase:
                 'recurrenceCount': row[10],
                 'parentTaskId': row[11],
                 'createdAt': row[12],
-                'updatedAt': row[13]
+                'updatedAt': row[13],
+                'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
         
@@ -398,26 +447,31 @@ class TodoDatabase:
             FROM tasks WHERE id = ?
         ''', (task_id,))
         row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return None
+
+        task_dict = {
+            'id': row[0],
+            'title': row[1],
+            'description': row[2],
+            'completed': bool(row[3]),
+            'priority': row[4],
+            'categoryId': row[5],
+            'dueDate': row[6],
+            'isRecurring': bool(row[7]) if row[7] is not None else False,
+            'recurrenceType': row[8],
+            'recurrenceInterval': row[9] if row[9] is not None else 1,
+            'recurrenceCount': row[10],
+            'parentTaskId': row[11],
+            'createdAt': row[12],
+            'updatedAt': row[13],
+            'tags': self.get_task_tags(task_id)  # 添加标签信息
+        }
+
         conn.close()
-        
-        if row:
-            return {
-                'id': row[0],
-                'title': row[1],
-                'description': row[2],
-                'completed': bool(row[3]),
-                'priority': row[4],
-                'categoryId': row[5],
-                'dueDate': row[6],
-                'isRecurring': bool(row[7]) if row[7] is not None else False,
-                'recurrenceType': row[8],
-                'recurrenceInterval': row[9] if row[9] is not None else 1,
-                'recurrenceCount': row[10],
-                'parentTaskId': row[11],
-                'createdAt': row[12],
-                'updatedAt': row[13]
-            }
-        return None
+        return task_dict
     
     def update_task(self, task_id, task_data):
         """更新任务"""
@@ -446,7 +500,11 @@ class TodoDatabase:
         
         conn.commit()
         conn.close()
-        
+
+        # 处理标签
+        tags = task_data.get('tags', [])
+        self.update_task_tags(task_id, tags)
+
         return task.to_dict()
     
     def delete_task(self, task_id):
@@ -455,7 +513,8 @@ class TodoDatabase:
         cursor = conn.cursor()
         
         cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-        
+        cursor.execute('DELETE FROM task_tags WHERE task_id = ?', (task_id,))
+
         conn.commit()
         conn.close()
         
@@ -733,3 +792,112 @@ class TodoDatabase:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM settings')
             conn.commit()
+
+    # ==================== 标签相关操作 ====================
+
+    def parse_tags_from_text(self, text):
+        """从文本中解析标签（格式：#标签名）"""
+        import re
+        if not text:
+            return []
+        # 匹配 #标签名 格式，标签名可以是中文、英文、数字、下划线
+        pattern = r'#([\u4e00-\u9fa5a-zA-Z0-9_]+)'
+        tags = re.findall(pattern, text)
+        return list(set(tags))  # 去重
+
+    def update_task_tags(self, task_id, tag_names):
+        """更新任务的标签"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # 先删除任务的所有标签关联
+        cursor.execute('DELETE FROM task_tags WHERE task_id = ?', (task_id,))
+
+        # 添加或获取标签ID
+        if tag_names:
+            tag_ids = []
+            for tag_name in tag_names:
+                # 检查标签是否已存在
+                cursor.execute('SELECT id FROM tags WHERE name = ?', (tag_name,))
+                result = cursor.fetchone()
+
+                if result:
+                    tag_ids.append(result[0])
+                else:
+                    # 创建新标签
+                    tag = Tag(name=tag_name)
+                    cursor.execute('''
+                        INSERT INTO tags (id, name, color, created_at)
+                        VALUES (?, ?, ?, ?)
+                    ''', (tag.id, tag.name, tag.color, tag.created_at.isoformat()))
+                    tag_ids.append(tag.id)
+
+            # 建立关联
+            for tag_id in tag_ids:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO task_tags (task_id, tag_id)
+                    VALUES (?, ?)
+                ''', (task_id, tag_id))
+
+        conn.commit()
+        conn.close()
+
+    def get_task_tags(self, task_id):
+        """获取任务的所有标签"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT t.id, t.name, t.color, t.created_at
+            FROM tags t
+            INNER JOIN task_tags tt ON t.id = tt.tag_id
+            WHERE tt.task_id = ?
+        ''', (task_id,))
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        tags = []
+        for row in rows:
+            tags.append({
+                'id': row[0],
+                'name': row[1],
+                'color': row[2],
+                'createdAt': row[3]
+            })
+        return tags
+
+    def get_all_tags(self):
+        """获取所有标签及其使用次数"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT t.id, t.name, t.color, t.created_at, COUNT(tt.task_id) as task_count
+            FROM tags t
+            LEFT JOIN task_tags tt ON t.id = tt.tag_id
+            GROUP BY t.id
+            ORDER BY t.name
+        ''')
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        tags = []
+        for row in rows:
+            tags.append({
+                'id': row[0],
+                'name': row[1],
+                'color': row[2],
+                'createdAt': row[3],
+                'taskCount': row[4]
+            })
+        return tags
+
+    def delete_tag(self, tag_id):
+        """删除标签"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM tags WHERE id = ?', (tag_id,))
+        # task_tags 中的关联记录会通过外键约束自动删除
+        conn.commit()
+        conn.close()
+        return True

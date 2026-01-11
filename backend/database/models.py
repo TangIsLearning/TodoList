@@ -100,3 +100,34 @@ class Category:
         if 'createdAt' in data:
             category.created_at = datetime.fromisoformat(data['createdAt'])
         return category
+
+
+class Tag:
+    """标签数据模型"""
+
+    def __init__(self, id=None, name='', color='#6c757d'):
+        self.id = id or str(uuid.uuid4())
+        self.name = name  # 标签名称，不包含#符号
+        self.color = color
+        self.created_at = datetime.now()
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'color': self.color,
+            'createdAt': self.created_at.isoformat()
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """从字典创建Tag实例"""
+        tag = cls(
+            id=data.get('id'),
+            name=data.get('name', ''),
+            color=data.get('color', '#6c757d')
+        )
+        if 'createdAt' in data:
+            tag.created_at = datetime.fromisoformat(data['createdAt'])
+        return tag

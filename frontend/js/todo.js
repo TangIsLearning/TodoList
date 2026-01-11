@@ -16,6 +16,9 @@ class TodoManager {
         this.pageSize = 10;
         this.totalTasks = 0;
         this.totalPages = 0;
+        // 标签相关
+        this.availableTags = [];
+        this.selectedTags = [];
         // 设置日期组件
         this.pikaday = new Pikaday({
             field: document.getElementById('task-due-date-picker'),
@@ -813,11 +816,21 @@ class TodoManager {
         const priorityInfo = Utils.getPriorityInfo(task.priority);
         // 只有未完成的任务才检查是否逾期
         const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
-        
+
+        // 渲染标签
+        let tagsHtml = '';
+        if (task.tags && task.tags.length > 0) {
+            tagsHtml = task.tags.map(tag =>
+                `<span class="task-tag" style="background-color: ${tag.color};">
+                    #${Utils.escapeHtml(tag.name)}
+                </span>`
+            ).join('');
+        }
+
         return `
             <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
                 <div class="task-header">
-                    <div class="task-checkbox ${task.completed ? 'checked' : ''}" 
+                    <div class="task-checkbox ${task.completed ? 'checked' : ''}"
                          data-task-id="${task.id}"></div>
                     <div class="task-content">
                         <h3 class="task-title">
@@ -836,17 +849,18 @@ class TodoManager {
                                 </span>
                             ` : ''}
                             ${task.dueDate ? `
-                                <span class="task-due-date ${isOverdue ? 'overdue' : ''}" 
+                                <span class="task-due-date ${isOverdue ? 'overdue' : ''}"
                                       title="截止时间">
                                     📅 ${Utils.formatDate(task.dueDate)}
                                 </span>
                             ` : ''}
+                            ${tagsHtml ? `<div class="task-tags">${tagsHtml}</div>` : ''}
                         </div>
                     </div>
                     <div class="task-actions">
-                        <button class="task-action-btn edit" data-task-id="${task.id}" 
+                        <button class="task-action-btn edit" data-task-id="${task.id}"
                                 title="编辑">✏️</button>
-                        <button class="task-action-btn delete" data-task-id="${task.id}" 
+                        <button class="task-action-btn delete" data-task-id="${task.id}"
                                 title="删除">🗑️</button>
                     </div>
                 </div>
@@ -990,6 +1004,9 @@ class TodoManager {
         // 截止日期默认为空，不设置默认值
         document.getElementById('task-due-time').value = '';
 
+        // 重置已选标签
+        this.selectedTags = [];
+
         // 添加输入值变化监听
         this.addInputValueListeners();
 
@@ -999,6 +1016,9 @@ class TodoManager {
         
         // 加载分类选项并设置默认选中
         this.loadCategoryOptions(currentCategory);
+
+        // 加载标签选择器
+        this.loadTagsSelector();
 
         Utils.ModalManager.show('task-modal');
     }
@@ -1033,7 +1053,10 @@ class TodoManager {
         document.getElementById('task-title').value = task.title;
         document.getElementById('task-description').value = task.description || '';
         document.getElementById('task-priority').value = task.priority;
-        
+
+        // 设置已选标签
+        this.selectedTags = task.tags ? task.tags.map(t => t.id) : [];
+
         // 如果有截止日期，自动展开更多选项
         if (task.dueDate) {
             const [datePart, timePart] = task.dueDate.split('T');
@@ -1063,7 +1086,10 @@ class TodoManager {
         
         // 添加输入值变化监听
         this.addInputValueListeners();
-        
+
+        // 加载标签选择器
+        this.loadTagsSelector();
+
         Utils.ModalManager.show('task-modal');
     }
     
@@ -1183,7 +1209,8 @@ class TodoManager {
             description: document.getElementById('task-description').value.trim(),
             priority: document.getElementById('task-priority').value,
             categoryId: document.getElementById('task-category').value || null,
-            dueDate: isoDateStr || null
+            dueDate: isoDateStr || null,
+            tags: this.getSelectedTagsNames()
         };
         
         // 编辑模式下强制清除周期性任务相关数据
@@ -1581,6 +1608,220 @@ class TodoManager {
                 this.changePageSize(e.target.value);
             });
         }
+    }
+
+    // 解析标签
+    parseTags(text) {
+        if (!text) return [];
+        // 匹配 #标签名 格式，标签名可以是中文、英文、数字、下划线
+        const pattern = /#([\u4e00-\u9fa5a-zA-Z0-9_]+)/g;
+        const matches = text.match(pattern);
+        if (!matches) return [];
+        // 提取标签名称（移除 # 符号）
+        return matches.map(tag => tag.substring(1)).filter(tag => tag.length > 0);
+    }
+
+    // 加载标签选择器
+    async loadTagsSelector() {
+        try {
+            const response = await pywebview.api.get_all_tags();
+            if (response.success) {
+                this.availableTags = response.tags;
+                this.renderTagsSelector();
+            }
+        } catch (error) {
+            console.error('加载标签失败:', error);
+        }
+    }
+
+    // 渲染标签选择器
+    renderTagsSelector() {
+        const selector = document.getElementById('tags-selector');
+        if (!selector) return;
+
+        let html = '';
+
+        // 渲染现有标签
+        this.availableTags.forEach(tag => {
+            const isSelected = this.selectedTags.includes(tag.id);
+            const count = tag.taskCount || 0;
+
+            html += `
+                <span class="tag-selector-item ${isSelected ? 'selected' : ''}"
+                      data-tag-id="${tag.id}"
+                      style="background-color: ${tag.color};">
+                    #${Utils.escapeHtml(tag.name)}
+                    <span class="tag-count">${count}</span>
+                    ${count === 0 ? '<span class="tag-delete" data-action="delete-tag">×</span>' : ''}
+                </span>
+            `;
+        });
+
+        // 添加"新增标签"按钮
+        html += `
+            <span class="tag-add-btn" id="add-tag-btn">
+                + 标签
+            </span>
+        `;
+
+        selector.innerHTML = html;
+
+        // 绑定事件
+        this.bindTagsSelectorEvents();
+    }
+
+    // 绑定标签选择器事件
+    bindTagsSelectorEvents() {
+        const selector = document.getElementById('tags-selector');
+        if (!selector) return;
+
+        // 标签点击事件（选择/取消选择）
+        selector.querySelectorAll('.tag-selector-item').forEach(item => {
+            item.onclick = (e) => {
+                // 如果点击的是删除按钮，不触发选择
+                if (e.target.classList.contains('tag-delete')) {
+                    e.stopPropagation();
+                    return;
+                }
+
+                const tagId = item.dataset.tagId;
+                this.toggleTagSelection(tagId);
+            };
+
+            // 删除标签事件
+            const deleteBtn = item.querySelector('.tag-delete');
+            if (deleteBtn) {
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const tagId = item.dataset.tagId;
+                    this.deleteTag(tagId);
+                };
+            }
+        });
+
+        // 新增标签按钮点击事件
+        const addBtn = document.getElementById('add-tag-btn');
+        if (addBtn) {
+            addBtn.onclick = () => this.showAddTagInput();
+        }
+    }
+
+    // 切换标签选择状态
+    toggleTagSelection(tagId) {
+        const index = this.selectedTags.indexOf(tagId);
+        if (index === -1) {
+            this.selectedTags.push(tagId);
+        } else {
+            this.selectedTags.splice(index, 1);
+        }
+        this.renderTagsSelector();
+    }
+
+    // 删除标签
+    async deleteTag(tagId) {
+        Utils.confirmDialog(
+            '确定要删除这个标签吗？',
+            async () => {
+                try {
+                    const response = await pywebview.api.delete_tag(tagId);
+                    if (response.success) {
+                        Utils.showToast('标签删除成功', 'success');
+                        // 从已选标签中移除
+                        const index = this.selectedTags.indexOf(tagId);
+                        if (index !== -1) {
+                            this.selectedTags.splice(index, 1);
+                        }
+                        // 重新加载标签
+                        await this.loadTagsSelector();
+                    } else {
+                        Utils.showToast('删除失败: ' + response.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('删除标签失败:', error);
+                    Utils.showToast('删除失败', 'error');
+                }
+            }
+        );
+    }
+
+    generateRandomId() {
+      // 时间戳确保唯一性，随机数增加安全性
+      return `new-tag-input-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    // 显示新增标签输入框
+    showAddTagInput() {
+        const addBtn = document.getElementById('add-tag-btn');
+        if (!addBtn) return;
+
+        // 生成当前counter值对应的ID
+        const currentId = this.generateRandomId();
+
+        const inputHtml = `
+            <span class="tag-input-mode" id="tag-input-mode">
+                <input type="text" id="${currentId}" placeholder="标签名" maxlength="20">
+                <button class="btn-cancel" id="cancel-add-tag">×</button>
+            </span>
+        `;
+
+        addBtn.replaceWith(document.createElement('span'));
+        const inputContainer = document.getElementById('tag-input-mode');
+        if (inputContainer) {
+            inputContainer.outerHTML = inputHtml;
+        } else {
+            const selector = document.getElementById('tags-selector');
+            selector.insertAdjacentHTML('beforeend', inputHtml);
+        }
+
+        // 绑定事件
+        const input = document.getElementById(currentId);
+        const cancelBtn = document.getElementById('cancel-add-tag');
+
+        input.focus();
+        input.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                await this.addNewTag(input.value.trim());
+            } else if (e.key === 'Escape') {
+                this.renderTagsSelector();
+            }
+        });
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.renderTagsSelector();
+        }
+    }
+
+    // 添加新标签
+    async addNewTag(tagName) {
+        if (!tagName) {
+            Utils.showToast('请输入标签名', 'warning');
+            return;
+        }
+
+        // 检查标签是否已存在
+        if (this.availableTags.some(tag => tag.name === tagName)) {
+            Utils.showToast('标签已存在', 'warning');
+            return;
+        }
+
+        // 添加到已选标签
+        const newTag = {
+            id: 'new-' + Date.now(),
+            name: tagName,
+            color: '#6c757d',
+            taskCount: 0
+        };
+        this.availableTags.push(newTag);
+        this.selectedTags.push(newTag.id);
+
+        this.renderTagsSelector();
+    }
+
+    // 获取已选标签的名称列表
+    getSelectedTagsNames() {
+        return this.availableTags
+            .filter(tag => this.selectedTags.includes(tag.id))
+            .map(tag => tag.name);
     }
 }
 
