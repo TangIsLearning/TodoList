@@ -805,10 +805,12 @@
     border-radius: 12px;
     font-size: var(--font-size-xs);
     font-weight: 500;
-    color: white;
+    color: var(--primary-color);
     border: none;
     cursor: default;
     transition: opacity 0.2s;
+    background-color: white !important;
+    border: 1px solid var(--primary-color);
 }
 
 .task-tag:hover {
@@ -834,10 +836,10 @@
     border-radius: 12px;
     font-size: var(--font-size-sm);
     font-weight: 500;
-    color: white;
     cursor: pointer;
     transition: all 0.2s;
     user-select: none;
+    background-color: var(--bg-tertiary) !important;
 }
 
 .tag-selector-item:hover {
@@ -845,7 +847,9 @@
 }
 
 .tag-selector-item.selected {
-    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary-color);
+    background-color: white !important;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
 }
 
 .tag-selector-item .tag-count {

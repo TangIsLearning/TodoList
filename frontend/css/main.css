@@ -218,6 +218,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    max-height: 70px !important;
 }
 
 .sidebar-header-actions {
@@ -298,6 +299,7 @@ body {
 .categories-section {
     flex: 1;
     padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
 }
 
 .categories-section h3 {
@@ -492,7 +494,7 @@ body {
 .data-transfer-btn {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    background: linear-gradient(135deg, var(--primary-color), #0056b3);
+    background: var(--primary-color);
     color: white;
     border: none;
     border-radius: var(--border-radius);
@@ -1595,6 +1597,11 @@ body {
     .sidebar {
         width: 280px;
     }
+
+    /* 适配右侧搜索栏高度 */
+    .sidebar-header {
+        min-height: 106px !important;
+    }
 }
 
 /* 中大屏幕过渡 */
@@ -1847,6 +1854,12 @@ body {
 
     .sidebar-overlay.show {
         display: block;
+    }
+
+    /* 适配右侧搜索栏高度 */
+    .sidebar-header {
+        min-height: auto !important;
+        max-height: 84px !important;
     }
 
     .mobile-menu-btn {
