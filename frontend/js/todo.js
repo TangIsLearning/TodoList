@@ -19,6 +19,10 @@ class TodoManager {
         // 标签相关
         this.availableTags = [];
         this.selectedTags = [];
+        // 统计维度
+        this.statsDimension = 'all'; // all, year, month, week, day
+        // 日期范围缓存
+        this.currentDateRange = null;
         // 设置日期组件
         this.pikaday = new Pikaday({
             field: document.getElementById('task-due-date-picker'),
@@ -82,6 +86,22 @@ class TodoManager {
     
     // 绑定事件
     bindEvents() {
+        // 统计维度切换
+        const dimensionBtns = document.querySelectorAll('.dimension-btn');
+        dimensionBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                // 更新选中状态
+                dimensionBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // 更新当前维度
+                this.statsDimension = btn.dataset.dimension;
+
+                // 重新加载统计数据
+                await this.updateStats();
+            });
+        });
+
         // 搜索
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
@@ -1530,27 +1550,83 @@ class TodoManager {
     // 更新统计信息
     async updateStats() {
         try {
+            // 更新日期范围显示
+            this.updateStatsDateRange();
+
             // 从后端获取所有任务的统计数据
-            const response = await pywebview.api.get_stats();
+            const response = await pywebview.api.get_stats(this.statsDimension);
 
             if (response.success) {
                 const totalTasksEl = document.getElementById('total-tasks');
                 const completedTasksEl = document.getElementById('completed-tasks');
                 const completionRateEl = document.getElementById('completion-rate');
+                const noDueDateEl = document.getElementById('no-due-date-tasks');
 
-                if (!totalTasksEl || !completedTasksEl || !completionRateEl) return;
+                if (!totalTasksEl || !completedTasksEl || !completionRateEl || !noDueDateEl) return;
 
                 const total = response.stats.total;
                 const completed = response.stats.completed;
                 const rate = response.stats.completion_rate;
+                const noDueDate = response.stats.no_due_date || 0;
 
                 totalTasksEl.textContent = total;
                 completedTasksEl.textContent = completed;
                 completionRateEl.textContent = rate + '%';
+                noDueDateEl.textContent = noDueDate;
             }
         } catch (error) {
             console.error('更新统计信息失败:', error);
         }
+    }
+
+    // 更新统计日期范围显示
+    updateStatsDateRange() {
+        const dateRangeEl = document.getElementById('stats-date-range');
+        if (!dateRangeEl) return;
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const weekDay = now.getDay(); // 0-6, 0 is Sunday
+
+        let dateRangeText = '';
+
+        switch (this.statsDimension) {
+            case 'all':
+                dateRangeText = '全部时间';
+                break;
+            case 'year':
+                dateRangeText = `${year}年`;
+                break;
+            case 'month':
+                dateRangeText = `${year}年 ${month}月`;
+                break;
+            case 'week':
+                // 计算本周的周一和周日
+                const monday = new Date(now);
+                monday.setDate(now.getDate() - (weekDay === 0 ? 6 : weekDay - 1));
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+
+                const mondayMonth = monday.getMonth() + 1;
+                const mondayDay = monday.getDate();
+                const sundayMonth = sunday.getMonth() + 1;
+                const sundayDay = sunday.getDate();
+
+                // 如果跨月，显示月份
+                if (mondayMonth === sundayMonth) {
+                    dateRangeText = `${mondayMonth}月${mondayDay}日 - ${sundayDay}日`;
+                } else {
+                    dateRangeText = `${mondayMonth}月${mondayDay}日 - ${sundayMonth}月${sundayDay}日`;
+                }
+                break;
+            case 'day':
+                dateRangeText = `${year}年 ${month}月 ${day}日`;
+                break;
+        }
+
+        dateRangeEl.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
     }
     
     // 清空搜索

@@ -23,17 +23,36 @@
 
         <!-- 统计信息 -->
         <div class="stats-container">
-            <div class="stat-item">
-                <span class="stat-label">总任务</span>
-                <span id="total-tasks" class="stat-value">0</span>
+            <!-- 统计维度切换 -->
+            <div class="stats-dimension-selector">
+                <button class="dimension-btn active" data-dimension="all" title="全部时间">全部</button>
+                <button class="dimension-btn" data-dimension="year" title="今年">年</button>
+                <button class="dimension-btn" data-dimension="month" title="本月">月</button>
+                <button class="dimension-btn" data-dimension="week" title="本周">周</button>
+                <button class="dimension-btn" data-dimension="day" title="今天">日</button>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">已完成</span>
-                <span id="completed-tasks" class="stat-value">0</span>
+            <!-- 统计日期范围显示 -->
+            <div class="stats-date-range" id="stats-date-range">
+                <span class="date-range-text">全部时间</span>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">完成率</span>
-                <span id="completion-rate" class="stat-value">0%</span>
+            <!-- 统计数据 -->
+            <div class="stats-data">
+                <div class="stat-item">
+                    <span class="stat-label">总任务</span>
+                    <span id="total-tasks" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">已完成</span>
+                    <span id="completed-tasks" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">完成率</span>
+                    <span id="completion-rate" class="stat-value">0%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">无截止日期</span>
+                    <span id="no-due-date-tasks" class="stat-value">0</span>
+                </div>
             </div>
         </div>
 

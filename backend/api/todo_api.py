@@ -205,20 +205,53 @@ class TodoApi:
             return {'success': False, 'error': str(e)}
     
     # 统计相关API
-    def get_stats(self):
-        """获取任务统计信息"""
+    def get_stats(self, dimension='all'):
+        """获取任务统计信息
+
+        参数:
+            dimension: 统计维度，可选值: all/year/month/week/day
+        """
         try:
+            from datetime import timedelta
+
             tasks = self.db.get_all_tasks()
-            
-            total_tasks = len(tasks)
-            completed_tasks = sum(1 for task in tasks if task['completed'])
+            now = datetime.now()
+
+            # 根据维度过滤任务
+            filtered_tasks = tasks
+            if dimension != 'all':
+                if dimension == 'year':
+                    # 今年
+                    filtered_tasks = [task for task in tasks if task['createdAt'] and
+                                     datetime.fromisoformat(task['createdAt']).year == now.year]
+                elif dimension == 'month':
+                    # 本月
+                    filtered_tasks = [task for task in tasks if task['createdAt'] and
+                                     datetime.fromisoformat(task['createdAt']).year == now.year and
+                                     datetime.fromisoformat(task['createdAt']).month == now.month]
+                elif dimension == 'week':
+                    # 本周（周一到周日）
+                    today = now.date()
+                    monday = today - timedelta(days=today.weekday())
+                    sunday = monday + timedelta(days=6)
+                    filtered_tasks = [task for task in tasks if task['createdAt'] and
+                                     monday <= datetime.fromisoformat(task['createdAt']).date() <= sunday]
+                elif dimension == 'day':
+                    # 今天
+                    filtered_tasks = [task for task in tasks if task['createdAt'] and
+                                     datetime.fromisoformat(task['createdAt']).date() == now.date()]
+
+            # 统计数据
+            total_tasks = len(filtered_tasks)
+            completed_tasks = sum(1 for task in filtered_tasks if task['completed'])
             uncompleted_tasks = total_tasks - completed_tasks
-            
+            no_due_date_tasks = sum(1 for task in filtered_tasks if not task['dueDate'])
+
             # 按优先级统计
-            high_priority = sum(1 for task in tasks if task['priority'] == 'high' and not task['completed'])
-            medium_priority = sum(1 for task in tasks if task['priority'] == 'medium' and not task['completed'])
-            low_priority = sum(1 for task in tasks if task['priority'] == 'low' and not task['completed'])
-            
+            high_priority = sum(1 for task in filtered_tasks if task['priority'] == 'high' and not task['completed'])
+            medium_priority = sum(1 for task in filtered_tasks if task['priority'] == 'medium' and not task['completed'])
+            low_priority = sum(1 for task in filtered_tasks if task['priority'] == 'low' and not task['completed'])
+
             return {
                 'success': True,
                 'stats': {
@@ -226,6 +259,7 @@ class TodoApi:
                     'completed': completed_tasks,
                     'uncompleted': uncompleted_tasks,
                     'completion_rate': round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1),
+                    'no_due_date': no_due_date_tasks,
                     'by_priority': {
                         'high': high_priority,
                         'medium': medium_priority,

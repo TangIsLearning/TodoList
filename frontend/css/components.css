@@ -1,5 +1,115 @@
 /* 组件样式 */
 
+/* 统计维度选择器 */
+.stats-dimension-selector {
+    display: flex;
+    margin-bottom: var(--spacing-sm);
+    background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+    border-radius: var(--border-radius);
+}
+
+.dimension-btn {
+    flex: 1;
+    padding: var(--spacing-sm) 0;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background-color: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.dimension-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+.dimension-btn.active {
+    color: white;
+    transform: translateY(-1px);
+}
+
+.dimension-btn:hover::before {
+    opacity: 0.1;
+}
+
+.dimension-btn.active::before {
+    opacity: 1;
+}
+
+/* 统计日期范围显示 */
+.stats-date-range {
+    text-align: center;
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    background: linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 123, 255, 0.05) 100%);
+    border-radius: var(--border-radius);
+}
+
+.date-range-text {
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.date-range-text::before {
+    content: '📅';
+    font-size: var(--font-size-base);
+}
+
+/* 统计数据容器 */
+.stats-data {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+}
+
+.stats-data .stat-item {
+    margin-bottom: 0 !important;
+    padding: var(--spacing-md) !important;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    text-align: center;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-data .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stats-data .stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
 /* 模态框 */
 .modal {
     display: none;
