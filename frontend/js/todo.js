@@ -6,7 +6,7 @@ class TodoManager {
         this.currentFilter = 'all';
         this.searchQuery = '';
         this.priorityFilter = 'all';
-        this.statusFilter = 'all';
+        this.statusFilter = 'uncompleted';
         this.dueDateFilter = 'all';
         this.sortBy = 'created_at'; // 使用默认排序逻辑
         this.sortOrder = 'desc';
@@ -1417,12 +1417,8 @@ class TodoManager {
             const response = await pywebview.api.get_todos(
                 1,  // page
                 999999,  // page_size - 设置一个足够大的值以获取所有任务
-//                this.currentFilter === 'all' ? null : this.currentFilter,
-//                this.statusFilter === 'all' ? null : this.statusFilter,
-//                this.priorityFilter === 'all' ? null : this.priorityFilter,
-//                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
                 null,  // 分类
-                null,  // 状态
+                'uncompleted',  // 状态
                 null,  // 优先级
                 null,  // 逾期
                 null,  // year
