@@ -209,11 +209,17 @@ class TodoManager {
         const clearTimeBtn = document.querySelector('.clear-time');
         
         if (clearDateBtn) {
-            clearDateBtn.addEventListener('click', () => this.clearDateInput());
+            clearDateBtn.addEventListener('click', () => {
+                this.clearDateInput();
+                this.addInputValueListeners();
+            });
         }
         
         if (clearTimeBtn) {
-            clearTimeBtn.addEventListener('click', () => this.clearTimeInput());
+            clearTimeBtn.addEventListener('click', () => {
+                this.clearTimeInput();
+                this.addInputValueListeners();
+            });
         }
     }
     
