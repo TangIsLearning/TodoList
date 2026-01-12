@@ -165,7 +165,7 @@ class TodoApi:
             task = self.db.get_task(task_id)
             if task:
                 task['completed'] = not task['completed']
-                result = self.db.update_task(task_id, task)
+                result = self.db.update_task(task_id, task, False)
                 return {'success': True, 'task': result}
             return {'success': False, 'error': 'Task not found'}
         except Exception as e:

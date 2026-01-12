@@ -473,7 +473,7 @@ class TodoDatabase:
         conn.close()
         return task_dict
     
-    def update_task(self, task_id, task_data):
+    def update_task(self, task_id, task_data, is_update_task_tags = True):
         """更新任务"""
         task = Task(
             title=task_data.get('title', ''),
@@ -502,8 +502,9 @@ class TodoDatabase:
         conn.close()
 
         # 处理标签
-        tags = task_data.get('tags', [])
-        self.update_task_tags(task_id, tags)
+        if is_update_task_tags:
+            tags = task_data.get('tags', [])
+            self.update_task_tags(task_id, tags)
 
         return task.to_dict()
     
