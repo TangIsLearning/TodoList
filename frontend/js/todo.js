@@ -1416,7 +1416,7 @@ class TodoManager {
         }
     }
     
-    // 更新分类任务数量
+    // 更新分类任务数量：当前保持分类数量更新变化不受搜索条件影响，因而设置大部分入参为null
     async updateCategoryCounts() {
         if (window.categoryManager) {
             // 获取当前筛选条件下的所有任务（不分页）
@@ -1429,8 +1429,8 @@ class TodoManager {
                 null,  // 逾期
                 null,  // year
                 null,  // month
-                this.searchQuery || null,
-                this.customDateFilter || null
+                null,  // search-input
+                null   // custom-date
             );
 
             if (response.success) {
