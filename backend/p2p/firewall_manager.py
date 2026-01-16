@@ -43,6 +43,7 @@ class FirewallManager:
                 shell=True,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=5
             )
 
@@ -94,6 +95,7 @@ class FirewallManager:
                 shell=True,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=10
             )
 
@@ -298,6 +300,7 @@ exit /b 0
                 shell=True,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=10
             )
 
@@ -489,6 +492,7 @@ exit /b 0
                 shell=True,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=5
             )
             info["can_manage"] = result.returncode == 0
