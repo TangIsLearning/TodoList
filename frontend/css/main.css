@@ -246,11 +246,6 @@ body {
     background-color: rgba(0, 123, 255, 0.1);
 }
 
-/* 桌面端专用类 */
-.desktop-only {
-    display: block;
-}
-
 .app-title {
     font-size: var(--font-size-xl);
     font-weight: 600;
@@ -1006,6 +1001,56 @@ body {
     background-color: var(--bg-tertiary);
 }
 
+/* 移动端悬浮按钮样式 */
+.add-task-fab {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    transition: var(--transition);
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.add-task-fab:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+}
+
+.add-task-fab:active {
+    transform: translateY(0);
+}
+
+.add-task-fab .fab-icon {
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 300;
+}
+
+/* 深色主题下的悬浮按钮 */
+[data-theme="dark"] .add-task-fab {
+    box-shadow: 0 4px 16px rgba(0, 123, 255, 0.3);
+}
+
+[data-theme="dark"] .add-task-fab:hover {
+    box-shadow: 0 6px 24px rgba(0, 123, 255, 0.5);
+}
+
+.mobile-only {
+    display: none;
+}
+
 /* 侧边栏遮罩层 */
 .sidebar-overlay {
     display: none;
@@ -1633,7 +1678,7 @@ body {
     }
 
     .desktop-only {
-        display: none;
+        display: block;
     }
     
     .main-content {
@@ -1740,6 +1785,10 @@ body {
 @media (min-width: 321px) and (max-width: 480px) {
     .desktop-only {
         display: none;
+    }
+
+    .mobile-only {
+        display: flex;
     }
 
     .color-picker {
@@ -2029,6 +2078,10 @@ body {
         display: none;
     }
 
+    .mobile-only {
+        display: flex;
+    }
+
     .modal-content {
         width: 98%;
         max-width: 200px !important;
@@ -2251,6 +2304,18 @@ body {
         font-size: 7px !important;
         min-width: 16px !important;
         border-radius: 1px !important;
+    }
+
+    /* 超小屏幕悬浮按钮优化 */
+    .add-task-fab {
+        width: 44px;
+        height: 44px;
+        bottom: 16px;
+        right: 16px;
+    }
+
+    .add-task-fab .fab-icon {
+        font-size: 24px;
     }
 }
 

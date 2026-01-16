@@ -168,10 +168,16 @@ class TodoManager {
             });
         }
         
-        // 添加任务按钮
+        // 添加任务按钮(桌面端)
         const addTaskBtn = document.getElementById('add-task-btn');
         if (addTaskBtn) {
             addTaskBtn.addEventListener('click', () => this.showAddTaskModal());
+        }
+
+        // 添加任务悬浮按钮(移动端)
+        const addTaskFab = document.getElementById('add-task-fab');
+        if (addTaskFab) {
+            addTaskFab.addEventListener('click', () => this.showAddTaskModal());
         }
         
         // 任务表单

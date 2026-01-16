@@ -123,9 +123,14 @@
                     <option value="no-due-date">无截止日期</option>
                 </select>
 
-                <button id="add-task-btn" class="add-task-btn">+ 新建任务</button>
+                <button id="add-task-btn" class="add-task-btn desktop-only">+ 新建任务</button>
             </div>
         </header>
+
+        <!-- 移动端悬浮按钮 -->
+        <button id="add-task-fab" class="add-task-fab mobile-only" title="新建任务">
+            <span class="fab-icon">+</span>
+        </button>
 
         <!-- 任务列表 -->
         <div class="tasks-container" id="tasks-view">
