@@ -249,6 +249,7 @@ class CategoryManager {
             window.todoManager.currentFilter = categoryId;
             window.todoManager.currentPage = 1; // 重置到第一页
             window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
             await window.todoManager.loadTasks();
             console.log('Filter completed'); // 调试日志
         } else {

@@ -16,6 +16,11 @@ class TodoManager {
         this.pageSize = 10;
         this.totalTasks = 0;
         this.totalPages = 0;
+        // 无限下拉相关
+        this.isLoadingMore = false;
+        this.hasMoreTasks = true;
+        this.scrollThreshold = 300; // 距离底部300px时开始加载
+        this.scrollListener = null;
         // 标签相关
         this.availableTags = [];
         this.selectedTags = [];
@@ -82,6 +87,9 @@ class TodoManager {
         this.updateSearchClearButton();
         
         await this.loadTasks();
+        
+        // 初始化无限下拉功能
+        this.initInfiniteScroll();
     }
     
     // 绑定事件
@@ -102,6 +110,16 @@ class TodoManager {
             });
         });
 
+        // 监听窗口大小变化，切换分页/无限下拉模式
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.handleResize();
+            }, 300);
+            this.resetInfiniteScroll();
+        });
+
         // 搜索
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
@@ -112,6 +130,7 @@ class TodoManager {
                 this.searchQuery = searchInput.value.trim();
                 this.currentPage = 1; // 重置到第一页
                 this.customDateFilter = null; // 清除自定义日期筛选
+                this.resetInfiniteScroll(); // 重置无限下拉状态
                 await this.loadTasks();
                 // 更新清空按钮显示状态
                 this.updateSearchClearButton();
@@ -127,6 +146,7 @@ class TodoManager {
                 this.searchQuery = searchInput.value.trim();
                 this.currentPage = 1;
                 this.customDateFilter = null; // 清除自定义日期筛选
+                this.resetInfiniteScroll(); // 重置无限下拉状态
                 await this.loadTasks();
             });
         }
@@ -146,6 +166,7 @@ class TodoManager {
                 this.priorityFilter = e.target.value;
                 this.currentPage = 1;
                 this.customDateFilter = null; // 清除自定义日期筛选
+                this.resetInfiniteScroll(); // 重置无限下拉状态
                 await this.loadTasks();
             });
         }
@@ -155,6 +176,7 @@ class TodoManager {
                 this.statusFilter = e.target.value;
                 this.currentPage = 1;
                 this.customDateFilter = null; // 清除自定义日期筛选
+                this.resetInfiniteScroll(); // 重置无限下拉状态
                 await this.loadTasks();
             });
         }
@@ -164,6 +186,7 @@ class TodoManager {
                 this.dueDateFilter = e.target.value;
                 this.currentPage = 1;
                 this.customDateFilter = null; // 清除自定义日期筛选
+                this.resetInfiniteScroll(); // 重置无限下拉状态
                 await this.loadTasks();
             });
         }
@@ -523,7 +546,19 @@ class TodoManager {
                 });
 
                 this.renderTasks();
-                this.renderPagination();
+
+                // 桌面端显示分页，移动端初始化无限下拉
+                if (!this.isMobileDevice()) {
+                    this.renderPagination();
+                } else {
+                    // 移动端隐藏分页，初始化无限下拉
+                    const pagination = document.getElementById('pagination');
+                    if (pagination) {
+                        pagination.style.display = 'none';
+                    }
+                    this.initInfiniteScroll();
+                }
+
                 await this.updateStats();
                 await this.updateCategoryCounts();
 
@@ -555,7 +590,8 @@ class TodoManager {
     renderTasks() {
         const tasksList = document.getElementById('tasks-list');
         const emptyState = document.getElementById('empty-state');
-        
+        const pagination = document.getElementById('pagination');
+
         if (!tasksList) return;
         
         console.log('Rendering tasks with filter:', this.currentFilter); // 调试日志
@@ -574,7 +610,9 @@ class TodoManager {
             tasksList.style.display = 'none';
             emptyState.style.display = 'block';
             // 隐藏分页
-            document.getElementById('pagination').style.display = 'none';
+            if (pagination) {
+                pagination.style.display = 'none';
+            }
             return;
         }
         
@@ -1552,6 +1590,7 @@ class TodoManager {
         
         this.pageSize = parseInt(pageSize);
         this.currentPage = 1; // 重置到第一页
+        this.resetInfiniteScroll(); // 重置无限下拉状态
         await this.loadTasks();
     }
     
@@ -1644,6 +1683,7 @@ class TodoManager {
             searchInput.value = '';
             this.searchQuery = '';
             this.currentPage = 1;
+            this.resetInfiniteScroll(); // 重置无限下拉状态
             await this.loadTasks();
             this.updateSearchClearButton();
         }
@@ -1691,6 +1731,242 @@ class TodoManager {
             pageSizeSelect.addEventListener('change', (e) => {
                 this.changePageSize(e.target.value);
             });
+        }
+    }
+
+    // 判断是否为移动端或小屏幕
+    isMobileDevice() {
+        return window.innerWidth <= 480;
+    }
+
+    // 初始化无限下拉功能
+    initInfiniteScroll() {
+        // 移除已存在的监听器
+        this.removeInfiniteScroll();
+
+        // 只在移动端启用无限下拉
+        if (!this.isMobileDevice()) {
+            return;
+        }
+
+        const tasksContainer = document.getElementById('tasks-view');
+        if (!tasksContainer) return;
+
+        // 添加滚动监听器
+        this.scrollListener = async () => {
+            if (this.isLoadingMore || !this.hasMoreTasks) {
+                return;
+            }
+
+            const scrollPosition = tasksContainer.scrollTop + tasksContainer.clientHeight;
+            const scrollHeight = tasksContainer.scrollHeight;
+
+            // 当滚动位置距离底部小于阈值时，加载更多
+            if (scrollPosition >= scrollHeight - this.scrollThreshold) {
+                await this.loadMoreTasks();
+            }
+        };
+
+        tasksContainer.addEventListener('scroll', this.scrollListener, { passive: true });
+        console.log('Infinite scroll listener attached');
+
+        // 检查是否需要自动加载更多（内容不足以滚动时）
+        setTimeout(() => this.checkAndLoadMoreIfNeeded(), 100);
+    }
+
+    // 检查是否需要自动加载更多任务
+    checkAndLoadMoreIfNeeded() {
+        if (!this.isMobileDevice() || this.isLoadingMore || !this.hasMoreTasks) {
+            return;
+        }
+
+        const tasksContainer = document.getElementById('tasks-view');
+        if (!tasksContainer) return;
+
+        const scrollHeight = tasksContainer.scrollHeight;
+        const clientHeight = tasksContainer.clientHeight;
+
+        console.log('Checking if need to load more - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'currentPage:', this.currentPage, 'totalPages:', this.totalPages);
+
+        // 如果内容高度小于等于容器高度，说明所有任务都在可视范围内，需要加载更多
+        // 同时确保还有更多页面可加载
+        if (scrollHeight <= clientHeight && this.currentPage < this.totalPages) {
+            console.log('Content fits in viewport, auto-loading more tasks');
+            this.loadMoreTasks().then(() => {
+                // 加载完成后再次检查,直到内容超过容器高度
+                setTimeout(() => this.checkAndLoadMoreIfNeeded(), 100);
+            });
+        }
+    }
+
+    // 移除无限下拉监听器
+    removeInfiniteScroll() {
+        if (this.scrollListener) {
+            const tasksContainer = document.getElementById('tasks-view');
+            if (tasksContainer) {
+                tasksContainer.removeEventListener('scroll', this.scrollListener);
+            }
+            this.scrollListener = null;
+        }
+    }
+
+    // 加载更多任务（无限下拉）
+    async loadMoreTasks() {
+        if (this.isLoadingMore || !this.hasMoreTasks) {
+            return;
+        }
+
+        // 如果已经是最后一页，不再加载
+        if (this.currentPage >= this.totalPages) {
+            this.hasMoreTasks = false;
+            this.showNoMoreTasks();
+            return;
+        }
+
+        this.isLoadingMore = true;
+        this.showLoadingMore();
+
+        try {
+            const nextPage = this.currentPage + 1;
+            const response = await this.safeGetTodos(
+                nextPage,
+                this.pageSize,
+                this.currentFilter === 'all' ? null : this.currentFilter,
+                this.statusFilter === 'all' ? null : this.statusFilter,
+                this.priorityFilter === 'all' ? null : this.priorityFilter,
+                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                null,
+                null,
+                this.searchQuery || null,
+                this.customDateFilter || null
+            );
+
+            if (response.success && response.tasks.length > 0) {
+                // 将新任务追加到现有任务列表
+                this.tasks = [...this.tasks, ...response.tasks];
+                this.currentPage = nextPage;
+
+                // 渲染新增的任务
+                this.appendTasks(response.tasks);
+
+                // 检查是否还有更多任务
+                this.hasMoreTasks = this.currentPage < this.totalPages;
+
+                // 如果是最后一页，显示到底提示
+                if (!this.hasMoreTasks) {
+                    this.showNoMoreTasks();
+                }
+            } else {
+                this.hasMoreTasks = false;
+                this.showNoMoreTasks();
+            }
+        } catch (error) {
+            console.error('加载更多任务失败:', error);
+            Utils.showToast('加载更多任务失败', 'error');
+        } finally {
+            this.isLoadingMore = false;
+            this.hideLoadingMore();
+        }
+    }
+
+    // 追加任务到列表
+    appendTasks(newTasks) {
+        const tasksList = document.getElementById('tasks-list');
+        if (!tasksList) return;
+
+        // 生成新任务的HTML并追加到列表
+        const tasksHtml = newTasks.map(task => this.createTaskElement(task)).join('');
+        tasksList.insertAdjacentHTML('beforeend', tasksHtml);
+
+        // 绑定新增任务的事件
+        this.bindTaskEvents();
+    }
+
+    // 显示"加载更多"指示器
+    showLoadingMore() {
+        const loadingMoreEl = document.getElementById('loading-more');
+        if (loadingMoreEl) return;
+
+        const tasksList = document.getElementById('tasks-list');
+        if (!tasksList) return;
+
+        const loadingMoreDiv = document.createElement('div');
+        loadingMoreDiv.id = 'loading-more';
+        loadingMoreDiv.className = 'loading-more';
+        loadingMoreDiv.innerHTML = `
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+        `;
+        tasksList.appendChild(loadingMoreDiv);
+    }
+
+    // 隐藏"加载更多"指示器
+    hideLoadingMore() {
+        const loadingMoreEl = document.getElementById('loading-more');
+        if (loadingMoreEl) {
+            loadingMoreEl.remove();
+        }
+    }
+
+    // 显示"已经到底了"提示
+    showNoMoreTasks() {
+        const noMoreEl = document.getElementById('no-more-tasks');
+        if (noMoreEl) return;
+
+        const tasksList = document.getElementById('tasks-list');
+        if (!tasksList) return;
+
+        const noMoreDiv = document.createElement('div');
+        noMoreDiv.id = 'no-more-tasks';
+        noMoreDiv.className = 'no-more-tasks';
+        noMoreDiv.innerHTML = `
+            <span class="no-more-text">- 已经到底了 -</span>
+        `;
+        tasksList.appendChild(noMoreDiv);
+    }
+
+    // 隐藏"已经到底了"提示
+    hideNoMoreTasks() {
+        const noMoreEl = document.getElementById('no-more-tasks');
+        if (noMoreEl) {
+            noMoreEl.remove();
+        }
+    }
+
+    // 重置无限下拉状态
+    resetInfiniteScroll() {
+        this.isLoadingMore = false;
+        this.hasMoreTasks = true;
+        this.currentPage = 1;
+        this.hideLoadingMore();
+        this.hideNoMoreTasks();
+        this.loadTasks();
+    }
+
+    // 处理窗口大小变化
+    handleResize() {
+        const isMobile = this.isMobileDevice();
+        const pagination = document.getElementById('pagination');
+
+        if (isMobile) {
+            // 切换到移动端，隐藏分页，启用无限下拉
+            if (pagination) {
+                pagination.style.display = 'none';
+            }
+            this.initInfiniteScroll();
+        } else {
+            // 切换到桌面端，显示分页，移除无限下拉
+            this.removeInfiniteScroll();
+            if (pagination) {
+                pagination.style.display = 'flex';
+                // 如果之前在移动端加载了多页数据,需要重新加载第一页以保证数据一致
+                if (this.currentPage > 1) {
+                    this.currentPage = 1;
+                    this.loadTasks();
+                } else {
+                    this.renderPagination();
+                }
+            }
         }
     }
 

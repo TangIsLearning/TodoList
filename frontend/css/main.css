@@ -793,6 +793,41 @@ body {
 }
 
 @media (max-width: 480px) {
+    /* 移动端隐藏分页组件 */
+    .pagination {
+        display: none;
+    }
+
+    /* 移动端加载更多指示器 */
+    .loading-more {
+        padding: var(--spacing-md);
+    }
+
+    .loading-more .loading-spinner {
+        width: 20px;
+        height: 20px;
+        border-width: 2px;
+    }
+
+    .loading-more span {
+        font-size: var(--font-size-xs);
+    }
+
+    /* 已经到底了提示 */
+    .no-more-tasks {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-lg);
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+    }
+
+    .no-more-text {
+        color: var(--text-secondary);
+    }
+
     .data-transfer-modal-content {
         width: 95%;
         max-width: none;

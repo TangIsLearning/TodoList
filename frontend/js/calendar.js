@@ -264,6 +264,8 @@ class CalendarManager {
             window.todoManager.customDateFilter = dateStr;
             // 重置到第一页
             window.todoManager.currentPage = 1;
+            // 重置无限下拉状态
+            window.todoManager.resetInfiniteScroll();
             // 重新加载任务
             await window.todoManager.loadTasks();
 
