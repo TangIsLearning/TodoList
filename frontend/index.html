@@ -132,7 +132,7 @@
             <span class="fab-icon">+</span>
         </button>
 
-        <!-- 任务列表 -->
+        <!-- 任务列表-内容主体 -->
         <div class="tasks-container" id="tasks-view">
             <div id="tasks-list" class="tasks-list">
                 <!-- 任务项将通过JavaScript动态添加 -->
@@ -143,27 +143,27 @@
                 <h3>暂无任务</h3>
                 <p>点击"新建任务"按钮创建你的第一个任务</p>
             </div>
+        </div>
 
-            <!-- 分页组件 -->
-            <div id="pagination" class="pagination">
-                <div class="pagination-info">
-                    <span id="pagination-showing">显示 0-0 共 0 条</span>
-                    <select id="page-size-select" class="page-size-select">
-                        <option value="10">10条/页</option>
-                        <option value="20">20条/页</option>
-                        <option value="50">50条/页</option>
-                        <option value="100">100条/页</option>
-                    </select>
+        <!-- 任务列表-分页组件 -->
+        <div id="pagination" class="pagination">
+            <div class="pagination-info">
+                <span id="pagination-showing">显示 0-0 共 0 条</span>
+                <select id="page-size-select" class="page-size-select">
+                    <option value="10">10条/页</option>
+                    <option value="20">20条/页</option>
+                    <option value="50">50条/页</option>
+                    <option value="100">100条/页</option>
+                </select>
+            </div>
+            <div class="pagination-controls">
+                <button id="pagination-first" class="pagination-btn" disabled>首页</button>
+                <button id="pagination-prev" class="pagination-btn" disabled>上一页</button>
+                <div id="pagination-numbers" class="pagination-numbers">
+                    <!-- 页码按钮将动态生成 -->
                 </div>
-                <div class="pagination-controls">
-                    <button id="pagination-first" class="pagination-btn" disabled>首页</button>
-                    <button id="pagination-prev" class="pagination-btn" disabled>上一页</button>
-                    <div id="pagination-numbers" class="pagination-numbers">
-                        <!-- 页码按钮将动态生成 -->
-                    </div>
-                    <button id="pagination-next" class="pagination-btn" disabled>下一页</button>
-                    <button id="pagination-last" class="pagination-btn" disabled>末页</button>
-                </div>
+                <button id="pagination-next" class="pagination-btn" disabled>下一页</button>
+                <button id="pagination-last" class="pagination-btn" disabled>末页</button>
             </div>
         </div>
 

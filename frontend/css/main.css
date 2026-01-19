@@ -196,9 +196,10 @@ body {
 /* 应用容器 */
 .app-container {
     display: flex;
-    height: 100vh;
+    height: 100vh !important;
     min-height: 600px;
     overflow: hidden;
+    margin: 0;
 }
 
 /* 侧边栏 */
@@ -857,6 +858,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background-color: white;
 }
 
 /* 应用头部 */
@@ -1109,7 +1111,8 @@ body {
 .tasks-container {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-lg);
+    overflow-x: auto;
+    max-width: 100%;
 }
 
 .tasks-list {
@@ -1340,49 +1343,14 @@ body {
 @media (min-width: 1200px) {
     .app-container {
         max-width: 1400px;
-        margin: 0 auto;
         box-shadow: var(--shadow-lg);
         border-radius: var(--border-radius-lg);
         overflow: hidden;
-        margin-top: 20px;
-        margin-bottom: 20px;
         height: calc(100vh - 40px);
     }
-    
+
     body {
         background-color: var(--bg-secondary);
-    }
-    
-    .tasks-container {
-        padding: var(--spacing-xl);
-    }
-    
-    .tasks-list {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: var(--spacing-lg);
-        align-items: start;
-    }
-    
-    /* 任务项在网格模式下的样式优化 */
-    .task-item {
-        height: fit-content;
-        min-height: 200px;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .task-header {
-        flex: 1;
-    }
-    
-    .task-description {
-        flex: 1;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
     }
 }
 
@@ -1391,20 +1359,12 @@ body {
     .app-container {
         max-width: 2000px;
     }
-    
-    .tasks-list {
-        grid-template-columns: repeat(7, 1fr);
-    }
 }
 
 /* 超宽屏优化 */
 @media (min-width: 2560px) {
     .app-container {
         max-width: 2400px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(8, 1fr);
     }
 }
 
@@ -1412,15 +1372,10 @@ body {
 @media (min-width: 1400px) {
     .app-container {
         max-width: 1600px;
-        margin: 0 auto;
     }
-    
+
     .sidebar {
         width: 300px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(4, 1fr);
     }
 }
 
@@ -1428,90 +1383,23 @@ body {
 @media (min-width: 1600px) {
     .app-container {
         max-width: 1800px;
-        margin: 0 auto;
     }
-    
+
     .sidebar {
         width: 320px;
     }
-    
-    .tasks-container {
-        padding: var(--spacing-xl) var(--spacing-xxl);
-    }
-    
+
     .app-title {
         font-size: var(--font-size-xxl);
     }
-    
-    .tasks-list {
-        max-width: none;
-        margin: 0;
-        grid-template-columns: repeat(5, 1fr);
-    }
-    
-    .task-description {
-        flex: 1;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .task-item {
-        min-height: 220px;
-        padding: var(--spacing-xxl);
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .task-title {
-        font-size: var(--font-size-xxl);
-    }
-
-    .task-description {
-        font-size: var(--font-size-lg);
-        -webkit-line-clamp: 5;
-        line-clamp: 5;
-    }
-
-    .task-checkbox {
-        width: 24px;
-        height: 24px;
-    }
-
-    .task-checkbox.checked::after {
-        font-size: 16px;
-    }
-
-    .task-meta {
-        font-size: var(--font-size-lg);
-    }
-
-    .task-priority,
-    .task-category {
-        font-size: var(--font-size-base);
-        padding: 6px 12px;
-    }
-
-    .task-due-date {
-        font-size: var(--font-size-lg);
-    }
-
-    .task-action-btn {
-        padding: var(--spacing-md) var(--spacing-lg);
-        font-size: var(--font-size-lg);
-    }
 }
+
+/* 大屏幕优化 - 移除grid布局以保持表格式布局 */
 
 /* 极大屏幕优化 */
 @media (min-width: 1920px) {
     .app-container {
         max-width: 2000px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(7, 1fr);
     }
 }
 
@@ -1519,124 +1407,6 @@ body {
 @media (min-width: 2560px) {
     .app-container {
         max-width: 2400px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(8, 1fr);
-    }
-}
-
-/* 大屏幕优化 */
-@media (min-width: 1200px) {
-    .app-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        box-shadow: var(--shadow-lg);
-        border-radius: var(--border-radius-lg);
-        overflow: hidden;
-        margin-top: 20px;
-        margin-bottom: 20px;
-        height: calc(100vh - 40px);
-    }
-    
-    body {
-        background-color: var(--bg-secondary);
-    }
-    
-    .tasks-container {
-        padding: var(--spacing-xl);
-    }
-    
-    .tasks-list {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: var(--spacing-lg);
-        align-items: start;
-    }
-    
-    /* 任务项在网格模式下的样式优化 */
-    .task-item {
-        height: fit-content;
-        min-height: 200px;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .task-header {
-        flex: 1;
-    }
-    
-    .task-description {
-        flex: 1;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .task-item {
-        min-height: 200px;
-        padding: var(--spacing-xl);
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .task-title {
-        font-size: var(--font-size-xl);
-        margin-bottom: var(--spacing-sm);
-    }
-
-    .task-description {
-        font-size: var(--font-size-base);
-        -webkit-line-clamp: 4;
-        line-clamp: 4;
-    }
-
-    .task-meta {
-        margin-top: var(--spacing-md);
-        font-size: var(--font-size-base);
-    }
-
-    .task-priority,
-    .task-category {
-        font-size: var(--font-size-sm);
-        padding: 4px 10px;
-    }
-
-    .task-due-date {
-        font-size: var(--font-size-base);
-    }
-
-    .task-actions {
-        margin-top: var(--spacing-md);
-    }
-
-    .task-action-btn {
-        padding: var(--spacing-sm) var(--spacing-md);
-        font-size: var(--font-size-base);
-    }
-}
-
-/* 极大屏幕优化 */
-@media (min-width: 1920px) {
-    .app-container {
-        max-width: 2000px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(7, 1fr);
-    }
-}
-
-/* 超宽屏优化 */
-@media (min-width: 2560px) {
-    .app-container {
-        max-width: 2400px;
-    }
-    
-    .tasks-list {
-        grid-template-columns: repeat(8, 1fr);
     }
 }
 
@@ -1644,36 +1414,23 @@ body {
 @media (max-width: 1024px) {
     .app-container {
         max-width: 100%;
-        margin: 0;
         height: 100vh;
         border-radius: 0;
-        margin-top: 0;
-        margin-bottom: 0;
         box-shadow: none;
     }
-    
+
     body {
         background-color: var(--bg-primary);
     }
-    
+
     .app-header {
         padding: var(--spacing-sm) var(--spacing-md);
     }
-    
+
     .add-task-btn {
         padding: var(--spacing-sm) var(--spacing-md);
     }
-    
-    .tasks-list {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-md);
-    }
-    
-    .tasks-container {
-        padding: var(--spacing-lg);
-    }
-    
+
     .sidebar {
         width: 280px;
     }
@@ -1684,14 +1441,7 @@ body {
     }
 }
 
-/* 中大屏幕过渡 */
-@media (min-width: 1025px) and (max-width: 1199px) {
-    .tasks-list {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--spacing-lg);
-    }
-}
+/* 中大屏幕过渡 - 移除grid布局以保持表格式布局 */
 
 /* 平板优化 */
 @media (min-width: 481px) and (max-width: 768px) {
@@ -1753,11 +1503,6 @@ body {
         flex: 2;
         min-width: 140px;
         order: 1;
-    }
-    
-    /* 中等屏幕任务项适度优化 */
-    .tasks-container {
-        padding: var(--spacing-md);
     }
     
     .tasks-list {
@@ -1950,10 +1695,12 @@ body {
         display: block;
         align-self: flex-start;
     }
+
     .app-header {
         padding: 4px 6px !important;
         gap: 4px !important;
         min-height: auto !important;
+        border-bottom: 1px solid var(--border-color);
     }
 
     .action-buttons {

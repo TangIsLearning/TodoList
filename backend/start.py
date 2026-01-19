@@ -75,11 +75,11 @@ def start_app(window):
     # 创建窗口
     app_logger.info("创建应用窗口...")
     window = webview.create_window(
-        'Todo List App',
+        'Todo-List',
         frontend_path,
         js_api=api,
-        width=1000,
-        height=700,
+        width=1400,
+        height=900,
         resizable=True
     )
 

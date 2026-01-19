@@ -545,13 +545,24 @@ class TodoManager {
                     });
                 });
 
-                this.renderTasks();
+                // 根据屏幕尺寸决定显示模式
+                const isLargeScreen = window.innerWidth > 480;
 
-                // 桌面端显示分页，移动端初始化无限下拉
-                if (!this.isMobileDevice()) {
+                if (isLargeScreen) {
+                    // 大屏幕(大于480px)：使用表格分页模式，每页10条
+                    this.renderTasks();
                     this.renderPagination();
+
+                    // 隐藏无限下拉相关
+                    const loadingMoreEl = document.getElementById('loading-more');
+                    const noMoreEl = document.getElementById('no-more-tasks');
+                    if (loadingMoreEl) loadingMoreEl.style.display = 'none';
+                    if (noMoreEl) noMoreEl.style.display = 'none';
                 } else {
-                    // 移动端隐藏分页，初始化无限下拉
+                    // 小屏幕：使用无限下拉模式
+                    this.renderTasks();
+
+                    // 隐藏分页
                     const pagination = document.getElementById('pagination');
                     if (pagination) {
                         pagination.style.display = 'none';
@@ -593,19 +604,19 @@ class TodoManager {
         const pagination = document.getElementById('pagination');
 
         if (!tasksList) return;
-        
+
         console.log('Rendering tasks with filter:', this.currentFilter); // 调试日志
         console.log('Total tasks:', this.tasks.length); // 调试日志
-        
+
         // 不再需要前端过滤，因为后端已经处理了筛选
         const filteredTasks = this.tasks;
         console.log('Filtered tasks:', filteredTasks.length); // 调试日志
-        
+
         // 更新日历视图数据
         if (window.calendarManager) {
             window.calendarManager.updateTasks(this.tasks);
         }
-        
+
         if (filteredTasks.length === 0) {
             tasksList.style.display = 'none';
             emptyState.style.display = 'block';
@@ -615,16 +626,36 @@ class TodoManager {
             }
             return;
         }
-        
-        tasksList.style.display = 'flex';
+
+        // 根据屏幕尺寸设置display样式 (大于480px使用表格布局)
+        const isLargeScreen = window.innerWidth > 480;
+        tasksList.style.display = isLargeScreen ? 'table' : 'flex';
         emptyState.style.display = 'none';
-        
+
         // 不再需要前端排序，后端已排序
         const sortedTasks = filteredTasks;
-        
+
         // 生成HTML
-        tasksList.innerHTML = sortedTasks.map(task => this.createTaskElement(task)).join('');
-        
+        let html = '';
+
+        // 大屏幕添加表头
+        if (isLargeScreen) {
+            html += `
+                <div class="tasks-header">
+                    <div class="tasks-header-row">
+                        <div class="tasks-header-cell">任务名称</div>
+                        <div class="tasks-header-cell">优先级</div>
+                        <div class="tasks-header-cell">到期时间</div>
+                        <div class="tasks-header-cell">标签</div>
+                        <div class="tasks-header-cell">操作</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        html += sortedTasks.map(task => this.createTaskElement(task)).join('');
+        tasksList.innerHTML = html;
+
         // 绑定任务事件
         this.bindTaskEvents();
     }
@@ -886,6 +917,7 @@ class TodoManager {
         const priorityInfo = Utils.getPriorityInfo(task.priority);
         // 只有未完成的任务才检查是否逾期
         const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
+        const isLargeScreen = window.innerWidth > 480;
 
         // 渲染标签
         let tagsHtml = '';
@@ -897,6 +929,52 @@ class TodoManager {
             ).join('');
         }
 
+        // 大屏幕表格式布局
+        if (isLargeScreen) {
+            return `
+                <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+                    <div class="task-header">
+                        <div class="task-header-content">
+                            <div class="task-checkbox ${task.completed ? 'checked' : ''}"
+                                 data-task-id="${task.id}"></div>
+                            <div class="task-content">
+                                <h3 class="task-title">
+                                    ${Utils.escapeHtml(task.title)}
+                                    ${task.isRecurring ? '<span class="recurring-badge">周期性</span>' : ''}
+                                    ${task.parentTaskId ? '<span class="recurring-badge">周期任务</span>' : ''}
+                                </h3>
+                            </div>
+                        </div>
+                        <p class="task-description" style="display: none;">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
+                    </div>
+                    <div class="task-meta">
+                        <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
+                            ${priorityInfo.icon} ${priorityInfo.label}
+                        </span>
+                    </div>
+                    <div class="task-due-date-cell">
+                        ${task.dueDate ? `
+                            <span class="task-due-date ${isOverdue ? 'overdue' : ''}" title="截止时间">
+                                📅 ${Utils.formatDate(task.dueDate)}
+                            </span>
+                        ` : '<span style="color: var(--text-muted);">-</span>'}
+                    </div>
+                    <div class="task-tags">
+                        ${tagsHtml || '<span style="color: var(--text-muted);">-</span>'}
+                    </div>
+                    <div class="task-actions">
+                        <button class="task-action-btn view" data-task-id="${task.id}"
+                                title="查看详情">👁️</button>
+                        <button class="task-action-btn edit" data-task-id="${task.id}"
+                                title="编辑">✏️</button>
+                        <button class="task-action-btn delete" data-task-id="${task.id}"
+                                title="删除">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 小屏幕卡片式布局(保持原样)
         return `
             <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
                 <div class="task-header">
@@ -947,19 +1025,27 @@ class TodoManager {
                 this.toggleTask(taskId);
             };
         });
-        
+
+        // 查看详情按钮(仅大屏幕)
+        document.querySelectorAll('.task-action-btn.view').forEach(btn => {
+            btn.onclick = (e) => {
+                const taskId = e.target.dataset.taskId;
+                this.viewTaskDetails(taskId);
+            };
+        });
+
         // 编辑按钮
         document.querySelectorAll('.task-action-btn.edit').forEach(btn => {
             const taskId = btn.dataset.taskId;
             const task = this.tasks.find(t => t.id === taskId);
-            
+
             // 调试信息
             console.log(`编辑按钮调试 - 任务ID: ${taskId}`, {
                 task: task,
                 isRecurring: task?.isRecurring,
                 parentTaskId: task?.parentTaskId
             });
-            
+
             // 如果是周期性任务，禁用编辑按钮并添加点击提示
             if (task && (task.isRecurring || task.parentTaskId)) {
                 btn.disabled = true;
@@ -967,7 +1053,7 @@ class TodoManager {
                 btn.style.opacity = '0.5';
                 btn.style.cursor = 'not-allowed';
                 console.log(`禁用编辑按钮: ${taskId}`);
-                
+
                 // 设置点击事件处理，显示提示信息
                 btn.onclick = (e) => {
                     e.preventDefault();
@@ -980,7 +1066,7 @@ class TodoManager {
                 btn.style.opacity = '';
                 btn.style.cursor = '';
                 console.log(`启用编辑按钮: ${taskId}`);
-                
+
                 // 设置编辑功能
                 btn.onclick = (e) => {
                     const taskId = e.target.dataset.taskId;
@@ -988,7 +1074,7 @@ class TodoManager {
                 };
             }
         });
-        
+
         // 删除按钮
         document.querySelectorAll('.task-action-btn.delete').forEach(btn => {
             btn.onclick = (e) => {
@@ -996,7 +1082,7 @@ class TodoManager {
                 this.deleteTask(taskId);
             };
         });
-        
+
         // 加载分类名称
         this.loadCategoryNames();
     }
@@ -1093,11 +1179,129 @@ class TodoManager {
         Utils.ModalManager.show('task-modal');
     }
     
+    // 查看任务详情
+    viewTaskDetails(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const priorityInfo = Utils.getPriorityInfo(task.priority);
+        const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
+
+        // 渲染标签HTML
+        let tagsHtml = '';
+        if (task.tags && task.tags.length > 0) {
+            tagsHtml = task.tags.map(tag =>
+                `<span class="task-tag" style="background-color: ${tag.color}; border: 1px solid ${tag.color};">
+                    #${Utils.escapeHtml(tag.name)}
+                </span>`
+            ).join('');
+        } else {
+            tagsHtml = '<span style="color: var(--text-secondary);">无标签</span>';
+        }
+
+        const detailContent = `
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size: 20px; color: var(--text-primary); margin-bottom: 10px;">
+                        ${Utils.escapeHtml(task.title)}
+                        ${task.isRecurring ? '<span class="recurring-badge">周期性</span>' : ''}
+                        ${task.parentTaskId ? '<span class="recurring-badge">周期任务</span>' : ''}
+                    </h3>
+                    <p style="color: var(--text-secondary); line-height: 1.6;">
+                        ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : '无描述'}
+                    </p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">状态</strong>
+                        <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
+                              ${task.completed ? 'background-color: var(--success-color); color: white;' : 'background-color: var(--priority-medium); color: var(--text-primary);'}">
+                            ${task.completed ? '已完成' : '未完成'}
+                        </span>
+                    </div>
+
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">优先级</strong>
+                        <span class="task-priority ${task.priority}" style="font-size: 14px; padding: 6px 12px;">
+                            ${priorityInfo.icon} ${priorityInfo.label}
+                        </span>
+                    </div>
+
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">截止日期</strong>
+                        <span style="color: ${isOverdue ? 'var(--danger-color)' : 'var(--text-primary)'}; font-size: 14px;">
+                            ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : '无截止日期'}
+                        </span>
+                    </div>
+
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">分类</strong>
+                        <span style="color: var(--text-primary); font-size: 14px;">
+                            ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : '无分类'}
+                        </span>
+                    </div>
+
+                    <div style="grid-column: 1 / -1;">
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">标签</strong>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${tagsHtml}
+                        </div>
+                    </div>
+
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">创建时间</strong>
+                        <span style="color: var(--text-primary); font-size: 14px;">
+                            ${task.createdAt ? `📅 ${Utils.formatDate(task.createdAt)}` : '-'}
+                        </span>
+                    </div>
+
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">更新时间</strong>
+                        <span style="color: var(--text-primary); font-size: 14px;">
+                            ${task.updatedAt ? `📅 ${Utils.formatDate(task.updatedAt)}` : '-'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        Utils.confirmDialog(
+            detailContent,
+            null,
+            null,
+            '任务详情',
+            false
+        );
+
+        // 加载分类名称
+        this.loadCategoryNameForDetail(task.categoryId);
+    }
+
+    // 加载分类名称(用于详情对话框)
+    loadCategoryNameForDetail(categoryId) {
+        if (!categoryId) return;
+
+        try {
+            const response = pywebview.api.get_categories();
+            if (response.success) {
+                const categories = response.categories;
+                const category = categories.find(cat => cat.id === categoryId);
+                const categoryEl = document.querySelector('.task-category-detail');
+                if (category && categoryEl) {
+                    categoryEl.textContent = category.name;
+                }
+            }
+        } catch (error) {
+            console.error('加载分类失败:', error);
+        }
+    }
+
     // 编辑任务
     editTask(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
-        
+
         // 如果是周期性任务，禁用编辑
         if (task.isRecurring || task.parentTaskId) {
             Utils.showToast('周期性任务不支持编辑，请删除后重新创建', 'warning');
@@ -1945,28 +2149,51 @@ class TodoManager {
 
     // 处理窗口大小变化
     handleResize() {
-        const isMobile = this.isMobileDevice();
+        const isLargeScreen = window.innerWidth > 480;
         const pagination = document.getElementById('pagination');
+        const tasksList = document.getElementById('tasks-list');
 
-        if (isMobile) {
-            // 切换到移动端，隐藏分页，启用无限下拉
+        if (isLargeScreen) {
+            // 切换到大屏幕：使用分页模式，每页10条
+            console.log('Switching to large screen mode');
+
+            // 设置列表为表格布局
+            if (tasksList) {
+                tasksList.style.display = 'table';
+            }
+
+            // 移除无限下拉
+            this.removeInfiniteScroll();
+
+            // 显示分页
+            if (pagination) {
+                pagination.style.display = 'flex';
+            }
+
+            // 如果当前页不是第一页，重置到第一页
+            if (this.currentPage > 1) {
+                this.currentPage = 1;
+                this.loadTasks();
+            } else {
+                this.renderTasks();
+                this.renderPagination();
+            }
+        } else {
+            // 切换到小屏幕：使用无限下拉模式
+            console.log('Switching to small screen mode');
+
+            // 设置列表为flex布局
+            if (tasksList) {
+                tasksList.style.display = 'flex';
+            }
+
+            // 隐藏分页
             if (pagination) {
                 pagination.style.display = 'none';
             }
+
+            // 初始化无限下拉
             this.initInfiniteScroll();
-        } else {
-            // 切换到桌面端，显示分页，移除无限下拉
-            this.removeInfiniteScroll();
-            if (pagination) {
-                pagination.style.display = 'flex';
-                // 如果之前在移动端加载了多页数据,需要重新加载第一页以保证数据一致
-                if (this.currentPage > 1) {
-                    this.currentPage = 1;
-                    this.loadTasks();
-                } else {
-                    this.renderPagination();
-                }
-            }
         }
     }
 
