@@ -618,7 +618,7 @@ class TodoManager {
         }
 
         if (filteredTasks.length === 0) {
-            tasksList.style.display = 'none';
+            tasksList.style.setProperty('display', 'none', 'important');
             emptyState.style.display = 'block';
             // 隐藏分页
             if (pagination) {
