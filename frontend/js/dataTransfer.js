@@ -8,18 +8,41 @@ class DataTransfer {
         this.isSharing = false;
         this.currentMode = 'share';
         this.sharedData = null;
+        this.isInitialized = false;
 
-        // 获取DOM元素
-        this.initDOM();
+        try {
+            // 获取DOM元素
+            const domInitSuccess = this.initDOM();
+            
+            if (!domInitSuccess) {
+                throw new Error('DOM元素初始化失败');
+            }
 
-        // 延迟绑定事件，确保DOM完全加载
-        setTimeout(() => this.bindEvents(), 100);
+            // 延迟绑定事件，确保DOM完全加载
+            setTimeout(() => {
+                this.bindEvents();
+                this.isInitialized = true;
+                console.log('DataTransfer初始化完成');
+            }, 100);
+        } catch (error) {
+            console.error('DataTransfer初始化失败:', error);
+            this.isInitialized = false;
+        }
     }
 
     initDOM() {
         console.log('初始化DOM元素...');
+        
+        // 核心模态框元素
         this.modal = document.getElementById('data-transfer-modal');
         this.closeBtn = document.getElementById('data-transfer-close');
+        
+        if (!this.modal) {
+            console.error('未找到数据传输模态框元素');
+            return false;
+        }
+        
+        // 其他可选元素
         this.shareModeBtn = document.getElementById('share-mode-btn');
         this.receiveModeBtn = document.getElementById('receive-mode-btn');
         this.shareModePanel = document.getElementById('share-mode-panel');
@@ -40,40 +63,15 @@ class DataTransfer {
         this.cancelImportBtn = document.getElementById('cancel-import-btn');
 
         console.log('DOM元素初始化完成');
+        return true;
     }
 
     bindEvents() {
         console.log('开始绑定事件...');
 
-        // 打开模态框
-        const dataTransferBtn = document.getElementById('data-transfer-btn');
-        console.log('data-transfer-btn:', dataTransferBtn);
+        // 注意：数据传输通过设置中心的数据共享/接收按钮来调用
 
-        if (dataTransferBtn) {
-            // 方法1: addEventListener
-            dataTransferBtn.addEventListener('click', (e) => {
-                console.log('addEventListener - 按钮被点击');
-                e.preventDefault();
-                e.stopPropagation();
-                this.openModal();
-            });
-
-            // 方法2: onclick属性（备用）
-            dataTransferBtn.onclick = (e) => {
-                console.log('onclick - 按钮被点击');
-                if (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-                this.openModal();
-                return false;
-            };
-
-            console.log('数据传输按钮事件已绑定');
-        } else {
-            console.error('未找到data-transfer-btn元素！');
-            Utils.showToast('未找到数据传输按钮！', 'warning');
-        }
+        console.log('数据传输按钮事件绑定已跳过（功能已迁移到设置中心）');
 
         // 关闭模态框
         if (this.closeBtn) {
@@ -370,6 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dataTransfer) {
             dataTransfer = new DataTransfer();
             console.log('DataTransfer实例创建成功');
+            // 导出到全局
+            window.dataTransfer = dataTransfer;
         }
     }, 500);
 });
@@ -381,6 +381,8 @@ window.addEventListener('load', () => {
     if (!dataTransfer) {
         dataTransfer = new DataTransfer();
         console.log('DataTransfer实例（window.load）创建成功');
+        // 导出到全局
+        window.dataTransfer = dataTransfer;
     }
 });
 

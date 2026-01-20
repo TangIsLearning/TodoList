@@ -45,12 +45,12 @@ def start_app(window):
     """启动TodoList桌面应用"""
 
     def bind(window):
-        """绑定窗口置顶按钮点击事件"""
-        button = window.dom.get_element('#pin-top-btn')
-        button.events.click += click_handler
+        """绑定窗口置顶点击事件"""
+        button = window.dom.get_element('#window-top-toggle')
+        button.events.change += change_handler
 
-    def click_handler(e):
-        """窗口置顶按钮点击事件"""
+    def change_handler(e):
+        """窗口置顶点击事件"""
         global window_on_top
         window_on_top = not window_on_top
         app_logger.info("TodoList 应用当前是否设置置顶：" + str(window_on_top))

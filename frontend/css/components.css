@@ -714,7 +714,7 @@
         position: sticky;
         top: 0;
         z-index: 20;
-        background: white;
+        background: var(--bg-primary);
         box-shadow: 1px 0 0 0 #ddd, /* 右侧实线边框 */ 2px 0 5px rgba(0,0,0,0.1); /* 阴影增强层次感 */
     }
 
@@ -750,7 +750,7 @@
         position: sticky;
         right: 0;
         z-index: 10;
-        background: linear-gradient(to left, white 99%, rgba(0,0,0,0.1));
+        background: linear-gradient(to left, var(--bg-primary) 99%, rgba(0,0,0,0.1));
     }
 
     .task-item {
@@ -920,7 +920,7 @@
         border: none;
         cursor: default;
         transition: opacity 0.2s;
-        background-color: white !important;
+        background-color: var(--bg-primary) !important;
         border: 1px solid var(--primary-color);
         white-space: nowrap;
     }
@@ -941,7 +941,7 @@
         position: sticky;
         right: 0;
         z-index: 10;
-        background: linear-gradient(to left, white 99%, rgba(0,0,0,0.1));
+        background: linear-gradient(to left, var(--bg-primary) 99%, rgba(0,0,0,0.1));
     }
 
     .task-action-btn {
@@ -1092,7 +1092,7 @@
         border: none;
         cursor: default;
         transition: opacity 0.2s;
-        background-color: white !important;
+        background-color: var(--bg-primary) !important;
         border: 1px solid var(--primary-color);
     }
 

@@ -267,6 +267,193 @@ body {
     background-color: var(--bg-tertiary);
 }
 
+/* 设置按钮 */
+.settings-btn {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition-fast);
+}
+
+.settings-btn:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* 设置中心模态框 */
+.settings-modal-content {
+    max-width: 500px;
+}
+
+.setting-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.setting-section h3 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-sm);
+    transition: var(--transition-fast);
+}
+
+.setting-item:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.setting-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.setting-icon {
+    font-size: var(--font-size-lg);
+}
+
+.setting-text {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 开关按钮样式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-tertiary);
+    transition: var(--transition-fast);
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: var(--transition-fast);
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* 主题选项样式 */
+.theme-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.theme-option {
+    display: block;
+    cursor: pointer;
+}
+
+.theme-option input {
+    display: none;
+}
+
+.theme-preview {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    transition: var(--transition-fast);
+}
+
+.theme-option input:checked + .theme-preview {
+    border-color: var(--primary-color);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.theme-option:hover .theme-preview {
+    background-color: var(--bg-tertiary);
+}
+
+.theme-icon {
+    font-size: var(--font-size-lg);
+}
+
+.theme-label {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 数据操作按钮 */
+.data-options {
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.data-action-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    background-color: var(--bg-secondary);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: center;
+}
+
+.data-action-btn:hover {
+    background-color: var(--bg-tertiary);
+    border-color: var(--primary-color);
+}
+
+.data-icon {
+    font-size: var(--font-size-xxl);
+}
+
+.data-label {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 /* 统计信息 */
 .stats-container {
     padding: var(--spacing-lg);
@@ -858,7 +1045,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background-color: white;
+    background-color: var(--bg-primary);
 }
 
 /* 应用头部 */
@@ -1561,7 +1748,23 @@ body {
     }
 }
 
-/* 小屏幕优化 */
+/* 移动端优化 - 基于触摸设备检测 */
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
+    .desktop-only {
+        display: none;
+    }
+
+    .mobile-only {
+        display: flex;
+    }
+
+    /* 移动端隐藏窗口置顶设置项 */
+    .setting-section:first-child {
+        display: none;
+    }
+}
+
+/* 小屏幕优化（兼容旧版浏览器） */
 @media (min-width: 321px) and (max-width: 480px) {
     .desktop-only {
         display: none;
