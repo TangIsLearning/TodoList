@@ -34,12 +34,14 @@ class CalendarManager {
     // 切换视图
     toggleView() {
         const tasksView = document.getElementById('tasks-view');
+        const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
         const viewToggleBtn = document.getElementById('view-toggle-btn');
 
         if (this.currentView === 'list') {
             // 切换到日历视图
             tasksView.style.display = 'none';
+            pagination.style.display = 'none';
             calendarView.style.display = 'block';
             viewToggleBtn.textContent = '📋 列表视图';
             viewToggleBtn.classList.add('active');
@@ -48,6 +50,7 @@ class CalendarManager {
         } else {
             // 切换到列表视图
             tasksView.style.display = 'block';
+            pagination.style.display = 'flex';
             calendarView.style.display = 'none';
             viewToggleBtn.textContent = '📅 日历视图';
             viewToggleBtn.classList.remove('active');
