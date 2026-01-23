@@ -12,28 +12,14 @@ function formatDate(dateString) {
     const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const diffTime = dateOnly - nowOnly;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    const formatted = date.toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    if (diffDays === 0) {
-        return `今天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-    } else if (diffDays === 1) {
-        return `明天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-    } else if (diffDays === -1) {
-        return `昨天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-    } else if (diffDays > 0 && diffDays <= 7) {
-        return `${diffDays}天后 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-    } else if (diffDays < 0) {
-        return `已过期 ${formatted}`;
-    }
-    
-    return formatted;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
 // 生成唯一ID
@@ -153,91 +139,6 @@ function isOverdue(dueDate) {
     
     return taskDateOnly < nowDateOnly;
 }
-
-// 截止时间校验函数集合
-const DateTimeValidator = {
-    // 校验截止时间的有效性（不能早于当前时间）
-    validateDueDateTime(dateStr, timeStr) {
-        if (!dateStr || !timeStr) {
-            return { valid: true, message: '' }; // 如果不全选，由另一个校验处理
-        }
-        
-        const dueDate = new Date(`${dateStr}T${timeStr}`);
-        const now = new Date();
-
-        // 检查是否早于当前时间
-        if (dueDate < now) {
-            return { 
-                valid: false, 
-                message: '截止时间不能早于当前时间'
-            };
-        }
-        
-        return { valid: true, message: '' };
-    },
-    
-    // 校验日期和时间的完整性（要么都选，要么都不选）
-    validateDateTimeCompleteness(dateStr, timeStr) {
-        const hasDate = !!dateStr && dateStr.trim() !== '';
-        const hasTime = !!timeStr && timeStr.trim() !== '';
-        
-        // 如果一个选择了，另一个没选择，则报错
-        if (hasDate !== hasTime) {
-            return {
-                valid: false,
-                message: hasDate ? '选择了日期必须同时选择时间' : '选择了时间必须同时选择日期'
-            };
-        }
-        
-        return { valid: true, message: '' };
-    },
-    
-    // 综合校验
-    validateDateTime(dateStr, timeStr) {
-        // 先校验完整性
-        const completenessResult = this.validateDateTimeCompleteness(dateStr, timeStr);
-        if (!completenessResult.valid) {
-            return completenessResult;
-        }
-        
-        // 再校验有效性
-        return this.validateDueDateTime(dateStr, timeStr);
-    }
-};
-
-// 主题管理
-const ThemeManager = {
-    init() {
-        // 异步加载主题设置
-        Storage.storage.load('theme', 'light').then(savedTheme => {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            this.updateToggleButton(savedTheme);
-        });
-    },
-
-    toggle() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-        // 立即更新 UI
-        document.documentElement.setAttribute('data-theme', newTheme);
-        this.updateToggleButton(newTheme);
-
-        // 异步保存到三层存储
-        Storage.storage.save('theme', newTheme).then(() => {
-            showToast(`已切换到${newTheme === 'dark' ? '深色' : '浅色'}主题`, 'success');
-        }).catch(error => {
-            console.error('保存主题失败:', error);
-        });
-    },
-
-    updateToggleButton(theme) {
-        const toggleBtn = document.getElementById('theme-toggle');
-        if (toggleBtn) {
-            toggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
-    }
-};
 
 // 模态框管理
 const ModalManager = {
@@ -382,19 +283,6 @@ function confirmDialog(message, callback, onCancel = null, title = null) {
     document.addEventListener('keydown', handleEscape);
 }
 
-// 复制到剪贴板
-async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast('已复制到剪贴板', 'success');
-        return true;
-    } catch (err) {
-        console.error('复制失败:', err);
-        showToast('复制失败', 'error');
-        return false;
-    }
-}
-
 // 导出工具函数到全局
 window.Utils = {
     formatDate,
@@ -409,9 +297,6 @@ window.Utils = {
     isValidUrl,
     getPriorityInfo,
     isOverdue,
-    DateTimeValidator,
-    ThemeManager,
     ModalManager,
-    confirmDialog,
-    copyToClipboard
+    confirmDialog
 };

@@ -123,7 +123,8 @@ class DataTransfer {
             this.modal.style.display = 'flex';
             this.loadDataSummary();
         } else {
-            Utils.showToast('模态框未找到！', 'warning');
+            console.log('模态框未找到！');
+            Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
         }
     }
 
@@ -193,24 +194,24 @@ class DataTransfer {
                     this.sharePort.textContent = result.port;
 
                     // 显示详细的启动信息，包括防火墙配置状态
-                    let message = `✓ 共享已启动\n\nIP地址: ${result.ip}\n端口: ${result.port}`;
+                    let message = `✓ ${window.languageManager.getText('sharingStarted', '共享已启动')}\n\n`;
 
                     // 如果消息包含防火墙相关信息，显示给用户
                     if (result.message) {
-                        message += `\n\n详细信息:\n${result.message}`;
+                        message += `\n\n:\n${result.message}`;
                     }
                     Utils.setLoading(false);
                     Utils.showToast(message, 'success');
                 } else {
                     Utils.setLoading(false);
-                    Utils.showToast('启动共享失败: ' + result.error, 'error');
+                    Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${result.error}`, 'error');
                 }
             } else {
-                Utils.showToast('导出数据失败: ' + exportResult.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${exportResult.error}`, 'error');
             }
         } catch (error) {
             console.error('启动共享失败:', error);
-            Utils.showToast('启动共享失败: ' + error.message, 'error');
+            Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${error.message}`, 'error');
         }
     }
 
@@ -226,15 +227,15 @@ class DataTransfer {
                 this.shareStatus.style.display = 'none';
                 this.sharedData = null;
                 Utils.setLoading(false);
-                Utils.showToast('共享已停止', 'success');
+                Utils.showToast(window.languageManager.getText('sharingStopped', '共享已停止'), 'success');
             } else {
                 Utils.setLoading(false);
-                Utils.showToast('停止共享失败: ', 'warning');
+                Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
             }
         } catch (error) {
             Utils.setLoading(false);
             console.error('停止共享失败:', error);
-            Utils.showToast('停止共享失败: ' + error.message, 'warning');
+            Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${error.message}`, 'error');
         }
     }
 
@@ -248,15 +249,15 @@ class DataTransfer {
                 if (result.devices && result.devices.length > 0) {
                     this.displayDevices(result.devices);
                 } else {
-                    this.deviceList.innerHTML = '<p>未找到可用的设备</p>';
+                    this.deviceList.innerHTML = `<p>${window.languageManager.getText('NoDeviceFound', '未找到可用的设备')}</p>`;
                 }
                 this.deviceListSection.style.display = 'block';
             } else {
-                Utils.showToast('扫描设备失败: ' + result.error, 'warning');
+                Utils.showToast(`${window.languageManager.getText('unknownErrorOccurred', '发生了未知错误')}: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('扫描设备失败:', error);
-            Utils.showToast('扫描设备失败: ' + error.message, 'warning');
+            Utils.showToast(`${window.languageManager.getText('unknownErrorOccurred', '发生了未知错误')}: ${error.message}`, 'error');
         } finally {
             this.scanDevicesBtn.disabled = false;
             this.scanDevicesBtn.textContent = '扫描局域网设备';
@@ -292,13 +293,13 @@ class DataTransfer {
                     this.importWarning.style.display = 'flex';
                 }
             } else {
-                this.deviceList.innerHTML = '<p style="text-align: center;">接收数据失败</p>';
-                Utils.showToast('接收数据失败', 'error');
+                this.deviceList.innerHTML = `<p style="text-align: center;">${window.languageManager.getText('receiveDataFailed', '接收数据失败')}</p>`;
+                Utils.showToast(window.languageManager.getText('receiveDataFailed', '接收数据失败'), 'error');
             }
         } catch (error) {
             console.error('接收数据失败:', error);
-            this.deviceList.innerHTML = '<p style="text-align: center;">接收数据失败</p>';
-            Utils.showToast('接收数据失败: ' + error.message, 'error');
+            this.deviceList.innerHTML = `<p style="text-align: center;">${window.languageManager.getText('receiveDataFailed', '接收数据失败')}</p>`;
+            Utils.showToast(`${window.languageManager.getText('receiveDataFailed', '接收数据失败')}: ${error.message}`, 'error');
         }
     }
 
@@ -330,20 +331,20 @@ class DataTransfer {
             if (result.success && result.data) {
                 const importResult = await pywebview.api.p2p_import_data(result.data);
                 if (importResult.success) {
-                    Utils.showToast('数据导入成功！', 'success');
+                    Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
                     this.closeModal();
                     setTimeout(() => {
                         location.reload();
                     }, 1000);
                 } else {
-                    Utils.showToast('数据导入失败: ' + importResult.error, 'error');
+                    Utils.showToast(`${window.languageManager.getText('dataImportedFailed', '数据导入失败')}: ${importResult.error}`, 'error');
                 }
             } else {
-                Utils.showToast('无法获取接收到的数据', 'error');
+                Utils.showToast(window.languageManager.getText('retrieveDataFailed', '无法获取接收到的数据'), 'error');
             }
         } catch (error) {
             console.error('导入数据失败:', error);
-            Utils.showToast('导入数据失败: ' + error.message, 'error');
+            Utils.showToast(`${window.languageManager.getText('dataImportedFailed', '数据导入失败')}: ${error.message}`, 'error');
         } finally {
             this.confirmImportBtn.disabled = false;
             this.confirmImportBtn.textContent = '确认导入';
@@ -392,6 +393,6 @@ window.openDataTransferModal = function() {
     if (dataTransfer) {
         dataTransfer.openModal();
     } else {
-        Utils.showToast('DataTransfer模块未初始化，请刷新页面重试', 'error');
+        Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
     }
 };

@@ -17,7 +17,7 @@ class App {
             }
             
             // 初始化主题
-            Utils.ThemeManager.init();
+            BusinessUtils.ThemeManager.init();
             
             // 绑定全局事件
             this.bindGlobalEvents();
@@ -37,7 +37,7 @@ class App {
         } catch (error) {
             logger.error(`Failed to initialize app: ${error}`, 'App');
             console.error('Failed to initialize app:', error);
-            Utils.showToast('应用初始化失败，请刷新页面重试', 'error');
+            Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
             Utils.setLoading(false);
         }
     }
@@ -55,7 +55,7 @@ class App {
         
         if (missingElements.length > 0) {
             console.error('Missing required elements:', missingElements);
-            Utils.showToast('页面加载不完整，请刷新页面重试', 'error');
+            Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
             return false;
         }
         
@@ -95,15 +95,6 @@ class App {
             this.handleResize();
         }, 250));
         
-        // 在线/离线状态
-        window.addEventListener('online', () => {
-            Utils.showToast('网络已连接', 'success');
-        });
-        
-        window.addEventListener('offline', () => {
-            Utils.showToast('网络已断开，部分功能可能受影响', 'warning');
-        });
-        
         // 页面可见性变化
         document.addEventListener('visibilitychange', () => {
             this.handleVisibilityChange();
@@ -112,12 +103,12 @@ class App {
         // 错误处理
         window.addEventListener('error', (e) => {
             console.error('Global error:', e.error);
-            Utils.showToast('发生了未知错误', 'error');
+            Utils.showToast(window.languageManager.getText('unknownErrorOccurred', '发生了未知错误'), 'error');
         });
         
         window.addEventListener('unhandledrejection', (e) => {
             console.error('Unhandled promise rejection:', e.reason);
-            Utils.showToast('异步操作失败', 'error');
+            Utils.showToast(window.languageManager.getText('unknownErrorOccurred', '发生了未知错误'), 'error');
         });
     }
     
@@ -163,7 +154,7 @@ class App {
                 }
             } catch (error) {
                 console.error(`Failed to initialize ${module.name}:`, error);
-                Utils.showToast(`初始化${module.name}失败`, 'error');
+                Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
             }
         }
     }
@@ -189,7 +180,7 @@ class App {
             // 应用主题设置
             if (theme) {
                 document.documentElement.setAttribute('data-theme', theme);
-                Utils.ThemeManager.updateToggleButton(theme);
+                BusinessUtils.ThemeManager.updateToggleButton(theme);
             }
 
             console.log('User settings restored');
@@ -217,7 +208,7 @@ class App {
             
         } catch (error) {
             console.error('Failed to refresh data:', error);
-            Utils.showToast('刷新数据失败', 'error');
+            Utils.showToast(window.languageManager.getText('refreshDataFailed', '刷新数据失败'), 'error');
         } finally {
             Utils.setLoading(false);
         }
@@ -264,11 +255,11 @@ class App {
             // 刷新数据
             await this.refreshData();
             
-            Utils.showToast('应用状态已重置', 'success');
+            Utils.showToast(window.languageManager.getText('resetStateSuccess', '应用状态已重置'), 'success');
             
         } catch (error) {
             console.error('Failed to reset app:', error);
-            Utils.showToast('重置失败', 'error');
+            Utils.showToast(window.languageManager.getText('resetStateFailed', '重置失败'), 'error');
         }
     }
     

@@ -59,7 +59,7 @@
         <div class="categories-section">
             <h3>分类</h3>
             <div class="category-list" id="category-list">
-                <button class="category-item active" data-category="all">
+                <button class="category-item active" id="all-category-item" data-category="all">
                     <span>📋 全部</span>
                     <span class="category-count">0</span>
                 </button>
@@ -205,7 +205,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label>标签 <span style="color: #999; font-size: 12px;">（选择或添加标签）</span></label>
+                    <label for="tags-selector">标签 <span style="color: #999; font-size: 12px;">（选择或添加标签）</span></label>
                     <div id="tags-selector" class="tags-selector">
                         <!-- 标签列表将通过JavaScript动态生成 -->
                     </div>
@@ -253,8 +253,10 @@
                             </div>
                         </div>
 
-                        <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务
-                            <input type="checkbox" id="is-recurring"></span>
+                        <label for="is-recurring" class="recurrence-toggle">
+                            <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务</span>
+                            <input type="checkbox" id="is-recurring">
+                        </label>
                         <div id="recurring-options" class="recurring-options" style="display: none;">
                             <div class="form-row">
                                 <div class="form-group">
@@ -386,7 +388,7 @@
                 </div>
             </div>
 
-            <!-- 数据共享设置 -->
+            <!-- 数据管理 -->
             <div class="setting-section">
                 <h3>数据管理</h3>
                 <div class="data-options">
@@ -398,6 +400,25 @@
                         <span class="data-icon">📥</span>
                         <span class="data-label">接收数据</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- 语言设置 -->
+            <div class="setting-section">
+                <h3 id="language-section-title">语言</h3>
+                <div class="language-options">
+                    <label class="language-option">
+                        <input type="radio" name="language" value="zh" id="language-zh">
+                        <span class="language-preview">
+                            <span class="language-text">中文</span>
+                        </span>
+                    </label>
+                    <label class="language-option">
+                        <input type="radio" name="language" value="en" id="language-en">
+                        <span class="language-preview">
+                            <span class="language-text">English</span>
+                        </span>
+                    </label>
                 </div>
             </div>
         </div>
@@ -490,11 +511,14 @@
 </div>
 
 <!-- JavaScript文件 -->
+<script src="config/languages.js"></script>
 <script src="js/pikaday.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/data-cache.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/business-utils.js"></script>
 <script src="js/logger.js"></script>
+<script src="js/language.js"></script>
 <script src="js/todo.js"></script>
 <script src="js/category.js"></script>
 <script src="js/calendar.js"></script>

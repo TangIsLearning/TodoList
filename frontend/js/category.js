@@ -127,7 +127,7 @@ class CategoryManager {
                     useCache = true;
                 } else {
                     this.categories = [];
-                    Utils.showToast('加载分类失败', 'error');
+                    Utils.showToast(window.languageManager.getText('loadCategoriesFailed', '加载分类失败'), 'error');
                     return;
                 }
             }
@@ -141,14 +141,14 @@ class CategoryManager {
                 }
                 
                 if (useCache) {
-                    Utils.showToast('使用缓存分类数据，网络连接可能异常', 'warning');
+                    Utils.showToast(window.languageManager.getText('useTaskCached', '使用缓存数据'), 'warning');
                 }
             } else {
-                Utils.showToast('加载分类失败: ' + response.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('loadCategoriesFailed', '加载分类失败')}: ${response.error}`, 'error');
             }
         } catch (error) {
             console.error('加载分类失败:', error);
-            Utils.showToast('加载分类失败', 'error');
+            Utils.showToast(window.languageManager.getText('loadCategoriesFailed', '加载分类失败'), 'error');
         }
     }
     
@@ -174,7 +174,7 @@ class CategoryManager {
             <button class="category-item" data-category="all">
                 <span class="category-item-with-color">
                     <span class="category-color-indicator" style="background-color: var(--primary-color);"></span>
-                    <span>📋 全部</span>
+                    <span id="allCategories">${window.languageManager.getText('allCategories', '全部')}</span>
                 </span>
                 <span class="category-count">${taskCounts.all || 0}</span>
             </button>
@@ -305,7 +305,7 @@ class CategoryManager {
         };
         
         if (!categoryData.name) {
-            Utils.showToast('请输入分类名称', 'warning');
+            Utils.showToast(window.languageManager.getText('errorCategoryNameRequired', '请输入分类名称'), 'warning');
             return;
         }
         
@@ -315,7 +315,7 @@ class CategoryManager {
         );
         
         if (isDuplicate) {
-            Utils.showToast('分类名称已存在', 'warning');
+            Utils.showToast(window.languageManager.getText('errorCategoryExisted', '分类名称已存在'), 'warning');
             return;
         }
         
@@ -330,7 +330,9 @@ class CategoryManager {
             }
             
             if (response.success) {
-                Utils.showToast(isEdit ? '分类更新成功' : '分类创建成功', 'success');
+                Utils.showToast(isEdit ?
+                    window.languageManager.getText('categoryUpdated', '分类更新成功') :
+                    window.languageManager.getText('categoryCreated', '分类创建成功'), 'success');
                 Utils.ModalManager.hide('category-modal');
                 
                 // 清除缓存，因为数据已更新
@@ -344,11 +346,11 @@ class CategoryManager {
                     await window.todoManager.loadTasks();
                 }
             } else {
-                Utils.showToast((isEdit ? '更新' : '创建') + '失败: ' + response.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
             }
         } catch (error) {
             console.error('保存分类失败:', error);
-            Utils.showToast('保存失败', 'error');
+            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
         } finally {
             Utils.setLoading(false);
         }
@@ -396,7 +398,7 @@ class CategoryManager {
                 
                 const response = await pywebview.api.delete_category(categoryId);
                 if (response.success) {
-                    Utils.showToast('分类删除成功', 'success');
+                    Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
                     
                     // 清除缓存，因为数据已更新
                     window.DataCache.remove('categories');
@@ -414,11 +416,11 @@ class CategoryManager {
                         await window.todoManager.loadTasks();
                     }
                 } else {
-                    Utils.showToast('删除失败: ' + response.error, 'error');
+                    Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('删除分类失败:', error);
-                Utils.showToast('删除失败', 'error');
+                Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
             } finally {
                 Utils.setLoading(false);
             }

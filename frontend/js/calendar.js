@@ -273,7 +273,7 @@ class CalendarManager {
             await window.todoManager.loadTasks();
 
             // 显示提示信息
-            Utils.showToast(`显示 ${dateStr} 的任务`, 'info');
+            Utils.showToast(`${window.languageManager.getText('showTaskFor', '当前任务日期：')} ${dateStr}`, 'info');
         }
     }
 }

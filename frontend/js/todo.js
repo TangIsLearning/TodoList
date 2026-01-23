@@ -312,7 +312,7 @@ class TodoManager {
                     align-items: center;
                     gap: 6px;
                 `;
-                notice.innerHTML = '⚠️ 非周期性任务编辑模式下不支持改周期性任务';
+                notice.innerHTML = `⚠️ ${window.languageManager.getText('recurringEditNotice', '非周期性任务编辑模式下不支持改周期性任务')}`;
                 
                 // 插入到周期性选项区域之前
                 const recurringOptions = document.getElementById('recurring-options');
@@ -386,7 +386,7 @@ class TodoManager {
             const timeStr = timeInput.value || null;
             
             // 执行校验
-            const validation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            const validation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
             
             // 获取或创建错误消息容器
             let errorContainer = document.querySelector('.datetime-error');
@@ -584,14 +584,15 @@ class TodoManager {
                 }
 
                 if (useCache) {
-                    Utils.showToast('使用缓存数据，网络连接可能异常', 'warning');
+                    Utils.showToast(window.languageManager.getText('useTaskCached', '使用缓存数据'), 'warning');
                 }
             } else {
-                Utils.showToast('无缓存加载任务失败', 'error');
+                console.error('无缓存加载任务失败:', error);
+                Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error');
             }
         } catch (error) {
             console.error('加载任务失败:', error);
-            Utils.showToast('加载任务失败', 'error');
+            Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error');
         } finally {
             Utils.setLoading(false);
         }
@@ -643,11 +644,11 @@ class TodoManager {
             html += `
                 <div class="tasks-header">
                     <div class="tasks-header-row">
-                        <div class="tasks-header-cell">任务名称</div>
-                        <div class="tasks-header-cell">优先级</div>
-                        <div class="tasks-header-cell">到期时间</div>
-                        <div class="tasks-header-cell">标签</div>
-                        <div class="tasks-header-cell">操作</div>
+                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderName', '任务名称')}</div>
+                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderPriority', '优先级')}</div>
+                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderDueDate', '到期时间')}</div>
+                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderTag', '标签')}</div>
+                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderAction', '操作')}</div>
                     </div>
                 </div>
             `;
@@ -940,8 +941,8 @@ class TodoManager {
                             <div class="task-content">
                                 <h3 class="task-title">
                                     ${Utils.escapeHtml(task.title)}
-                                    ${task.isRecurring ? '<span class="recurring-badge">周期性</span>' : ''}
-                                    ${task.parentTaskId ? '<span class="recurring-badge">周期任务</span>' : ''}
+                                    ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
+                                    ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                                 </h3>
                             </div>
                         </div>
@@ -949,7 +950,7 @@ class TodoManager {
                     </div>
                     <div class="task-meta">
                         <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
-                            ${priorityInfo.icon} ${priorityInfo.label}
+                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                         </span>
                     </div>
                     <div class="task-due-date-cell">
@@ -983,13 +984,13 @@ class TodoManager {
                     <div class="task-content">
                         <h3 class="task-title">
                             ${Utils.escapeHtml(task.title)}
-                            ${task.isRecurring ? '<span class="recurring-badge">周期性</span>' : ''}
-                            ${task.parentTaskId ? '<span class="recurring-badge">周期任务</span>' : ''}
+                            ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
+                            ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                         </h3>
                         ${task.description ? `<p class="task-description">${Utils.escapeHtml(task.description)}</p>` : ''}
                         <div class="task-meta">
                             <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
-                                ${priorityInfo.icon} ${priorityInfo.label}
+                                ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                             </span>
                             ${task.categoryId ? `
                                 <span class="task-category" data-category-id="${task.categoryId}">
@@ -1049,7 +1050,7 @@ class TodoManager {
             // 如果是周期性任务，禁用编辑按钮并添加点击提示
             if (task && (task.isRecurring || task.parentTaskId)) {
                 btn.disabled = true;
-                btn.title = '周期性任务不支持编辑';
+                btn.title = `${window.languageManager.getText('recurringTaskEditTip', '周期性任务不支持编辑')}`;
                 btn.style.opacity = '0.5';
                 btn.style.cursor = 'not-allowed';
                 console.log(`禁用编辑按钮: ${taskId}`);
@@ -1058,11 +1059,11 @@ class TodoManager {
                 btn.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    Utils.showToast('周期性任务不支持编辑，请删除后重新创建', 'warning');
+                    Utils.showToast(window.languageManager.getText('periodicTaskEditFailed', '周期性任务不支持编辑，请删除后重新创建'), 'warning');
                 };
             } else {
                 btn.disabled = false;
-                btn.title = '编辑';
+                btn.title = `${window.languageManager.getText('normalTaskEditTip', '编辑')}`;
                 btn.style.opacity = '';
                 btn.style.cursor = '';
                 console.log(`启用编辑按钮: ${taskId}`);
@@ -1128,14 +1129,16 @@ class TodoManager {
                     window.DataCache.remove('tasks');
                     
                     // 不需要调用 renderCategories()，updateCategoryCounts() 已经更新了分类统计
-                    Utils.showToast(task.completed ? '任务已完成' : '任务已重新开启', 'success');
+                    Utils.showToast(task.completed ?
+                        window.languageManager.getText('taskCompleted', '任务已完成') :
+                        window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
                 }
             } else {
-                Utils.showToast('操作失败: ' + response.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
             }
         } catch (error) {
             console.error('切换任务状态失败:', error);
-            Utils.showToast('操作失败', 'error');
+            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
         }
     }
     
@@ -1196,7 +1199,7 @@ class TodoManager {
                 </span>`
             ).join('');
         } else {
-            tagsHtml = '<span style="color: var(--text-secondary);">无标签</span>';
+            tagsHtml = `<span style="color: var(--text-secondary);">${window.languageManager.getText('noTaskTags', '无标签')}</span>`;
         }
 
         const detailContent = `
@@ -1204,60 +1207,60 @@ class TodoManager {
                 <div style="margin-bottom: 20px;">
                     <h3 style="font-size: 20px; color: var(--text-primary); margin-bottom: 10px;">
                         ${Utils.escapeHtml(task.title)}
-                        ${task.isRecurring ? '<span class="recurring-badge">周期性</span>' : ''}
-                        ${task.parentTaskId ? '<span class="recurring-badge">周期任务</span>' : ''}
+                        ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
+                        ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                     </h3>
                     <p style="color: var(--text-secondary); line-height: 1.6;">
-                        ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : '无描述'}
+                        ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : window.languageManager.getText('noTaskDescription', '无描述')}
                     </p>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">状态</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskStatus', '状态')}</strong>
                         <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
                               ${task.completed ? 'background-color: var(--success-color); color: white;' : 'background-color: var(--priority-medium); color: var(--text-primary);'}">
-                            ${task.completed ? '已完成' : '未完成'}
+                            ${task.completed ? window.languageManager.getText('statusCompleted', '已完成') : window.languageManager.getText('statusUncompleted', '未完成')}
                         </span>
                     </div>
 
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">优先级</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskPriority', '优先级')}</strong>
                         <span class="task-priority ${task.priority}" style="font-size: 14px; padding: 6px 12px;">
-                            ${priorityInfo.icon} ${priorityInfo.label}
+                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                         </span>
                     </div>
 
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">截止日期</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskDueDate', '截止日期')}</strong>
                         <span style="color: ${isOverdue ? 'var(--danger-color)' : 'var(--text-primary)'}; font-size: 14px;">
-                            ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : '无截止日期'}
+                            ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : window.languageManager.getText('dueDateNoDueDate', '无截止日期')}
                         </span>
                     </div>
 
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">分类</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCategory', '分类')}</strong>
                         <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : '无分类'}
+                            ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : window.languageManager.getText('uncategorized', '无分类')}
                         </span>
                     </div>
 
                     <div style="grid-column: 1 / -1;">
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">标签</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskTags', '标签')}</strong>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                             ${tagsHtml}
                         </div>
                     </div>
 
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">创建时间</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCreateTime', '创建时间')}</strong>
                         <span style="color: var(--text-primary); font-size: 14px;">
                             ${task.createdAt ? `📅 ${Utils.formatDate(task.createdAt)}` : '-'}
                         </span>
                     </div>
 
                     <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">更新时间</strong>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskUpdateTime', '更新时间')}</strong>
                         <span style="color: var(--text-primary); font-size: 14px;">
                             ${task.updatedAt ? `📅 ${Utils.formatDate(task.updatedAt)}` : '-'}
                         </span>
@@ -1304,7 +1307,7 @@ class TodoManager {
 
         // 如果是周期性任务，禁用编辑
         if (task.isRecurring || task.parentTaskId) {
-            Utils.showToast('周期性任务不支持编辑，请删除后重新创建', 'warning');
+            Utils.showToast(window.languageManager.getText('periodicTaskEditFailed', '周期性任务不支持编辑，请删除后重新创建'), 'warning');
             return;
         }
         
@@ -1381,6 +1384,7 @@ class TodoManager {
             isRecurringCheckbox.checked = false;
             isRecurringCheckbox.title = '编辑模式下不支持创建周期性任务';
             recurrenceToggle.style.display = 'none';
+            isRecurringCheckbox.style.display = 'none';
         }
         
         // 隐藏周期性选项区域
@@ -1413,6 +1417,7 @@ class TodoManager {
             isRecurringCheckbox.checked = false;
             isRecurringCheckbox.title = '';
             recurrenceToggle.style.display = 'block';
+            isRecurringCheckbox.style.display = 'block';
         }
         
         // 启用其他字段
@@ -1441,7 +1446,7 @@ class TodoManager {
             if (response.success) {
                 const categories = response.categories;
                 
-                categorySelect.innerHTML = '<option value="">无分类</option>';
+                categorySelect.innerHTML = `<option value="">${window.languageManager.getText('uncategorized', '未分类')}</option>`;
                 categories.forEach(cat => {
                     const option = document.createElement('option');
                     option.value = cat.id;
@@ -1467,7 +1472,7 @@ class TodoManager {
         const timeStr = document.getElementById('task-due-time').value || null;
         
         // 校验截止时间
-        const dateTimeValidation = Utils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+        const dateTimeValidation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
         if (!dateTimeValidation.valid) {
             Utils.showToast(dateTimeValidation.message, 'warning');
             return;
@@ -1502,7 +1507,7 @@ class TodoManager {
         }
         
         if (!taskData.title) {
-            Utils.showToast('请输入任务标题', 'warning');
+            Utils.showToast(window.languageManager.getText('errorTitleRequired', '请输入任务标题'), 'warning');
             return;
         }
         
@@ -1522,8 +1527,8 @@ class TodoManager {
             }
             
             if (response.success) {
-                const message = isEdit ? '任务更新成功' :
-                    (taskData.isRecurring ? `成功创建${response.tasks?.length || 1}个周期性任务` : '任务创建成功');
+                const message = isEdit ? window.languageManager.getText('taskUpdated', '任务更新成功') :
+                    window.languageManager.getText('taskCreated', '任务创建成功');
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
                 
@@ -1534,11 +1539,11 @@ class TodoManager {
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
             } else {
-                Utils.showToast((isEdit ? '更新' : '创建') + '失败: ' + response.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }
         } catch (error) {
             console.error('保存任务失败:', error);
-            Utils.showToast('保存失败', 'error');
+            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
         } finally {
             Utils.setLoading(false);
         }
@@ -1626,7 +1631,9 @@ class TodoManager {
             console.log('删除API响应:', response);
             
             if (response.success) {
-                const message = deleteAll ? '整个周期任务删除成功' : '任务删除成功';
+                const message = deleteAll ?
+                    window.languageManager.getText('periodicTaskDeleted', '整个周期任务删除成功') :
+                    window.languageManager.getText('taskDeleted', '任务删除成功');
                 Utils.showToast(message, 'success');
                 
                 // 清除缓存，因为数据已更新
@@ -1645,11 +1652,11 @@ class TodoManager {
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
             } else {
-                Utils.showToast('删除失败: ' + response.error, 'error');
+                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }
         } catch (error) {
             console.error('删除任务失败:', error);
-            Utils.showToast('删除失败', 'error');
+            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
             
             // 发生错误时重新加载任务以确保数据一致性
             try {
@@ -1713,8 +1720,8 @@ class TodoManager {
         // 更新显示信息
         const start = (this.currentPage - 1) * this.pageSize + 1;
         const end = Math.min(this.currentPage * this.pageSize, this.totalTasks);
-        showingEl.textContent = `显示 ${start}-${end} 共 ${this.totalTasks} 条`;
-        
+        showingEl.textContent = `${window.languageManager.getText('paginationShowing', '显示')} ${start}-${end} ${window.languageManager.getText('paginationOf', '共')} ${this.totalTasks} ${window.languageManager.getText('paginationItems', '条')}`;
+
         // 更新每页数量选择器
         pageSizeSelect.value = this.pageSize;
         
@@ -1845,13 +1852,13 @@ class TodoManager {
 
         switch (this.statsDimension) {
             case 'all':
-                dateRangeText = '全部时间';
+                dateRangeText = `${window.languageManager.getText('statsTimeDimension.all', '全部')}`;
                 break;
             case 'year':
-                dateRangeText = `${year}年`;
+                dateRangeText = `${year}`;
                 break;
             case 'month':
-                dateRangeText = `${year}年 ${month}月`;
+                dateRangeText = `${year}-${month}`;
                 break;
             case 'week':
                 // 计算本周的周一和周日
@@ -1867,13 +1874,13 @@ class TodoManager {
 
                 // 如果跨月，显示月份
                 if (mondayMonth === sundayMonth) {
-                    dateRangeText = `${mondayMonth}月${mondayDay}日 - ${sundayDay}日`;
+                    dateRangeText = `${mondayMonth}/${mondayDay} - ${mondayMonth}/${sundayDay}`;
                 } else {
-                    dateRangeText = `${mondayMonth}月${mondayDay}日 - ${sundayMonth}月${sundayDay}日`;
+                    dateRangeText = `${mondayMonth}/${mondayDay} - ${sundayMonth}/${sundayDay}`;
                 }
                 break;
             case 'day':
-                dateRangeText = `${year}年 ${month}月 ${day}日`;
+                dateRangeText = `${year}-${month}-${day}`;
                 break;
         }
 
@@ -2066,7 +2073,7 @@ class TodoManager {
             }
         } catch (error) {
             console.error('加载更多任务失败:', error);
-            Utils.showToast('加载更多任务失败', 'error');
+            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
         } finally {
             this.isLoadingMore = false;
             this.hideLoadingMore();
@@ -2247,7 +2254,7 @@ class TodoManager {
         // 添加"新增标签"按钮
         html += `
             <span class="tag-add-btn" id="add-tag-btn">
-                + 标签
+                + ${window.languageManager.getText('taskTag', '标签')}
             </span>
         `;
 
@@ -2312,7 +2319,7 @@ class TodoManager {
                 try {
                     const response = await pywebview.api.delete_tag(tagId);
                     if (response.success) {
-                        Utils.showToast('标签删除成功', 'success');
+                        Utils.showToast(window.languageManager.getText('taskTagDeleted', '标签删除成功'), 'success');
                         // 从已选标签中移除
                         const index = this.selectedTags.indexOf(tagId);
                         if (index !== -1) {
@@ -2321,11 +2328,11 @@ class TodoManager {
                         // 重新加载标签
                         await this.loadTagsSelector();
                     } else {
-                        Utils.showToast('删除失败: ' + response.error, 'error');
+                        Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
                     }
                 } catch (error) {
                     console.error('删除标签失败:', error);
-                    Utils.showToast('删除失败', 'error');
+                    Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
                 }
             }
         );
@@ -2381,13 +2388,13 @@ class TodoManager {
     // 添加新标签
     async addNewTag(tagName) {
         if (!tagName) {
-            Utils.showToast('请输入标签名', 'warning');
+            Utils.showToast(window.languageManager.getText('errorTagNameRequired', '请输入标签名'), 'warning');
             return;
         }
 
         // 检查标签是否已存在
         if (this.availableTags.some(tag => tag.name === tagName)) {
-            Utils.showToast('标签已存在', 'warning');
+            Utils.showToast(window.languageManager.getText('errorTagExisted', '标签已存在'), 'warning');
             return;
         }
 

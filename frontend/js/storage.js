@@ -43,9 +43,9 @@ class StorageManager {
         }
 
         // 3. 尝试读取数据库（通过 pywebview API）
-        if (pywebview && pywebview.api) {
+        if (window && window.pywebview && window.pywebview.api) {
             try {
-                const result = await pywebview.api.get_setting(key);
+                const result = await window.pywebview.api.get_setting(key);
                 if (result.success && result.value !== null) {
                     this.memoryCache.set(key, result.value); // 更新内存缓存
                     return result.value;
