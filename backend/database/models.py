@@ -21,7 +21,7 @@ class Task:
         self.category_id = category_id
         self.due_date = due_date
         self.is_recurring = is_recurring  # 是否为周期性任务
-        self.recurrence_type = recurrence_type  # 'yearly', 'monthly', 'weekly'
+        self.recurrence_type = recurrence_type  # 'daily', 'weekly', 'monthly', 'yearly'
         self.recurrence_interval = recurrence_interval  # 间隔数
         self.recurrence_count = recurrence_count  # 循环次数，None表示无限循环
         self.parent_task_id = parent_task_id  # 父任务ID，用于周期性任务的子任务

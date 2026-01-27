@@ -654,6 +654,8 @@ class TodoDatabase:
                     next_date = current_date + relativedelta(months=parent_task.recurrence_interval)
                 elif parent_task.recurrence_type == 'weekly':
                     next_date = current_date + relativedelta(weeks=parent_task.recurrence_interval)
+                elif parent_task.recurrence_type == 'daily':
+                    next_date = current_date + relativedelta(days=parent_task.recurrence_interval)
                 else:
                     break
                 

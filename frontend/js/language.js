@@ -453,11 +453,12 @@ class LanguageManager {
         }
         
         const recurrenceTypeOptions = document.querySelectorAll('#recurrence-type option');
-        if (recurrenceTypeOptions.length >= 4) {
+        if (recurrenceTypeOptions.length >= 5) {
             recurrenceTypeOptions[0].textContent = lang.recurrenceChoose;
-            recurrenceTypeOptions[1].textContent = lang.recurrenceWeekly;
-            recurrenceTypeOptions[2].textContent = lang.recurrenceMonthly;
-            recurrenceTypeOptions[3].textContent = lang.recurrenceYearly;
+            recurrenceTypeOptions[1].textContent = lang.recurrenceDaily;
+            recurrenceTypeOptions[2].textContent = lang.recurrenceWeekly;
+            recurrenceTypeOptions[3].textContent = lang.recurrenceMonthly;
+            recurrenceTypeOptions[4].textContent = lang.recurrenceYearly;
         }
         
         const recurrenceCountInput = document.getElementById('recurrence-count');

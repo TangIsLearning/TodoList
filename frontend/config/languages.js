@@ -175,10 +175,11 @@ const Languages = {
         errorDateTimeIncomplete: "日期和时间选择不完整",
 
         // 周期性任务
-        recurringTask: "周期性任务", 
+        recurringTask: "周期性任务",
         createRecurringTask: "创建为周期性任务",
         recurrenceType: "重复周期",
         recurrenceCount: "循环次数",
+        recurrenceDaily: "每天",
         recurrenceWeekly: "按周",
         recurrenceMonthly: "按月",
         recurrenceYearly: "按年",
@@ -413,6 +414,7 @@ const Languages = {
         createRecurringTask: "Create as recurring task",
         recurrenceType: "Recurrence",
         recurrenceCount: "Repeat Count",
+        recurrenceDaily: "Daily",
         recurrenceWeekly: "Weekly",
         recurrenceMonthly: "Monthly",
         recurrenceYearly: "Yearly",
