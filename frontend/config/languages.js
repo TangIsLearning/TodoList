@@ -173,17 +173,19 @@ const Languages = {
         errorTitleRequired: "请输入任务标题",
         errorInvalidDateTime: "截止时间不能早于当前时间",
         errorDateTimeIncomplete: "日期和时间选择不完整",
+        errorRecurrenceTypeRequired: "请选择重复周期",
+        errorRecurrenceCountRequired: "请输入有效的循环次数",
 
         // 周期性任务
         recurringTask: "周期性任务",
         createRecurringTask: "创建为周期性任务",
         recurrenceType: "重复周期",
-        recurrenceCount: "循环次数",
+        recurrenceCount: "循环次数*",
         recurrenceDaily: "每天",
         recurrenceWeekly: "按周",
         recurrenceMonthly: "按月",
         recurrenceYearly: "按年",
-        recurrenceInfinite: "留空表示无限循环",
+        recurrenceCountRequired: "循环次数不能为空",
         recurrenceChoose: "请选择",
         recurringEditNotice: "非周期性任务编辑模式下不支持改周期性任务",
 
@@ -408,6 +410,8 @@ const Languages = {
         errorTitleRequired: "Please enter task title",
         errorInvalidDateTime: "Due time cannot be earlier than current time",
         errorDateTimeIncomplete: "Date and time must be selected together",
+        errorRecurrenceTypeRequired: "Please select recurrence type",
+        errorRecurrenceCountRequired: "Please enter valid repeat count",
 
         // 周期性任务
         recurringTask: "Recurring Task",
@@ -418,7 +422,7 @@ const Languages = {
         recurrenceWeekly: "Weekly",
         recurrenceMonthly: "Monthly",
         recurrenceYearly: "Yearly",
-        recurrenceInfinite: "Leave blank for infinite repetition",
+        recurrenceCountRequired: "Cycle times cannot be empty",
         recurrenceChoose: "Please Choose",
         recurringEditNotice: "Periodic tasks cannot be edited in non-periodic mode",
 

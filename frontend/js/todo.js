@@ -284,10 +284,22 @@ class TodoManager {
         // 重置周期性任务选项
         const isRecurringCheckbox = document.getElementById('is-recurring');
         const recurringOptions = document.getElementById('recurring-options');
-        
+        const recurrenceCount = document.getElementById('recurrence-count');
+        const recurrenceType = document.getElementById('recurrence-type');
+
         if (isRecurringCheckbox && recurringOptions) {
             isRecurringCheckbox.checked = false;
             recurringOptions.style.display = 'none';
+        }
+
+        // 重置循环次数的必填状态
+        if (recurrenceCount) {
+            recurrenceCount.required = false;
+            recurrenceCount.value = '';
+            recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
+        }
+        if (recurrenceType) {
+            recurrenceType.value = '';
         }
     }
     
@@ -335,12 +347,24 @@ class TodoManager {
     toggleRecurringOptions() {
         const isRecurringCheckbox = document.getElementById('is-recurring');
         const recurringOptions = document.getElementById('recurring-options');
-        
+        const recurrenceCount = document.getElementById('recurrence-count');
+        const recurrenceType = document.getElementById('recurrence-type');
+
         if (isRecurringCheckbox.checked) {
             recurringOptions.style.display = 'block';
+            // 勾选周期性任务时，设置循环次数为必填
+            if (recurrenceCount) {
+                recurrenceCount.required = true;
+
+            }
         } else {
             recurringOptions.style.display = 'none';
+            // 取消勾选时，移除必填限制
+            if (recurrenceCount) {
+                recurrenceCount.required = false;
+            }
         }
+        recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
     }
     
     // 清空日期输入
@@ -1497,8 +1521,20 @@ class TodoManager {
             // 只有在新建模式下才允许设置周期性任务
             taskData.isRecurring = document.getElementById('is-recurring').checked;
             taskData.recurrenceType = document.getElementById('recurrence-type').value || null;
-            taskData.recurrenceCount = document.getElementById('recurrence-count').value ? 
+            taskData.recurrenceCount = document.getElementById('recurrence-count').value ?
                 parseInt(document.getElementById('recurrence-count').value) : null;
+
+            // 验证周期性任务的必填项
+            if (taskData.isRecurring) {
+                if (!taskData.recurrenceType) {
+                    Utils.showToast(window.languageManager.getText('errorRecurrenceTypeRequired', '请选择重复周期'), 'warning');
+                    return;
+                }
+                if (!taskData.recurrenceCount || taskData.recurrenceCount < 1) {
+                    Utils.showToast(window.languageManager.getText('errorRecurrenceCountRequired', '请输入有效的循环次数'), 'warning');
+                    return;
+                }
+            }
         } else {
             // 编辑模式下确保不会提交周期性任务数据
             taskData.isRecurring = false;

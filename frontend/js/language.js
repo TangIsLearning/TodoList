@@ -384,7 +384,7 @@ class LanguageManager {
             const forAttr = label.getAttribute('for');
             switch (forAttr) {
                 case 'task-title':
-                    label.textContent = `${lang.taskTitle} *`;
+                    label.textContent = `${lang.taskTitle}*`;
                     break;
                 case 'task-description':
                     label.textContent = lang.taskDescription;
@@ -463,7 +463,7 @@ class LanguageManager {
         
         const recurrenceCountInput = document.getElementById('recurrence-count');
         if (recurrenceCountInput) {
-            recurrenceCountInput.placeholder = lang.recurrenceInfinite;
+            recurrenceCountInput.placeholder = lang.recurrenceCountRequired;
         }
         
         // 模态框按钮
