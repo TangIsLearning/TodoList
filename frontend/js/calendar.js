@@ -32,11 +32,12 @@ class CalendarManager {
     }
 
     // 切换视图
-    toggleView() {
+    async toggleView() {
         const tasksView = document.getElementById('tasks-view');
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
         const viewToggleBtn = document.getElementById('view-toggle-btn');
+        let filterPageSize;
 
         if (this.currentView === 'list') {
             // 切换到日历视图
@@ -46,7 +47,7 @@ class CalendarManager {
             viewToggleBtn.textContent = '📋 列表视图';
             viewToggleBtn.classList.add('active');
             this.currentView = 'calendar';
-            this.renderCalendar();
+            filterPageSize = 9999; // 假定单月任务最多9999个任务
         } else {
             // 切换到列表视图
             tasksView.style.display = 'block';
@@ -55,6 +56,19 @@ class CalendarManager {
             viewToggleBtn.textContent = '📅 日历视图';
             viewToggleBtn.classList.remove('active');
             this.currentView = 'list';
+            filterPageSize = 10;
+        }
+
+        // 通知TodoManager进行筛选
+        if (window.todoManager) {
+            window.todoManager.currentPage = 1; // 重置到第一页
+            window.todoManager.pageSize = filterPageSize; // 设置分页数量
+            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+            await window.todoManager.loadTasks();
+            console.log('Filter completed'); // 调试日志
+        } else {
+            console.log('TodoManager not available'); // 调试日志
         }
     }
 
@@ -248,7 +262,7 @@ class CalendarManager {
     // 处理日期点击
     async handleDayClick(dateStr) {
         // 切换回列表视图
-        this.toggleView();
+        await this.toggleView();
 
         // 设置截止日期筛选为指定日期
         const dueDateFilter = document.getElementById('due-date-filter');
