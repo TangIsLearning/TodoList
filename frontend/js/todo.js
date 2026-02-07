@@ -1744,7 +1744,13 @@ class TodoManager {
         const nextBtn = document.getElementById('pagination-next');
         const lastBtn = document.getElementById('pagination-last');
         const numbersDiv = document.getElementById('pagination-numbers');
-        
+
+        // 如果是日历视图，隐藏分页
+        if (window.calendarManager && window.calendarManager.currentView === 'calendar') {
+            pagination.style.display = 'none';
+            return;
+        }
+
         // 如果没有任务，隐藏分页
         if (this.totalTasks === 0) {
             pagination.style.display = 'none';
