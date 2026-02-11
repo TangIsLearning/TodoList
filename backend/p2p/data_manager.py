@@ -18,9 +18,21 @@ if str(backend_dir) not in sys.path:
 class DataManager:
     """数据管理器，负责数据的导出和导入"""
 
-    def __init__(self):
-        self.app_data_dir = get_app_data_dir()
+    def __init__(self, data_dir=None):
+        """初始化数据管理器
+        
+        Args:
+            data_dir (str, optional): 数据目录路径。如果为None，则使用配置的默认目录
+        """
+        if data_dir:
+            self.app_data_dir = Path(data_dir)
+        else:
+            self.app_data_dir = get_app_data_dir()
+        
         self.db_path = str(self.app_data_dir / 'todo.db')
+        
+        # 确保数据目录存在
+        os.makedirs(self.app_data_dir, exist_ok=True)
 
     def export_data(self) -> dict:
         """导出数据库中的所有数据
@@ -213,6 +225,121 @@ class DataManager:
 
         shutil.copy2(self.db_path, backup_path)
         return str(backup_path)
+
+    def switch_data_directory(self, new_data_dir: str) -> bool:
+        """切换数据目录
+        
+        Args:
+            new_data_dir (str): 新的数据目录路径
+            
+        Returns:
+            bool: 切换是否成功
+        """
+        try:
+            new_path = Path(new_data_dir)
+            
+            # 验证新目录
+            if not new_path.exists():
+                new_path.mkdir(parents=True, exist_ok=True)
+            
+            if not os.access(new_path, os.R_OK | os.W_OK):
+                raise PermissionError(f"没有对目录 {new_data_dir} 的读写权限")
+            
+            # 如果当前数据库存在，先备份
+            if os.path.exists(self.db_path):
+                self._create_backup()
+            
+            # 更新实例属性
+            self.app_data_dir = new_path
+            self.db_path = str(new_path / 'todo.db')
+            
+            # 初始化新数据库（如果不存在）
+            if not os.path.exists(self.db_path):
+                self._initialize_new_database()
+            
+            print(f"数据目录已切换到: {new_data_dir}")
+            return True
+            
+        except Exception as e:
+            print(f"切换数据目录失败: {e}")
+            return False
+    
+    def _initialize_new_database(self):
+        """初始化新数据库表结构"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 创建任务表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    completed BOOLEAN DEFAULT FALSE,
+                    priority TEXT DEFAULT 'none',
+                    category_id TEXT,
+                    due_date TEXT,
+                    is_recurring BOOLEAN DEFAULT FALSE,
+                    recurrence_type TEXT,
+                    recurrence_interval INTEGER DEFAULT 1,
+                    recurrence_count INTEGER,
+                    parent_task_id TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (category_id) REFERENCES categories (id)
+                )
+            ''')
+            
+            # 创建分类表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS categories (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    color TEXT DEFAULT '#007bff',
+                    created_at TEXT
+                )
+            ''')
+
+            # 创建设置表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 创建标签相关表
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'")
+            if not cursor.fetchone():
+                cursor.execute('''
+                    CREATE TABLE tags (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL UNIQUE,
+                        color TEXT DEFAULT '#6c757d',
+                        created_at TEXT
+                    )
+                ''')
+
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_tags'")
+            if not cursor.fetchone():
+                cursor.execute('''
+                    CREATE TABLE task_tags (
+                        task_id TEXT NOT NULL,
+                        tag_id TEXT NOT NULL,
+                        PRIMARY KEY (task_id, tag_id),
+                        FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+                        FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+                    )
+                ''')
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            print(f"初始化新数据库失败: {e}")
+            raise
 
     def restore_backup(self, backup_path: str) -> bool:
         """从备份恢复数据库

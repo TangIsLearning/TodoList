@@ -13,7 +13,26 @@ from backend.database.models import Tag, Task, Category
 
 
 def get_app_data_dir():
-    """获取应用数据目录"""
+    """获取应用数据目录
+    
+    优先级：
+    1. 用户配置的数据目录（来自配置）
+    2. 系统默认的应用数据目录
+    """
+    # 首先尝试获取用户配置的数据目录
+    try:
+        from backend.config import get_current_data_directory
+        user_data_dir = get_current_data_directory()
+        if user_data_dir:
+            base_dir = Path(user_data_dir)
+            os.makedirs(base_dir, exist_ok=True)
+            return base_dir
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"警告：无法获取用户配置的数据目录: {e}")
+    
+    # 回退到系统默认目录
     # 首先检查是否为安卓环境
     is_android = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ
 

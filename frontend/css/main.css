@@ -2304,3 +2304,98 @@ input:checked + .slider:before {
     }
 }
 
+/* 数据目录配置样式 */
+.data-directory-config {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.config-item {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.data-dir-btn {
+    flex: 1;
+    padding: var(--spacing-md);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: left;
+    font-size: var(--font-size-base);
+    white-space: nowrap;      /* 禁止换行 */
+    overflow: hidden;         /* 隐藏溢出内容 */
+    text-overflow: ellipsis;
+}
+
+.apply-dir-btn {
+    width: 80px;
+}
+
+.data-dir-btn:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.secondary-btn {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.secondary-btn:hover {
+    background-color: var(--bg-tertiary);
+    border-color: var(--text-muted);
+}
+
+.config-info {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.config-info.success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border: 1px solid #28a745;
+}
+
+.config-info.error {
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid #dc3545;
+}
+
+.config-info.warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+}
+
+.info-text {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+/* 数据目录配置响应式样式 */
+@media (max-width: 768px) {
+    .config-item {
+        flex-direction: column;
+    }
+    
+    .data-dir-btn {
+        border-radius: var(--border-radius-sm);
+        border-left: 1px solid var(--border-color);
+    }
+    
+    .action-btn {
+        width: 100%;
+    }
+    
+    .data-dir-btn {
+        font-size: var(--font-size-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+}
+

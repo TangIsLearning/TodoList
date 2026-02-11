@@ -52,6 +52,11 @@ class SettingsUIManager {
         this.dataReceiveBtn = document.getElementById('data-receive-btn');
         this.languageZh = document.getElementById('language-zh');
         this.languageEn = document.getElementById('language-en');
+        
+        // 数据目录配置元素
+        this.dataDirBtn = document.getElementById('data-dir-btn');
+        this.applyDirBtn = document.getElementById('apply-dir-btn');
+        this.directoryInfo = document.getElementById('directory-info');
     }
     
     bindEvents() {
@@ -105,6 +110,23 @@ class SettingsUIManager {
             this.dataReceiveBtn.addEventListener('click', () => this.openDataTransfer('receive'));
         }
         
+        // 数据目录配置事件绑定
+        if (this.dataDirBtn) {
+            this.dataDirBtn.addEventListener('click', () => this.browseDirectory());
+        }
+        
+        if (this.applyDirBtn) {
+            this.applyDirBtn.addEventListener('click', () => this.applyDataDirectory());
+        }
+        
+        if (this.dataDirBtn) {
+            this.dataDirBtn.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.applyDataDirectory();
+                }
+            });
+        }
+        
         // ESC键关闭
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal && this.modal.style.display === 'flex') {
@@ -123,6 +145,9 @@ class SettingsUIManager {
             
             // 更新语言选择器的状态
             this.updateLanguageSelector();
+            
+            // 更新数据目录配置
+            this.updateDataDirectoryConfig();
         }
     }
     
@@ -297,6 +322,190 @@ class SettingsUIManager {
             console.log('Settings restored successfully');
         } catch (error) {
             console.error('Failed to restore settings:', error);
+        }
+    }
+    
+    // ==================== 数据目录配置方法 ====================
+    
+    async updateDataDirectoryConfig() {
+        // 更新数据目录配置显示
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                this.showDirectoryMessage('API未就绪，请稍后再试', 'error');
+                return;
+            }
+            
+            const result = await window.pywebview.api.get_data_directory_config();
+            
+            if (result.success) {
+                if (this.dataDirBtn) {
+                    this.dataDirBtn.textContent = result.current_directory;
+                }
+                
+                if (this.dataDirBtn) {
+                    this.dataDirBtn.placeholder = result.default_directory;
+                }
+                
+                // 显示配置信息
+                let infoText = `默认目录: ${result.default_directory}`;
+                if (result.is_custom) {
+                    infoText += '\n当前使用自定义目录';
+                    this.showDirectoryMessage(infoText, 'warning');
+                } else {
+                    this.showDirectoryMessage(infoText, 'success');
+                }
+            } else {
+                this.showDirectoryMessage('获取配置失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('更新数据目录配置失败:', error);
+            this.showDirectoryMessage('获取配置时发生错误', 'error');
+        }
+    }
+    
+    async browseDirectory() {
+        // 浏览选择目录
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                Utils.showToast('API未就绪', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            this.setDirectoryButtonsDisabled(true);
+            this.showDirectoryMessage('正在打开目录选择对话框...', 'warning');
+            
+            // 调用pywebview的目录选择对话框
+            const result = await window.pywebview.api.select_directory_dialog();
+            
+            if (result && result.success && result.selected_path) {
+                // 将选择的目录路径填入输入框
+                if (this.dataDirBtn) {
+                    this.dataDirBtn.value = result.selected_path;
+                    this.showDirectoryMessage(`已选择目录: ${result.selected_path}`, 'success');
+                    Utils.showToast('目录选择成功', 'success');
+                    
+                    // 自动聚焦到应用按钮，方便用户快速操作
+                    setTimeout(() => {
+                        if (this.applyDirBtn) {
+                            this.applyDirBtn.focus();
+                        }
+                    }, 300);
+                }
+            } else if (result && !result.success) {
+                const errorMsg = result.error || '用户取消了操作';
+                this.showDirectoryMessage(`目录选择失败: ${errorMsg}`, 'error');
+                if (!errorMsg.includes('取消')) {
+                    Utils.showToast('目录选择失败: ' + errorMsg, 'error');
+                }
+            }
+            
+        } catch (error) {
+            console.error('浏览目录失败:', error);
+            this.showDirectoryMessage('浏览目录时发生错误: ' + error.message, 'error');
+            Utils.showToast('浏览目录失败', 'error');
+        } finally {
+            this.setDirectoryButtonsDisabled(false);
+        }
+    }
+    
+    async applyDataDirectory() {
+        // 应用新的数据目录配置
+        try {
+            if (!this.dataDirBtn || !this.dataDirBtn.value.trim()) {
+                Utils.showToast('请输入数据目录路径', 'warning');
+                return;
+            }
+            
+            const newDirectory = this.dataDirBtn.value.trim();
+            
+            // 显示加载状态
+            this.setDirectoryButtonsDisabled(true);
+            this.showDirectoryMessage('正在验证目录...', 'warning');
+            
+            // 验证目录路径
+            const validationResult = await window.pywebview.api.validate_data_directory(newDirectory);
+            
+            if (!validationResult.success) {
+                this.showDirectoryMessage(validationResult.error, 'error');
+                this.setDirectoryButtonsDisabled(false);
+                return;
+            }
+
+            // 确认提示
+            this.closeModal();
+            Utils.confirmDialog(
+                `确定要将数据目录切换到:\n${newDirectory}\n\n` +
+                    '注意：这将影响所有数据的读写操作，当前数据会被移动到新目录。\n' +
+                    '建议先备份重要数据。\n\n是否继续？',
+                async () => {
+                    this.showDirectoryMessage('正在切换数据目录...', 'warning');
+                    try {
+                        const result = await window.pywebview.api.set_data_directory_config(newDirectory);
+                        if (result.success) {
+                            this.showDirectoryMessage(
+                                `数据目录已成功切换到:\n${result.new_directory}\n\n应用将在下次启动时完全生效`,
+                                'success'
+                            );
+
+                            // 更新显示
+                            await this.updateDataDirectoryConfig();
+
+                            // 重新加载任务列表
+                            if (window.todoManager) {
+                                await window.todoManager.loadTasks();
+                            }
+                            if (window.categoryManager) {
+                                await window.categoryManager.loadCategories();
+                                await window.categoryManager.renderCategories();
+                            }
+
+                            // 显示成功提示
+                            Utils.showToast('数据目录设置成功', 'success');
+                        } else {
+                            this.showDirectoryMessage('设置失败: ' + result.error, 'error');
+                            Utils.showToast('数据目录设置失败', 'error');
+                        }
+                    } catch (error) {
+                        console.error('应用数据目录配置失败:', error);
+                        this.showDirectoryMessage('设置过程中发生错误', 'error');
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('应用数据目录配置失败:', error);
+            this.showDirectoryMessage('设置过程中发生错误', 'error');
+            Utils.showToast('设置失败', 'error');
+        } finally {
+            this.setDirectoryButtonsDisabled(false);
+        }
+    }
+    
+    showDirectoryMessage(message, type = 'info') {
+        // 显示目录配置信息消息
+        if (!this.directoryInfo) return;
+        
+        this.directoryInfo.className = `config-info ${type}`;
+        this.directoryInfo.style.display = 'block';
+        
+        const infoText = this.directoryInfo.querySelector('.info-text');
+        if (infoText) {
+            infoText.textContent = message;
+        }
+    }
+    
+    setDirectoryButtonsDisabled(disabled) {
+        // 设置目录配置按钮的禁用状态
+        const buttons = [this.applyDirBtn, this.dataDirBtn];
+        buttons.forEach(btn => {
+            if (btn) {
+            btn.disabled = disabled;
+            }
+        });
+        
+        // 更新输入框状态
+        if (this.dataDirBtn) {
+            this.dataDirBtn.disabled = disabled;
         }
     }
     
