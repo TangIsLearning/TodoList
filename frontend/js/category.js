@@ -214,7 +214,19 @@ class CategoryManager {
             if (filteredTasks) {
                 tasks = filteredTasks;
             } else {
-                const response = await pywebview.api.get_todos();
+                const response = await pywebview.api.get_todos(
+                    1,  // page
+                    999999,  // page_size - 设置一个足够大的值以获取所有任务
+                    null,  // 分类
+                    'uncompleted',  // 状态
+                    null,  // 优先级
+                    null,  // 逾期
+                    null,  // year
+                    null,  // month
+                    null,  // search-input
+                    null   // custom-date
+                );
+                console.log('get todo response: ' + JSON.stringify( response));
                 if (response.success) {
                     tasks = response.tasks;
                 } else {
