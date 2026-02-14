@@ -153,12 +153,12 @@ class CategoryManager {
     }
     
     // 渲染分类列表
-    async renderCategories() {
+    async renderCategories(defaultFiltered = true) {
         const categoryList = document.getElementById('category-list');
         if (!categoryList) return;
         
         // 加载任务数量统计
-        const taskCounts = await this.getTaskCounts();
+        const taskCounts = await this.getTaskCounts(defaultFiltered);
         
         // 生成HTML
         const categoriesHtml = this.generateCategoriesHtml(taskCounts);
@@ -205,7 +205,7 @@ class CategoryManager {
     }
     
     // 获取任务数量统计
-    async getTaskCounts(filteredTasks = null) {
+    async getTaskCounts(defaultFiltered = true, filteredTasks = null) {
         const counts = { all: 0 };
         
         try {
@@ -214,7 +214,7 @@ class CategoryManager {
             if (filteredTasks) {
                 tasks = filteredTasks;
             } else {
-                const response = await pywebview.api.get_todos(
+                const response = defaultFiltered ? await pywebview.api.get_todos() : await pywebview.api.get_todos(
                     1,  // page
                     999999,  // page_size - 设置一个足够大的值以获取所有任务
                     null,  // 分类
@@ -226,7 +226,6 @@ class CategoryManager {
                     null,  // search-input
                     null   // custom-date
                 );
-                console.log('get todo response: ' + JSON.stringify( response));
                 if (response.success) {
                     tasks = response.tasks;
                 } else {
@@ -471,7 +470,7 @@ class CategoryManager {
     
     // 更新分类任务数量
     async updateCategoryCounts(filteredTasks = null) {
-        const taskCounts = await this.getTaskCounts(filteredTasks);
+        const taskCounts = await this.getTaskCounts(true, filteredTasks);
         
         // 更新"全部"分类的数量 - 如果有筛选任务则显示筛选后的数量，否则显示总数量
         const allCountEl = document.querySelector('[data-category="all"] .category-count');
@@ -492,7 +491,7 @@ class CategoryManager {
     // 重新加载数据
     async refresh() {
         await this.loadCategories();
-        await this.renderCategories();
+        await this.renderCategories(false);
     }
 }
 

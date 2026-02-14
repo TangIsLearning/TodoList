@@ -453,7 +453,7 @@ class SettingsUIManager {
                             }
                             if (window.categoryManager) {
                                 await window.categoryManager.loadCategories();
-                                await window.categoryManager.renderCategories();
+                                await window.categoryManager.renderCategories(false);
                             }
 
                             // 显示成功提示
