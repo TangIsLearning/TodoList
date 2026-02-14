@@ -33,75 +33,81 @@ PRIORITY_LEVELS = {
     "none": {"label": "无", "color": "#6c757d", "icon": "⚪"}
 }
 
-# 数据目录配置
-DEFAULT_DATA_DIR = "data"
+# 数据文件配置
+DEFAULT_DATA_FILE = "data/todo.db"
 
 
-def get_default_data_directory():
-    """获取默认数据目录路径"""
+def get_default_data_file():
+    """获取默认数据文件路径"""
     # 获取项目根目录
     project_root = Path(__file__).parent.parent
-    return str(project_root / DEFAULT_DATA_DIR)
+    return str(project_root / DEFAULT_DATA_FILE)
 
 
-def get_current_data_directory():
-    """获取当前配置的数据目录路径
+def get_current_data_file():
+    """获取当前配置的数据文件路径
     
     优先级：
-    1. 从外部配置文件获取用户设置的目录
+    1. 从外部配置文件获取用户设置的文件
     2. 从环境变量获取
-    3. 使用默认目录
+    3. 使用默认文件
     """
     # 首先尝试从外部配置管理器获取配置
     try:
-        from backend.config_manager import get_data_directory
-        return get_data_directory()
+        from backend.config_manager import get_data_file
+        return get_data_file()
     except Exception as e:
-        print(f"警告：从外部配置获取数据目录配置失败: {e}")
+        print(f"警告：从外部配置获取数据文件配置失败: {e}")
     
     # 回退到环境变量
-    env_data_dir = os.environ.get('TODO_DATA_DIR')
-    if env_data_dir:
-        return env_data_dir
+    env_data_file = os.environ.get('TODO_DATA_FILE')
+    if env_data_file:
+        return env_data_file
     
-    # 最后使用默认目录
-    return get_default_data_directory()
+    # 最后使用默认文件
+    return get_default_data_file()
 
 
-def set_data_directory(path):
-    """设置数据目录路径
+def set_data_file(path):
+    """设置数据文件路径
     
     Args:
-        path (str): 新的数据目录路径
+        path (str): 新的数据文件路径
     """
     # 验证路径有效性
     if not path or not isinstance(path, str):
-        raise ValueError("数据目录路径不能为空")
+        raise ValueError("数据文件路径不能为空")
     
     path_obj = Path(path)
     
-    # 检查路径是否存在，不存在则创建
-    if not path_obj.exists():
+    # 检查扩展名
+    if path_obj.suffix.lower() not in ['.db']:
+        raise ValueError("仅支持 .db 文件")
+    
+    # 检查路径是否存在，不存在则创建父目录
+    if not path_obj.parent.exists():
         try:
-            path_obj.mkdir(parents=True, exist_ok=True)
+            path_obj.parent.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            raise ValueError(f"无法创建目录 {path}: {e}")
+            raise ValueError(f"无法创建目录 {path_obj.parent}: {e}")
     
     # 检查是否有读写权限
-    if not os.access(path, os.R_OK | os.W_OK):
-        raise PermissionError(f"没有对目录 {path} 的读写权限")
+    if path_obj.exists() and not os.access(path, os.R_OK | os.W_OK):
+        raise PermissionError(f"没有对文件 {path} 的读写权限")
+    elif not path_obj.exists() and not os.access(path_obj.parent, os.W_OK):
+        raise PermissionError(f"没有在目录 {path_obj.parent} 创建文件的权限")
     
     # 保存到外部配置文件
     try:
-        from backend.config_manager import set_data_directory as set_external_data_directory
-        success = set_external_data_directory(path)
+        from backend.config_manager import set_data_file as set_external_data_file
+        success = set_external_data_file(path)
         if success:
-            print(f"数据目录配置已保存到外部配置文件: {path}")
+            print(f"数据文件配置已保存到外部配置文件: {path}")
             return True
         else:
             raise Exception("外部配置保存失败")
     except Exception as e:
-        print(f"警告：保存数据目录配置到外部配置失败: {e}")
+        print(f"警告：保存数据文件配置到外部配置失败: {e}")
         # 如果外部配置保存失败，回退到环境变量
-        os.environ['TODO_DATA_DIR'] = path
+        os.environ['TODO_DATA_FILE'] = path
         return True

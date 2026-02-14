@@ -12,6 +12,17 @@ from backend.utils.logger import backend_logger
 from backend.database.models import Tag, Task, Category
 
 
+def get_app_data_file():
+    """获取应用数据文件路径"""
+    try:
+        from backend.config import get_current_data_file
+        return Path(get_current_data_file())
+    except Exception as e:
+        # 回退到默认路径
+        project_root = Path(__file__).parent.parent.parent
+        return project_root / 'data' / 'todo.db'
+
+
 def get_app_data_dir():
     """获取应用数据目录
     
@@ -116,10 +127,10 @@ def _migrate_database(cursor):
 class TodoDatabase:
     """Todo数据库操作类"""
     def __init__(self):
-        db_path = os.path.join(get_app_data_dir(), 'todo.db')
+        db_file = get_app_data_file()
         
         # 数据库文件路径
-        self.db_path = str(db_path) if isinstance(db_path, Path) else db_path
+        self.db_path = str(db_file) if isinstance(db_file, Path) else db_file
         backend_logger.info(f"数据库路径: {self.db_path}")
         self.init_database()
 

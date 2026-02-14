@@ -63,43 +63,49 @@ class ConfigManager:
             return self._save_config()
         return True
     
-    def get_data_directory(self) -> str:
-        """获取数据目录配置"""
-        # 优先级：配置文件 > 环境变量 > 默认目录
-        config_dir = self.get('data_directory')
-        if config_dir and isinstance(config_dir, str):
-            return config_dir
+    def get_data_file(self) -> str:
+        """获取数据文件配置"""
+        # 优先级：配置文件 > 环境变量 > 默认文件
+        config_file = self.get('data_file')
+        if config_file and isinstance(config_file, str):
+            return config_file
         
-        env_dir = os.environ.get('TODO_DATA_DIR')
-        if env_dir:
-            return env_dir
+        env_file = os.environ.get('TODO_DATA_FILE')
+        if env_file:
+            return env_file
             
-        # 返回默认目录
+        # 返回默认文件
         project_root = Path(__file__).parent.parent
-        return str(project_root / 'data')
+        return str(project_root / 'data' / 'todo.db')
     
-    def set_data_directory(self, path: str) -> bool:
-        """设置数据目录配置"""
+    def set_data_file(self, path: str) -> bool:
+        """设置数据文件配置"""
         if not path or not isinstance(path, str):
-            raise ValueError("数据目录路径不能为空")
+            raise ValueError("数据文件路径不能为空")
         
         path_obj = Path(path)
         
-        # 检查路径是否存在，不存在则创建
-        if not path_obj.exists():
-            try:
-                path_obj.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                raise ValueError(f"无法创建目录 {path}: {e}")
+        # 检查扩展名
+        if path_obj.suffix.lower() not in ['.db']:
+            raise ValueError("仅支持 .db 文件")
         
-        # 检查是否有读写权限
-        if not os.access(path, os.R_OK | os.W_OK):
-            raise PermissionError(f"没有对目录 {path} 的读写权限")
+        # 检查路径是否存在，不存在则创建父目录
+        if not path_obj.parent.exists():
+            try:
+                path_obj.parent.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise ValueError(f"无法创建目录 {path_obj.parent}: {e}")
+        
+        # 检查权限
+        if path_obj.exists() and not os.access(path, os.R_OK | os.W_OK):
+            raise PermissionError(f"没有对文件 {path} 的读写权限")
+        elif not path_obj.exists() and not os.access(path_obj.parent, os.W_OK):
+            raise PermissionError(f"没有在目录 {path_obj.parent} 创建文件的权限")
         
         # 保存配置
-        success = self.set('data_directory', path)
+        success = self.set('data_file', path)
         if success:
-            print(f"数据目录配置已保存到外部配置文件: {path}")
+            print(f"数据文件配置已保存到外部配置文件: {path}")
         return success
 
 # 全局配置管理器实例
@@ -112,10 +118,10 @@ def get_config_manager() -> ConfigManager:
         _config_manager = ConfigManager()
     return _config_manager
 
-def get_data_directory() -> str:
-    """获取数据目录（便捷函数）"""
-    return get_config_manager().get_data_directory()
+def get_data_file() -> str:
+    """获取数据文件（便捷函数）"""
+    return get_config_manager().get_data_file()
 
-def set_data_directory(path: str) -> bool:
-    """设置数据目录（便捷函数）"""
-    return get_config_manager().set_data_directory(path)
+def set_data_file(path: str) -> bool:
+    """设置数据文件（便捷函数）"""
+    return get_config_manager().set_data_file(path)

@@ -482,99 +482,103 @@ class TodoApi:
     
     # ==================== 数据目录配置API ====================
     
-    def get_data_directory_config(self):
-        """获取数据目录配置"""
+    def get_data_file_config(self):
+        """获取数据文件配置"""
         try:
-            from backend.config import get_current_data_directory, get_default_data_directory
-            from backend.database.operations import get_app_data_dir
+            from backend.config import get_current_data_file, get_default_data_file
+            from backend.database.operations import get_app_data_file
             from backend.config_manager import get_config_manager
             
-            current_dir = get_current_data_directory()
-            default_dir = get_default_data_directory()
-            actual_dir = str(get_app_data_dir())
+            current_file = get_current_data_file()
+            default_file = get_default_data_file()
+            actual_file = str(get_app_data_file())
             
             # 获取配置管理器中的配置信息
             config_manager = get_config_manager()
-            external_config = config_manager.get('data_directory')
+            external_config = config_manager.get('data_file')
             
             return {
                 'success': True,
-                'current_directory': current_dir,
-                'default_directory': default_dir,
-                'actual_directory': actual_dir,
+                'current_file': current_file,
+                'default_file': default_file,
+                'actual_file': actual_file,
                 'external_config': external_config,
-                'is_custom': current_dir != default_dir
+                'is_custom': current_file != default_file
             }
         except Exception as e:
-            backend_logger.error(f"获取数据目录配置失败: {e}")
+            backend_logger.error(f"获取数据文件配置失败: {e}")
             return {'success': False, 'error': str(e)}
     
-    def set_data_directory_config(self, directory_path):
-        """设置数据目录配置"""
+    def set_data_file_config(self, file_path):
+        """设置数据文件配置"""
         try:
-            from backend.config import set_data_directory
+            from backend.config import set_data_file
             from backend.p2p.data_manager import DataManager
             
-            # 验证并设置新目录
-            if set_data_directory(directory_path):
-                # 重新初始化数据库连接以使用新目录
+            # 验证并设置新文件
+            if set_data_file(file_path):
+                # 重新初始化数据库连接以使用新文件
                 self.db = TodoDatabase()
                 
                 # 更新数据管理器
                 if hasattr(self, '_data_manager'):
-                    self._data_manager.switch_data_directory(directory_path)
+                    self._data_manager.switch_data_file(file_path)
                 else:
-                    self._data_manager = DataManager(directory_path)
+                    self._data_manager = DataManager(file_path)
                 
-                backend_logger.info(f"数据目录已设置为: {directory_path}")
+                backend_logger.info(f"数据文件已设置为: {file_path}")
                 return {
                     'success': True, 
-                    'message': '数据目录设置成功',
-                    'new_directory': directory_path
+                    'message': '数据文件设置成功',
+                    'new_file': file_path
                 }
             else:
-                return {'success': False, 'error': '设置数据目录失败'}
+                return {'success': False, 'error': '设置数据文件失败'}
                 
         except Exception as e:
-            backend_logger.error(f"设置数据目录配置失败: {e}")
+            backend_logger.error(f"设置数据文件配置失败: {e}")
             return {'success': False, 'error': str(e)}
     
-    def validate_data_directory(self, directory_path):
-        """验证数据目录路径的有效性"""
+    def validate_data_file(self, file_path):
+        """验证数据文件路径的有效性"""
         try:
             import os
             from pathlib import Path
             
-            if not directory_path or not isinstance(directory_path, str):
-                return {'success': False, 'error': '目录路径不能为空'}
+            if not file_path or not isinstance(file_path, str):
+                return {'success': False, 'error': '文件路径不能为空'}
             
-            path = Path(directory_path)
+            path = Path(file_path)
             
             # 检查路径格式
             try:
                 path.resolve()
             except Exception:
-                return {'success': False, 'error': '目录路径格式无效'}
+                return {'success': False, 'error': '文件路径格式无效'}
+            
+            # 检查扩展名
+            if path.suffix.lower() not in ['.db']:
+                return {'success': False, 'error': '仅支持 .db 文件'}
             
             # 检查权限
             if path.exists():
                 if not os.access(path, os.R_OK | os.W_OK):
-                    return {'success': False, 'error': '没有对该目录的读写权限'}
+                    return {'success': False, 'error': '没有对该文件的读写权限'}
             else:
                 # 检查父目录权限
                 parent = path.parent
                 if not parent.exists():
                     return {'success': False, 'error': '父目录不存在'}
                 if not os.access(parent, os.W_OK):
-                    return {'success': False, 'error': '没有创建目录的权限'}
+                    return {'success': False, 'error': '没有在该目录创建文件的权限'}
             
-            return {'success': True, 'message': '目录路径有效'}
+            return {'success': True, 'message': '文件路径有效'}
             
         except Exception as e:
-            return {'success': False, 'error': f'验证目录路径时出错: {str(e)}'}
+            return {'success': False, 'error': f'验证文件路径时出错: {str(e)}'}
     
-    def select_directory_dialog(self):
-        """打开目录选择对话框"""
+    def select_file_dialog(self):
+        """打开文件选择对话框"""
         try:
             import tkinter as tk
             from tkinter import filedialog
@@ -585,10 +589,13 @@ class TodoApi:
             root.withdraw()  # 隐藏主窗口
             root.attributes('-topmost', True)  # 置顶显示
             
-            # 打开目录选择对话框
-            selected_path = filedialog.askdirectory(
-                title="选择数据存储目录",
-                mustexist=False  # 允许选择不存在的目录
+            # 打开文件选择对话框
+            selected_path = filedialog.askopenfilename(
+                title="选择数据存储文件",
+                filetypes=[
+                    ("SQLite Database", "*.db"),
+                    ("All Files", "*.*")
+                ]
             )
             
             # 销毁根窗口
@@ -598,20 +605,20 @@ class TodoApi:
                 return {
                     'success': True,
                     'selected_path': selected_path,
-                    'message': '目录选择成功'
+                    'message': '文件选择成功'
                 }
             else:
                 return {
                     'success': False,
-                    'error': '用户取消了目录选择'
+                    'error': '用户取消了文件选择'
                 }
                 
         except Exception as e:
             # 如果tkinter不可用，提供备用方案
-            backend_logger.warning(f"目录选择对话框失败，使用备用方案: {e}")
+            backend_logger.warning(f"文件选择对话框失败，使用备用方案: {e}")
             return {
                 'success': False,
-                'error': f'目录选择对话框不可用: {str(e)}',
+                'error': f'文件选择对话框不可用: {str(e)}',
                 'fallback': True
             }
 
