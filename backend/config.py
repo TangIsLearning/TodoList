@@ -48,20 +48,16 @@ def get_current_data_directory():
     """获取当前配置的数据目录路径
     
     优先级：
-    1. 从数据库settings表获取用户设置的目录
+    1. 从外部配置文件获取用户设置的目录
     2. 从环境变量获取
     3. 使用默认目录
     """
-    # 首先尝试从数据库获取配置
+    # 首先尝试从外部配置管理器获取配置
     try:
-        from backend.database.operations import TodoDatabase
-        db = TodoDatabase()
-        # 获取用户设置的数据目录
-        user_data_dir = db.get_setting('data_directory', None)
-        if user_data_dir and isinstance(user_data_dir, str):
-            return user_data_dir
+        from backend.config_manager import get_data_directory
+        return get_data_directory()
     except Exception as e:
-        print(f"警告：从数据库获取数据目录配置失败: {e}")
+        print(f"警告：从外部配置获取数据目录配置失败: {e}")
     
     # 回退到环境变量
     env_data_dir = os.environ.get('TODO_DATA_DIR')
@@ -95,18 +91,17 @@ def set_data_directory(path):
     if not os.access(path, os.R_OK | os.W_OK):
         raise PermissionError(f"没有对目录 {path} 的读写权限")
     
-    # 保存到数据库settings表
+    # 保存到外部配置文件
     try:
-        from backend.database.operations import TodoDatabase
-        db = TodoDatabase()
-        # 保存用户设置的数据目录
-        db.set_setting('data_directory', path)
-        # 同时保存默认数据目录作为参考
-        db.set_setting('default_data_directory', get_default_data_directory())
-        print(f"数据目录配置已保存到数据库: {path}")
+        from backend.config_manager import set_data_directory as set_external_data_directory
+        success = set_external_data_directory(path)
+        if success:
+            print(f"数据目录配置已保存到外部配置文件: {path}")
+            return True
+        else:
+            raise Exception("外部配置保存失败")
     except Exception as e:
-        print(f"警告：保存数据目录配置到数据库失败: {e}")
-        # 如果数据库保存失败，仍然使用环境变量作为后备
+        print(f"警告：保存数据目录配置到外部配置失败: {e}")
+        # 如果外部配置保存失败，回退到环境变量
         os.environ['TODO_DATA_DIR'] = path
-    
-    return True
+        return True

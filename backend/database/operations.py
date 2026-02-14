@@ -16,13 +16,13 @@ def get_app_data_dir():
     """获取应用数据目录
     
     优先级：
-    1. 用户配置的数据目录（来自配置）
+    1. 用户配置的数据目录（来自外部配置）
     2. 系统默认的应用数据目录
     """
-    # 首先尝试获取用户配置的数据目录
+    # 首先尝试获取用户配置的数据目录（使用外部配置管理器）
     try:
-        from backend.config import get_current_data_directory
-        user_data_dir = get_current_data_directory()
+        from backend.config_manager import get_data_directory
+        user_data_dir = get_data_directory()
         if user_data_dir:
             base_dir = Path(user_data_dir)
             os.makedirs(base_dir, exist_ok=True)

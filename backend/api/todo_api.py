@@ -487,16 +487,22 @@ class TodoApi:
         try:
             from backend.config import get_current_data_directory, get_default_data_directory
             from backend.database.operations import get_app_data_dir
+            from backend.config_manager import get_config_manager
             
             current_dir = get_current_data_directory()
             default_dir = get_default_data_directory()
             actual_dir = str(get_app_data_dir())
+            
+            # 获取配置管理器中的配置信息
+            config_manager = get_config_manager()
+            external_config = config_manager.get('data_directory')
             
             return {
                 'success': True,
                 'current_directory': current_dir,
                 'default_directory': default_dir,
                 'actual_directory': actual_dir,
+                'external_config': external_config,
                 'is_custom': current_dir != default_dir
             }
         except Exception as e:
