@@ -245,6 +245,11 @@ class TodoDatabase:
                    parent_task_id, created_at, updated_at
             FROM tasks 
             ORDER BY 
+                CASE 
+                    WHEN due_date IS NOT NULL THEN 1 
+                    ELSE 2 
+                END,
+                due_date ASC,
                 CASE priority 
                     WHEN 'high' THEN 1 
                     WHEN 'medium' THEN 2 
@@ -419,13 +424,17 @@ class TodoDatabase:
             FROM tasks 
             WHERE {where_sql}
             ORDER BY 
+                CASE 
+                    WHEN due_date IS NOT NULL THEN 1 
+                    ELSE 2 
+                END,
+                due_date ASC,
                 CASE priority 
                     WHEN 'high' THEN 1 
                     WHEN 'medium' THEN 2 
                     WHEN 'low' THEN 3 
                     ELSE 4 
                 END,
-                due_date ASC,
                 created_at DESC
             LIMIT ? OFFSET ?
         '''

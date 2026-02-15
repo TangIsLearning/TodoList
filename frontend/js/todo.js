@@ -824,38 +824,6 @@ class TodoManager {
         );
     }
     
-    // 排序任务
-    sortTasks(tasks) {
-        // 默认使用优先级+截止日期的复合排序
-        return tasks.sort((a, b) => {
-            // 如果用户手动设置了排序方式，则使用原有逻辑
-            if (this.sortBy !== 'created_at') {
-                return this.customSort(a, b);
-            }
-            
-
-            
-            // 默认排序：优先级 + 截止日期紧急程度
-            return this.defaultSort(a, b);
-        });
-    }
-    
-    // 默认排序逻辑：优先级 + 截止日期紧急程度
-    defaultSort(a, b) {
-        // 优先级排序（高->中->低->无）
-        const priorityOrder = { high: 1, medium: 2, low: 3, none: 4 };
-        const aPriority = priorityOrder[a.priority] || 4;
-        const bPriority = priorityOrder[b.priority] || 4;
-        
-        // 如果优先级不同，直接按优先级排序
-        if (aPriority !== bPriority) {
-            return aPriority - bPriority;
-        }
-        
-        // 优先级相同，按截止日期紧急程度排序
-        return this.sortByDueDateUrgency(a, b);
-    }
-    
     // 按截止日期紧急程度排序
     sortByDueDateUrgency(a, b) {
         const now = new Date();
@@ -910,31 +878,6 @@ class TodoManager {
             // 更远期
             return 100 + diffDays;
         }
-    }
-    
-    // 自定义排序逻辑（用户手动设置的排序方式）
-    customSort(a, b) {
-        let aValue = a[this.sortBy];
-        let bValue = b[this.sortBy];
-        
-        // 处理日期
-        if (this.sortBy === 'created_at' || this.sortBy === 'updated_at' || this.sortBy === 'due_date') {
-            aValue = new Date(aValue || 0);
-            bValue = new Date(bValue || 0);
-        }
-        
-        // 处理优先级
-        if (this.sortBy === 'priority') {
-            const priorityOrder = { high: 1, medium: 2, low: 3, none: 4 };
-            aValue = priorityOrder[a.priority] || 4;
-            bValue = priorityOrder[b.priority] || 4;
-        }
-        
-        let result = 0;
-        if (aValue < bValue) result = -1;
-        else if (aValue > bValue) result = 1;
-        
-        return this.sortOrder === 'asc' ? result : -result;
     }
     
     // 创建任务元素
