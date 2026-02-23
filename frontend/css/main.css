@@ -2343,33 +2343,6 @@ input:checked + .slider:before {
     border-color: var(--text-muted);
 }
 
-.config-info {
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-sm);
-    margin-top: var(--spacing-sm);
-}
-
-.config-info.success {
-    background-color: rgba(40, 167, 69, 0.1);
-    border: 1px solid #28a745;
-}
-
-.config-info.error {
-    background-color: rgba(220, 53, 69, 0.1);
-    border: 1px solid #dc3545;
-}
-
-.config-info.warning {
-    background-color: rgba(255, 193, 7, 0.1);
-    border: 1px solid #ffc107;
-}
-
-.info-text {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-}
-
 /* 数据目录配置响应式样式 */
 @media (max-width: 768px) {
     .config-item {

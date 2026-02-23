@@ -49,7 +49,6 @@ class SettingsUIManager {
         // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
         this.applyDirBtn = document.getElementById('apply-dir-btn');
-        this.directoryInfo = document.getElementById('directory-info');
     }
     
     bindEvents() {
@@ -369,7 +368,7 @@ class SettingsUIManager {
         // 更新数据文件配置显示
         try {
             if (!window.pywebview || !window.pywebview.api) {
-                this.showDirectoryMessage('API未就绪，请稍后再试', 'error');
+                Utils.showToast('API未就绪，请稍后再试', 'error');
                 return;
             }
             
@@ -379,21 +378,12 @@ class SettingsUIManager {
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = result.current_file;
                 }
-                
-                // 显示配置信息
-                let infoText = `默认文件: ${result.default_file}`;
-                if (result.is_custom) {
-                    infoText += '\n当前使用自定义文件';
-                    this.showDirectoryMessage(infoText, 'warning');
-                } else {
-                    this.showDirectoryMessage(infoText, 'success');
-                }
             } else {
-                this.showDirectoryMessage('获取配置失败: ' + result.error, 'error');
+                Utils.showToast('获取配置失败: ' + result.error, 'error');
             }
         } catch (error) {
             console.error('更新数据文件配置失败:', error);
-            this.showDirectoryMessage('获取配置时发生错误', 'error');
+            Utils.showToast('获取配置时发生错误', 'error');
         }
     }
     
@@ -407,7 +397,7 @@ class SettingsUIManager {
             
             // 显示加载状态
             this.setDirectoryButtonsDisabled(true);
-            this.showDirectoryMessage('正在打开文件选择对话框...', 'warning');
+            Utils.showToast('正在打开文件选择对话框...', 'warning');
             
             // 调用pywebview的文件选择对话框
             const result = await window.pywebview.api.select_file_dialog();
@@ -416,9 +406,8 @@ class SettingsUIManager {
                 // 将选择的文件路径填入输入框
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = result.selected_path;
-                    this.showDirectoryMessage(`已选择文件: ${result.selected_path}`, 'success');
-                    Utils.showToast('文件选择成功', 'success');
-                    
+                    Utils.showToast(`已选择文件: ${result.selected_path}`, 'success');
+
                     // 自动聚焦到应用按钮，方便用户快速操作
                     setTimeout(() => {
                         if (this.applyDirBtn) {
@@ -428,7 +417,7 @@ class SettingsUIManager {
                 }
             } else if (result && !result.success) {
                 const errorMsg = result.error || '用户取消了操作';
-                this.showDirectoryMessage(`文件选择失败: ${errorMsg}`, 'error');
+                Utils.showToast(`文件选择失败: ${errorMsg}`, 'error');
                 if (!errorMsg.includes('取消')) {
                     Utils.showToast('文件选择失败: ' + errorMsg, 'error');
                 }
@@ -436,8 +425,7 @@ class SettingsUIManager {
             
         } catch (error) {
             console.error('浏览文件失败:', error);
-            this.showDirectoryMessage('浏览文件时发生错误: ' + error.message, 'error');
-            Utils.showToast('浏览文件失败', 'error');
+            Utils.showToast('浏览文件时发生错误: ' + error.message, 'error');
         } finally {
             this.setDirectoryButtonsDisabled(false);
         }
@@ -455,13 +443,13 @@ class SettingsUIManager {
             
             // 显示加载状态
             this.setDirectoryButtonsDisabled(true);
-            this.showDirectoryMessage('正在验证文件...', 'warning');
+            Utils.showToast('正在验证文件...', 'warning');
             
             // 验证文件路径
             const validationResult = await window.pywebview.api.validate_data_file(newFile);
             
             if (!validationResult.success) {
-                this.showDirectoryMessage(validationResult.error, 'error');
+                Utils.showToast(validationResult.error, 'error');
                 this.setDirectoryButtonsDisabled(false);
                 return;
             }
@@ -473,15 +461,9 @@ class SettingsUIManager {
                     '注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。\n' +
                     '建议先备份重要数据。\n\n是否继续？',
                 async () => {
-                    this.showDirectoryMessage('正在切换数据文件...', 'warning');
                     try {
                         const result = await window.pywebview.api.set_data_file_config(newFile);
                         if (result.success) {
-                            this.showDirectoryMessage(
-                                `数据文件已成功切换到:\n${result.new_file}\n\n应用将在下次启动时完全生效`,
-                                'success'
-                            );
-
                             // 更新显示
                             await this.updateDataFileConfig();
 
@@ -497,34 +479,19 @@ class SettingsUIManager {
                             // 显示成功提示
                             Utils.showToast('数据文件设置成功', 'success');
                         } else {
-                            this.showDirectoryMessage('设置失败: ' + result.error, 'error');
-                            Utils.showToast('数据文件设置失败', 'error');
+                            Utils.showToast('设置失败: ' + result.error, 'error');
                         }
                     } catch (error) {
                         console.error('应用数据文件配置失败:', error);
-                        this.showDirectoryMessage('设置过程中发生错误', 'error');
+                        Utils.showToast('设置过程中发生错误', 'error');
                     }
                 }
             );
         } catch (error) {
             console.error('应用数据文件配置失败:', error);
-            this.showDirectoryMessage('设置过程中发生错误', 'error');
             Utils.showToast('设置失败', 'error');
         } finally {
             this.setDirectoryButtonsDisabled(false);
-        }
-    }
-    
-    showDirectoryMessage(message, type = 'info') {
-        // 显示目录配置信息消息
-        if (!this.directoryInfo) return;
-        
-        this.directoryInfo.className = `config-info ${type}`;
-        this.directoryInfo.style.display = 'block';
-        
-        const infoText = this.directoryInfo.querySelector('.info-text');
-        if (infoText) {
-            infoText.textContent = message;
         }
     }
     
