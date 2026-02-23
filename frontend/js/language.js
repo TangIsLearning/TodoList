@@ -558,11 +558,11 @@ class LanguageManager {
 
         // 数据管理
         if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
-        
-        const dataLabels = document.querySelectorAll('.data-label');
-        if (dataLabels.length >= 2) {
-            dataLabels[0].textContent = lang.settingsDataShare;
-            dataLabels[1].textContent = lang.settingsDataReceive;
+
+        const dataSettingItem = document.getElementById('data-share-btn');
+        const dataLabel = dataSettingItem.querySelector('.setting-text');
+        if (dataLabel) {
+            dataLabel.textContent = lang.settingsDataShare;
         }
     }
     

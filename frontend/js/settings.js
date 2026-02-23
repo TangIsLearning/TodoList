@@ -13,7 +13,6 @@ class SettingsUIManager {
         this.settingsBtn = null;
         this.windowTopToggle = null;
         this.dataShareBtn = null;
-        this.dataReceiveBtn = null;
 
         // 延迟初始化
         setTimeout(() => this.init(), 100);
@@ -44,7 +43,6 @@ class SettingsUIManager {
         this.windowTopToggle = document.getElementById('window-top-toggle');
         this.themeDarkToggle = document.getElementById('theme-dark-toggle');
         this.dataShareBtn = document.getElementById('data-share-btn');
-        this.dataReceiveBtn = document.getElementById('data-receive-btn');
 
         // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
@@ -89,11 +87,6 @@ class SettingsUIManager {
         // 数据共享按钮
         if (this.dataShareBtn) {
             this.dataShareBtn.addEventListener('click', () => this.openDataTransfer('share'));
-        }
-        
-        // 数据接收按钮
-        if (this.dataReceiveBtn) {
-            this.dataReceiveBtn.addEventListener('click', () => this.openDataTransfer('receive'));
         }
         
         // 数据文件配置事件绑定
@@ -312,13 +305,14 @@ class SettingsUIManager {
         }
 
         // 更新数据管理标签
-        const dataLabels = document.querySelectorAll('.data-label');
-        if (dataLabels.length >= 2) {
-            dataLabels[0].textContent = window.languageManager.getText('settingsDataShare', '共享数据');
-            dataLabels[1].textContent = window.languageManager.getText('settingsDataReceive', '接收数据');
+        const dataSettingItem = document.getElementById('data-share-btn');
+        const dataLabel = dataSettingItem.querySelector('.setting-text');
+        if (dataLabel) {
+            dataLabel.textContent = window.languageManager.getText('settingsDataShare', '共享数据');
         }
     }
-    
+
+    //  处理数据管理按钮点击: mode = 'share' | 'receive'
     openDataTransfer(mode) {
         // 关闭设置中心
         this.closeModal();
