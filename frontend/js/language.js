@@ -564,6 +564,16 @@ class LanguageManager {
         if (dataLabel) {
             dataLabel.textContent = lang.settingsDataShare;
         }
+
+        // 更新数据存储标签
+        const dataStorageLabel = document.querySelector('.data-label');
+        if (dataStorageLabel) {
+            dataStorageLabel.textContent = lang.dataStoragePath;
+        }
+        const dataStorageApplyLabel = document.querySelector('.apply-dir-btn');
+        if (dataStorageApplyLabel) {
+            dataStorageApplyLabel.textContent = lang.dataStorageApply;
+        }
     }
     
     // 更新日期选择器

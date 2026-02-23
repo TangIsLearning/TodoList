@@ -199,7 +199,11 @@ const Languages = {
         
         // 语言设置
         language: "中英文切换",
-        
+
+        // 数据存储路径
+        dataStoragePath: "存储路径",
+        dataStorageApply: "应用",
+
         // 确认对话框
         confirmDeleteTask: "确定要删除任务",
         confirmDeleteTaskMessage: "此操作无法撤销。",
@@ -432,7 +436,11 @@ const Languages = {
         
         // 语言设置
         language: "Chinese/English Switch",
-        
+
+        // 数据存储路径
+        dataStoragePath: "Storage Path",
+        dataStorageApply: "Apply",
+
         // 确认对话框
         confirmDeleteTask: "Are you sure you want to delete task",
         confirmDeleteTaskMessage: "This action cannot be undone.",

@@ -304,6 +304,16 @@ class SettingsUIManager {
             languageLabel.textContent = window.languageManager.getText('language', '中英文切换');
         }
 
+        // 更新数据存储标签
+        const dataStorageLabel = document.querySelector('.data-label');
+        if (dataStorageLabel) {
+            dataStorageLabel.textContent = window.languageManager.getText('dataStoragePath', '存储路径');
+        }
+        const dataStorageApplyLabel = document.querySelector('.apply-dir-btn');
+        if (dataStorageApplyLabel) {
+            dataStorageApplyLabel.textContent = window.languageManager.getText('dataStorageApply', '应用');
+        }
+
         // 更新数据管理标签
         const dataSettingItem = document.getElementById('data-share-btn');
         const dataLabel = dataSettingItem.querySelector('.setting-text');
