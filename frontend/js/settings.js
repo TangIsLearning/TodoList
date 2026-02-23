@@ -12,8 +12,6 @@ class SettingsUIManager {
         this.closeBtn = null;
         this.settingsBtn = null;
         this.windowTopToggle = null;
-        this.themeLight = null;
-        this.themeDark = null;
         this.dataShareBtn = null;
         this.dataReceiveBtn = null;
         this.languageZh = null;
@@ -46,8 +44,7 @@ class SettingsUIManager {
         this.closeBtn = document.getElementById('settings-close');
         this.settingsBtn = document.getElementById('settings-btn');
         this.windowTopToggle = document.getElementById('window-top-toggle');
-        this.themeLight = document.getElementById('theme-light');
-        this.themeDark = document.getElementById('theme-dark');
+        this.themeDarkToggle = document.getElementById('theme-dark-toggle');
         this.dataShareBtn = document.getElementById('data-share-btn');
         this.dataReceiveBtn = document.getElementById('data-receive-btn');
         this.languageZh = document.getElementById('language-zh');
@@ -83,13 +80,9 @@ class SettingsUIManager {
         if (this.windowTopToggle) {
             this.windowTopToggle.addEventListener('change', () => this.toggleWindowOnTop());
         }
-        
-        // 主题切换
-        if (this.themeLight) {
-            this.themeLight.addEventListener('change', () => this.setTheme('light'));
-        }
-        if (this.themeDark) {
-            this.themeDark.addEventListener('change', () => this.setTheme('dark'));
+
+        if (this.themeDarkToggle) {
+            this.themeDarkToggle.addEventListener('change', () => this.toggleThemeDark());
         }
         
         // 语言切换
@@ -166,9 +159,8 @@ class SettingsUIManager {
         
         // 更新主题选择
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        if (this.themeLight && this.themeDark) {
-            this.themeLight.checked = currentTheme === 'light';
-            this.themeDark.checked = currentTheme === 'dark';
+        if (this.themeDarkToggle) {
+            this.themeDarkToggle.checked = currentTheme === 'dark';
         }
     }
     
@@ -195,8 +187,12 @@ class SettingsUIManager {
         }
     }
     
-    async setTheme(theme) {
+    async toggleThemeDark() {
         // 立即更新UI
+        let theme = 'light';
+        if (this.themeDarkToggle) {
+            theme = this.themeDarkToggle.checked ? 'dark' : 'light';
+        }
         document.documentElement.setAttribute('data-theme', theme);
         
         // 更新主题切换按钮
@@ -254,7 +250,7 @@ class SettingsUIManager {
         
         // 更新各部分标题
         const sectionTitles = document.querySelectorAll('.setting-section h3');
-        const titleKeys = ['settingsWindow', 'settingsTheme', 'settingsData', 'language'];
+        const titleKeys = ['settingsWindow', 'settingsData', 'language'];
         sectionTitles.forEach((title, index) => {
             if (titleKeys[index]) {
                 title.textContent = window.languageManager.getText(titleKeys[index], title.textContent);
@@ -262,16 +258,19 @@ class SettingsUIManager {
         });
         
         // 更新窗口置顶标签
-        const windowTopLabel = document.querySelector('.setting-item .setting-text');
+        const windowTopCheckbox = document.getElementById('window-top-toggle');
+        const windowTopSettingItem = windowTopCheckbox.closest('.setting-item');
+        const windowTopLabel = windowTopSettingItem.querySelector('.setting-text');
         if (windowTopLabel) {
             windowTopLabel.textContent = window.languageManager.getText('settingsWindowTop', '窗口置顶');
         }
         
         // 更新主题标签
-        const themeLabels = document.querySelectorAll('.theme-label');
-        if (themeLabels.length >= 2) {
-            themeLabels[0].textContent = window.languageManager.getText('settingsLightTheme', '浅色模式');
-            themeLabels[1].textContent = window.languageManager.getText('settingsDarkTheme', '深色模式');
+        const darkModeCheckbox = document.getElementById('theme-dark-toggle');
+        const darkModeSettingItem = darkModeCheckbox.closest('.setting-item');
+        const themeLabel = darkModeSettingItem.querySelector('.setting-text');
+        if (themeLabel) {
+            themeLabel.textContent = window.languageManager.getText('settingsDarkTheme', '深色模式');
         }
         
         // 更新数据管理标签

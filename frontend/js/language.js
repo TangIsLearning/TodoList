@@ -536,21 +536,20 @@ class LanguageManager {
         // 获取所有设置区块标题
         const sectionTitles = document.querySelectorAll('.setting-section h3');
         
-        // 窗口设置
         if (sectionTitles[0]) sectionTitles[0].textContent = lang.settingsWindow;
-        
-        const windowTopLabel = document.querySelector('.setting-item .setting-text');
+
+        // 窗口置顶设置
+        const windowTopCheckbox = document.getElementById('window-top-toggle');
+        const windowTopSettingItem = windowTopCheckbox.closest('.setting-item');
+        const windowTopLabel = windowTopSettingItem.querySelector('.setting-text');
         if (windowTopLabel) windowTopLabel.textContent = lang.settingsWindowTop;
         
         // 主题设置
-        if (sectionTitles[1]) sectionTitles[1].textContent = lang.settingsTheme;
-        
-        const themeLabels = document.querySelectorAll('.theme-label');
-        if (themeLabels.length >= 2) {
-            themeLabels[0].textContent = lang.settingsLightTheme;
-            themeLabels[1].textContent = lang.settingsDarkTheme;
-        }
-        
+        const darkModeCheckbox = document.getElementById('theme-dark-toggle');
+        const settingItem = darkModeCheckbox.closest('.setting-item');
+        const themeTopLabel = settingItem.querySelector('.setting-text');
+        if (themeTopLabel) themeTopLabel.textContent = lang.settingsDarkTheme;
+
         // 数据管理
         if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
         

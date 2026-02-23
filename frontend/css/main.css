@@ -374,51 +374,6 @@ input:checked + .slider:before {
     transform: translateX(26px);
 }
 
-/* 主题选项样式 */
-.theme-options {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.theme-option {
-    display: block;
-    cursor: pointer;
-}
-
-.theme-option input {
-    display: none;
-}
-
-.theme-preview {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    background-color: var(--bg-secondary);
-    border: 2px solid transparent;
-    border-radius: var(--border-radius);
-    transition: var(--transition-fast);
-}
-
-.theme-option input:checked + .theme-preview {
-    border-color: var(--primary-color);
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-.theme-option:hover .theme-preview {
-    background-color: var(--bg-tertiary);
-}
-
-.theme-icon {
-    font-size: var(--font-size-lg);
-}
-
-.theme-label {
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
 /* 数据操作按钮 */
 .data-options {
     display: flex;

@@ -190,10 +190,8 @@ const Languages = {
         recurringEditNotice: "非周期性任务编辑模式下不支持改周期性任务",
 
         // 设置中心
-        settingsWindow: "窗口设置",
+        settingsWindow: "通用设置",
         settingsWindowTop: "窗口置顶",
-        settingsTheme: "主题设置", 
-        settingsLightTheme: "浅色模式",
         settingsDarkTheme: "深色模式",
         settingsData: "数据管理",
         settingsDataShare: "共享数据",
@@ -427,10 +425,8 @@ const Languages = {
         recurringEditNotice: "Periodic tasks cannot be edited in non-periodic mode",
 
         // 设置中心
-        settingsWindow: "Window Settings",
+        settingsWindow: "General Settings",
         settingsWindowTop: "Window Always On Top",
-        settingsTheme: "Theme Settings",
-        settingsLightTheme: "Light Mode",
         settingsDarkTheme: "Dark Mode",
         settingsData: "Data Management",
         settingsDataShare: "Share Data",
