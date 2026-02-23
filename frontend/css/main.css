@@ -2271,14 +2271,12 @@ input:checked + .slider:before {
 
 .config-item {
     display: flex;
-    gap: var(--spacing-xs);
 }
 
 .data-dir-btn {
     flex: 1;
     padding: var(--spacing-md);
     border: 2px solid transparent;
-    border-radius: var(--border-radius);
     background-color: var(--bg-secondary);
     color: var(--text-primary);
     cursor: pointer;
@@ -2290,8 +2288,17 @@ input:checked + .slider:before {
     text-overflow: ellipsis;
 }
 
+.config-item .data-label {
+    background-color: var(--bg-secondary);
+    text-align: center;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius) 0 0 var(--border-radius);
+    border-right: solid 1px var(--border-color);
+}
+
 .apply-dir-btn {
     width: 80px;
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
 }
 
 .data-dir-btn:hover {
