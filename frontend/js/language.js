@@ -550,6 +550,12 @@ class LanguageManager {
         const themeTopLabel = settingItem.querySelector('.setting-text');
         if (themeTopLabel) themeTopLabel.textContent = lang.settingsDarkTheme;
 
+        // 中英文设置
+        const languageCheckbox = document.getElementById('language-toggle');
+        const languageSettingItem = languageCheckbox.closest('.setting-item');
+        const languageLabel = languageSettingItem.querySelector('.setting-text');
+        if (languageLabel) languageLabel.textContent = lang.language;
+
         // 数据管理
         if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
         
@@ -557,16 +563,6 @@ class LanguageManager {
         if (dataLabels.length >= 2) {
             dataLabels[0].textContent = lang.settingsDataShare;
             dataLabels[1].textContent = lang.settingsDataReceive;
-        }
-        
-        // 语言设置
-        if (sectionTitles[3]) sectionTitles[3].textContent = lang.language;
-        
-        // 更新语言选项文本
-        const languageTexts = document.querySelectorAll('.language-text');
-        if (languageTexts.length >= 2) {
-            languageTexts[0].textContent = lang.languageChinese;
-            languageTexts[1].textContent = lang.languageEnglish;
         }
     }
     

@@ -331,7 +331,9 @@ body {
 /* 开关按钮样式 */
 .switch {
     position: relative;
-    display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 60px;
     height: 34px;
 }
@@ -372,6 +374,41 @@ input:checked + .slider {
 
 input:checked + .slider:before {
     transform: translateX(26px);
+}
+
+/* 语言切换开关特殊样式 */
+.language-switch .language-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: var(--transition-fast);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* 未选中状态 - 显示中文 */
+.language-switch:not(.checked) .language-indicator {
+    left: 34px;
+    right: auto;
+    color: var(--text-primary);
+}
+
+/* 选中状态 - 显示英文 */
+.language-switch.checked .language-indicator {
+    left: auto;
+    right: 34px;
+    color: white;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .language-switch:not(.checked) .language-indicator {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .language-switch.checked .language-indicator {
+    color: white;
 }
 
 /* 数据操作按钮 */

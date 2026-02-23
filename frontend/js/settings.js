@@ -14,9 +14,7 @@ class SettingsUIManager {
         this.windowTopToggle = null;
         this.dataShareBtn = null;
         this.dataReceiveBtn = null;
-        this.languageZh = null;
-        this.languageEn = null;
-        
+
         // 延迟初始化
         setTimeout(() => this.init(), 100);
     }
@@ -47,9 +45,7 @@ class SettingsUIManager {
         this.themeDarkToggle = document.getElementById('theme-dark-toggle');
         this.dataShareBtn = document.getElementById('data-share-btn');
         this.dataReceiveBtn = document.getElementById('data-receive-btn');
-        this.languageZh = document.getElementById('language-zh');
-        this.languageEn = document.getElementById('language-en');
-        
+
         // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
         this.applyDirBtn = document.getElementById('apply-dir-btn');
@@ -86,11 +82,9 @@ class SettingsUIManager {
         }
         
         // 语言切换
-        if (this.languageZh) {
-            this.languageZh.addEventListener('change', () => this.setLanguage('zh'));
-        }
-        if (this.languageEn) {
-            this.languageEn.addEventListener('change', () => this.setLanguage('en'));
+        const languageToggle = document.getElementById('language-toggle');
+        if (languageToggle) {
+            languageToggle.addEventListener('change', (e) => this.handleLanguageToggle(e));
         }
         
         // 数据共享按钮
@@ -136,9 +130,6 @@ class SettingsUIManager {
             // 更新当前状态
             this.updateCurrentState();
             
-            // 更新语言选择器的状态
-            this.updateLanguageSelector();
-            
             // 更新数据文件配置
             this.updateDataFileConfig();
         }
@@ -162,14 +153,23 @@ class SettingsUIManager {
         if (this.themeDarkToggle) {
             this.themeDarkToggle.checked = currentTheme === 'dark';
         }
+        
+        // 更新语言状态
+        this.updateLanguageSwitchState();
     }
-    
-    // 更新语言选择器状态
-    updateLanguageSelector() {
+
+    // 更新语言状态
+    updateLanguageSwitchState() {
         const currentLanguage = window.languageManager ? window.languageManager.getCurrentLanguage() : 'zh';
-        if (this.languageZh && this.languageEn) {
-            this.languageZh.checked = currentLanguage === 'zh';
-            this.languageEn.checked = currentLanguage === 'en';
+        const languageToggle = document.getElementById('language-toggle');
+        
+        if (languageToggle) {
+            const isChecked = currentLanguage === 'en';
+            languageToggle.checked = isChecked;
+            
+            // 更新指示器文本和样式
+            const languageText = isChecked ? 'En' : '中';
+            this.updateLanguageIndicator(languageText, isChecked);
         }
     }
     
@@ -206,6 +206,37 @@ class SettingsUIManager {
                 window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
         } catch (error) {
             console.error('保存主题失败:', error);
+        }
+    }
+    
+    // 处理语言切换开关
+    async handleLanguageToggle(event) {
+        const isChecked = event.target.checked;
+        const language = isChecked ? 'en' : 'zh';
+        const languageText = isChecked ? 'En' : '中';
+        
+        // 更新指示器文本和样式
+        this.updateLanguageIndicator(languageText, isChecked);
+        
+        // 设置语言
+        await this.setLanguage(language);
+    }
+    
+    // 更新语言指示器
+    updateLanguageIndicator(text, isChecked) {
+        const indicator = document.getElementById('language-indicator');
+        const switchElement = document.querySelector('.language-switch');
+        
+        if (indicator) {
+            indicator.textContent = text;
+        }
+        
+        if (switchElement) {
+            if (isChecked) {
+                switchElement.classList.add('checked');
+            } else {
+                switchElement.classList.remove('checked');
+            }
         }
     }
     
@@ -250,7 +281,7 @@ class SettingsUIManager {
         
         // 更新各部分标题
         const sectionTitles = document.querySelectorAll('.setting-section h3');
-        const titleKeys = ['settingsWindow', 'settingsData', 'language'];
+        const titleKeys = ['settingsWindow', 'settingsData'];
         sectionTitles.forEach((title, index) => {
             if (titleKeys[index]) {
                 title.textContent = window.languageManager.getText(titleKeys[index], title.textContent);
@@ -272,7 +303,15 @@ class SettingsUIManager {
         if (themeLabel) {
             themeLabel.textContent = window.languageManager.getText('settingsDarkTheme', '深色模式');
         }
-        
+
+        // 语言切换标签
+        const languageCheckbox = document.getElementById('language-toggle');
+        const languageSettingItem = languageCheckbox.closest('.setting-item');
+        const languageLabel = languageSettingItem.querySelector('.setting-text');
+        if (languageLabel) {
+            languageLabel.textContent = window.languageManager.getText('language', '中英文切换');
+        }
+
         // 更新数据管理标签
         const dataLabels = document.querySelectorAll('.data-label');
         if (dataLabels.length >= 2) {
@@ -515,16 +554,6 @@ class SettingsUIManager {
         } catch (error) {
             console.error('Failed to save settings:', error);
         }
-    }
-    
-    // 获取当前设置状态
-    getCurrentSettings() {
-        return {
-            windowOnTop: this.onTop,
-            theme: document.documentElement.getAttribute('data-theme') || 'light',
-            language: window.languageManager ? window.languageManager.getCurrentLanguage() : 'zh',
-            timestamp: new Date().toISOString()
-        };
     }
 }
 

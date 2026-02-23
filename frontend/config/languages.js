@@ -198,9 +198,7 @@ const Languages = {
         settingsDataReceive: "接收数据",
         
         // 语言设置
-        language: "语言",
-        languageChinese: "中文",
-        languageEnglish: "English",
+        language: "中英文切换",
         
         // 确认对话框
         confirmDeleteTask: "确定要删除任务",
@@ -433,9 +431,7 @@ const Languages = {
         settingsDataReceive: "Receive Data",
         
         // 语言设置
-        language: "Language",
-        languageChinese: "中文",
-        languageEnglish: "English",
+        language: "Chinese/English Switch",
         
         // 确认对话框
         confirmDeleteTask: "Are you sure you want to delete task",
