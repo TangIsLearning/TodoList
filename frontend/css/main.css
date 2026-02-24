@@ -2329,17 +2329,9 @@ input:checked + .slider:before {
 
 /* 数据目录配置响应式样式 */
 @media (max-width: 768px) {
-    .config-item {
-        flex-direction: column;
-    }
-    
     .data-dir-btn {
         border-radius: var(--border-radius-sm);
         border-left: 1px solid var(--border-color);
-    }
-    
-    .action-btn {
-        width: 100%;
     }
     
     .data-dir-btn {
