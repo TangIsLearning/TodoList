@@ -52,11 +52,10 @@ const DateTimeValidator = {
 // 主题管理
 const ThemeManager = {
     init() {
-        // 异步加载主题设置
-        Storage.storage.load('theme', 'light').then(savedTheme => {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            this.updateToggleButton(savedTheme);
-        });
+        // 从 localStorage 加载主题设置
+        const savedTheme = localStorage.getItem('todolist_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        this.updateToggleButton(savedTheme);
     },
 
     toggle() {
@@ -67,14 +66,11 @@ const ThemeManager = {
         document.documentElement.setAttribute('data-theme', newTheme);
         this.updateToggleButton(newTheme);
 
-        // 异步保存到三层存储
-        Storage.storage.save('theme', newTheme).then(() => {
-            showToast(`${newTheme === 'dark' ?
-                window.languageManager.getText('darkModeSwitched', '已切换到深色主题') :
-                window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
-        }).catch(error => {
-            console.error('保存主题失败:', error);
-        });
+        // 保存到 localStorage
+        localStorage.setItem('todolist_theme', newTheme);
+        showToast(`${newTheme === 'dark' ?
+            window.languageManager.getText('darkModeSwitched', '已切换到深色主题') :
+            window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
     },
 
     updateToggleButton(theme) {

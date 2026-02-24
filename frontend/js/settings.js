@@ -190,9 +190,9 @@ class SettingsUIManager {
         // 更新主题切换按钮
         BusinessUtils.ThemeManager.updateToggleButton(theme);
         
-        // 异步保存到三层存储
+        // 异步保存到 localStorage
         try {
-            await Storage.storage.save('theme', theme);
+            localStorage.setItem('todolist_theme', theme);
             Utils.showToast(`${theme === 'dark' ?
                 window.languageManager.getText('darkModeSwitched', '已切换到深色主题') :
                 window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
@@ -352,11 +352,10 @@ class SettingsUIManager {
     async restoreSettings() {
         try {
             // 恢复窗口置顶状态
-            const savedOnTop = await Storage.storage.load('windowOnTop', false);
-            this.onTop = savedOnTop;
+            this.onTop = localStorage.getItem('todolist_windowOnTop') === 'true';
             
             // 恢复主题设置（由主题管理器处理）
-            const savedTheme = await Storage.storage.load('theme', 'light');
+            const savedTheme = localStorage.getItem('todolist_theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             BusinessUtils.ThemeManager.updateToggleButton(savedTheme);
             
@@ -517,7 +516,7 @@ class SettingsUIManager {
     async saveSettings() {
         try {
             // 保存窗口置顶状态
-            await Storage.storage.save('windowOnTop', this.onTop);
+            localStorage.setItem('todolist_windowOnTop', this.onTop.toString());
             
             // 主题设置由主题管理器保存
             

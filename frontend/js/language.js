@@ -35,7 +35,7 @@ class LanguageManager {
     // 恢复语言设置
     async restoreLanguageSetting() {
         try {
-            const savedLanguage = await Storage.storage.load('language', 'zh');
+            const savedLanguage = localStorage.getItem('todolist_language') || 'zh';
             this.currentLanguage = savedLanguage;
             console.log('Language setting restored:', savedLanguage);
         } catch (error) {
@@ -47,7 +47,7 @@ class LanguageManager {
     // 保存语言设置
     async saveLanguageSetting(language) {
         try {
-            await Storage.storage.save('language', language);
+            localStorage.setItem('todolist_language', language);
             console.log('Language setting saved:', language);
         } catch (error) {
             console.error('Failed to save language setting:', error);

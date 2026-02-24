@@ -209,28 +209,21 @@
         // 存储管理测试
         function testStorage() {
             try {
-                // 测试存储和读取
+                // 测试 localStorage 存储和读取
                 const testData = { name: 'test', value: 123 };
-                const saved = Storage.storage.save('test_key', testData);
-                addResult('存储保存', saved);
-                
-                const loaded = Storage.storage.load('test_key');
-                addResult('存储读取', loaded && loaded.name === 'test' && loaded.value === 123);
+                localStorage.setItem('test_key', JSON.stringify(testData));
+                const loadedData = JSON.parse(localStorage.getItem('test_key'));
+                addResult('存储保存', !!loadedData);
+                addResult('存储读取', loadedData && loadedData.name === 'test' && loadedData.value === 123);
                 
                 // 测试设置管理
-                Storage.settings.setSetting('theme', 'dark');
-                const theme = Storage.settings.getSetting('theme');
+                localStorage.setItem('todolist_theme', 'dark');
+                const theme = localStorage.getItem('todolist_theme');
                 addResult('设置管理', theme === 'dark');
                 
-                // 测试缓存
-                Storage.cache.set('cache_key', 'cache_value', 1000);
-                const cached = Storage.cache.get('cache_key');
-                addResult('缓存管理', cached === 'cache_value');
-                
                 // 清理测试数据
-                Storage.storage.remove('test_key');
-                Storage.settings.setSetting('theme', 'light');
-                Storage.cache.delete('cache_key');
+                localStorage.removeItem('test_key');
+                localStorage.setItem('todolist_theme', 'light');
                 
                 addInfo('存储管理测试完成');
                 
