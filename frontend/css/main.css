@@ -197,7 +197,7 @@ body {
 .app-container {
     display: flex;
     height: 100vh !important;
-    min-height: 600px;
+    min-height: fit-content;
     overflow: hidden;
     margin: 0;
 }
@@ -1739,13 +1739,24 @@ input:checked + .slider:before {
         gap: var(--spacing-xs) !important;
     }
 
-    .modal-content {
+    #confirm-dialog .modal-content {
         width: 98%;
         max-width: 280px !important;
         margin: 2px;
         max-height: 50vh !important;
         border-radius: var(--border-radius-sm);
         padding: var(--spacing-sm);
+    }
+
+    #task-modal .modal-content,
+    #settings-modal .modal-content,
+    #data-transfer-modal .modal-content,
+    #category-modal .modal-content {
+        width: 100% !important;
+        height: 100% !important;
+        padding: var(--spacing-sm);
+        border-radius: unset !important;
+        max-height: max-content !important;
     }
 
     .modal-header {
