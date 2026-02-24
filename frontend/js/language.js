@@ -289,6 +289,10 @@ class LanguageManager {
         
         // 分页文本
         this.updatePagination(lang);
+
+        // 联系作者
+        const contactAuthor = document.querySelector('.contact-text');
+        if (contactAuthor) contactAuthor.textContent = lang.contactAuthor;
     }
     
     // 更新筛选器选项

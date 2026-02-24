@@ -100,6 +100,30 @@ class App {
             this.handleVisibilityChange();
         });
         
+        // 联系作者按钮事件
+        const contactAuthorBtn = document.getElementById('contact-author-btn');
+        if (contactAuthorBtn) {
+            contactAuthorBtn.addEventListener('click', () => {
+                this.showContactAuthorModal();
+            });
+        }
+        
+        // 二维码弹窗关闭事件
+        const qrCodeCloseBtn = document.getElementById('qr-code-close');
+        const qrCodeModal = document.getElementById('qr-code-modal');
+        if (qrCodeCloseBtn && qrCodeModal) {
+            qrCodeCloseBtn.addEventListener('click', () => {
+                this.hideContactAuthorModal();
+            });
+            
+            // 点击遮罩层关闭
+            qrCodeModal.addEventListener('click', (e) => {
+                if (e.target === qrCodeModal) {
+                    this.hideContactAuthorModal();
+                }
+            });
+        }
+
         // 错误处理
         window.addEventListener('error', (e) => {
             console.error('Global error:', e.error);
@@ -288,6 +312,28 @@ class App {
         if (sidebar && overlay) {
             sidebar.classList.remove('open');
             overlay.classList.remove('show');
+        }
+    }
+    
+    // 显示联系作者弹窗
+    showContactAuthorModal() {
+        const modal = document.getElementById('qr-code-modal');
+        if (modal) {
+            modal.classList.add('show');
+            // 防止背景滚动
+            document.body.style.overflow = 'hidden';
+            logger.info('Contact author modal shown', 'App');
+        }
+    }
+    
+    // 隐藏联系作者弹窗
+    hideContactAuthorModal() {
+        const modal = document.getElementById('qr-code-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            // 恢复背景滚动
+            document.body.style.overflow = '';
+            logger.info('Contact author modal hidden', 'App');
         }
     }
 }

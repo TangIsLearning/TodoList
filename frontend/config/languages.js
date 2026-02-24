@@ -77,6 +77,9 @@ const Languages = {
         categoryName: "分类名称",
         categoryColor: "颜色",
         uncategorized: "未分类",
+
+        // 联系作者
+        contactAuthor: "联系作者",
         
         // 搜索和筛选
         searchPlaceholder: "搜索任务... (支持 #标签 搜索)",
@@ -314,6 +317,9 @@ const Languages = {
         categoryName: "Category Name",
         categoryColor: "Color",
         uncategorized: "Uncategorized",
+
+        // 联系作者
+        contactAuthor: "Contact Author",
         
         // 搜索和筛选
         searchPlaceholder: "Search tasks... (Supports #tag search)",
