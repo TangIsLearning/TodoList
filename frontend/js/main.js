@@ -234,8 +234,8 @@ class App {
     // 恢复用户设置
     async restoreUserSettings() {
         try {
-            // 使用新的三层存储异步读取
-            const theme = await Storage.storage.load('theme', 'light');
+            // 从 localStorage 恢复主题设置
+            const theme = localStorage.getItem('todolist_theme') || 'light';
 
             // 应用主题设置
             if (theme) {
