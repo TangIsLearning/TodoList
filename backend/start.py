@@ -80,6 +80,7 @@ def start_app(window):
         js_api=api,
         width=1400,
         height=900,
+        text_select=True,
         resizable=True
     )
 
