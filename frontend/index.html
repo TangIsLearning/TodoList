@@ -86,6 +86,8 @@
         <header class="app-header">
             <!-- 移动端菜单按钮 -->
             <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
+            <!-- 小屏幕更多按钮 -->
+            <button id="more-menu-btn" class="more-menu-btn" title="更多选项">︰</button>
             <div class="search-container">
                 <div class="search-input-wrapper">
                     <input type="text" id="search-input" placeholder="搜索任务... (支持 #标签 搜索)" class="search-input">
@@ -506,6 +508,49 @@
         <img id="qr-code-image" class="qr-code-image" src="/asset/qr-code.jpg" alt="联系作者二维码">
         <p class="qr-code-caption">扫描二维码联系作者</p>
         <button id="qr-code-close" class="qr-code-close">关闭</button>
+    </div>
+</div>
+
+<!-- 小屏幕更多菜单弹窗 -->
+<div id="more-menu-modal" class="more-menu-modal">
+    <div class="more-menu-content">
+        <div class="more-menu-header">
+            <h3 class="more-menu-title">更多选项</h3>
+            <button id="more-menu-close" class="more-menu-close">×</button>
+        </div>
+        <ul class="more-menu-list">
+            <li class="more-menu-item">
+                <a href="#" class="more-menu-link" data-action="calendar-view">
+                    <span class="more-menu-icon" id="more-menu-view-icon">📅</span>
+                    <span class="more-menu-text" id="more-menu-view-text">切换日历视图</span>
+                </a>
+            </li>
+            <li class="group-divider"></li> <!-- 分割线 -->
+            <li class="more-menu-item">
+                <a href="#" class="more-menu-link" data-action="filter-all">
+                    <span class="more-menu-icon">📜</span>
+                    <span class="more-menu-text">显示所有任务</span>
+                </a>
+            </li>
+            <li class="more-menu-item">
+                <a href="#" class="more-menu-link" data-action="filter-uncompleted">
+                    <span class="more-menu-icon">⏳</span>
+                    <span class="more-menu-text">只显示未完成任务</span>
+                </a>
+            </li>
+            <li class="more-menu-item">
+                <a href="#" class="more-menu-link" data-action="filter-overdue">
+                    <span class="more-menu-icon">⚠️</span>
+                    <span class="more-menu-text">筛选已逾期任务</span>
+                </a>
+            </li>
+            <li class="more-menu-item">
+                <a href="#" class="more-menu-link" data-action="filter-today">
+                    <span class="more-menu-icon">☀️</span>
+                    <span class="more-menu-text">仅显示今天任务</span>
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 

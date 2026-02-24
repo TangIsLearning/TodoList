@@ -108,6 +108,41 @@ class App {
             });
         }
         
+        // 小屏幕更多菜单按钮事件
+        const moreMenuBtn = document.getElementById('more-menu-btn');
+        const moreMenuModal = document.getElementById('more-menu-modal');
+        const moreMenuClose = document.getElementById('more-menu-close');
+        
+        if (moreMenuBtn && moreMenuModal) {
+            moreMenuBtn.addEventListener('click', () => {
+                this.showMoreMenu();
+            });
+            
+            // 点击遮罩层关闭
+            moreMenuModal.addEventListener('click', (e) => {
+                if (e.target === moreMenuModal) {
+                    this.hideMoreMenu();
+                }
+            });
+        }
+        
+        if (moreMenuClose) {
+            moreMenuClose.addEventListener('click', () => {
+                this.hideMoreMenu();
+            });
+        }
+        
+        // 更多菜单项点击事件
+        const moreMenuLinks = document.querySelectorAll('.more-menu-link');
+        moreMenuLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const action = link.dataset.action;
+                this.handleMoreMenuAction(action);
+                this.hideMoreMenu();
+            });
+        });
+        
         // 二维码弹窗关闭事件
         const qrCodeCloseBtn = document.getElementById('qr-code-close');
         const qrCodeModal = document.getElementById('qr-code-modal');
@@ -143,6 +178,7 @@ class App {
             document.body.classList.add('mobile');
         } else {
             document.body.classList.remove('mobile');
+            this.hideMoreMenu();
         }
     }
     
@@ -334,6 +370,81 @@ class App {
             // 恢复背景滚动
             document.body.style.overflow = '';
             logger.info('Contact author modal hidden', 'App');
+        }
+    }
+    
+    // 显示更多菜单
+    showMoreMenu() {
+        const modal = document.getElementById('more-menu-modal');
+        if (modal) {
+            modal.classList.add('show');
+            // 防止背景滚动
+            document.body.style.overflow = 'hidden';
+            logger.info('More menu shown', 'App');
+        }
+    }
+    
+    // 隐藏更多菜单
+    hideMoreMenu() {
+        const modal = document.getElementById('more-menu-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            // 恢复背景滚动
+            document.body.style.overflow = '';
+            logger.info('More menu hidden', 'App');
+        }
+    }
+    
+    // 处理更多菜单动作
+    async handleMoreMenuAction(action) {
+        logger.info(`Handling more menu action: ${action}`, 'App');
+
+        switch (action) {
+            case 'calendar-view':
+                await this.toggleView();
+                break;
+            case 'filter-uncompleted':
+                await this.filterTasks('uncompleted', 'all', '已筛选未完成任务');
+                break;
+            case 'filter-overdue':
+                await this.filterTasks('overdue', 'all', '已筛选已逾期任务');
+                break;
+            case 'filter-all':
+                await this.filterTasks('all', 'all', '已显示所有任务');
+                break;
+            case 'filter-today':
+                await this.filterTasks('all', 'today', '已筛选今天任务');
+                break;
+            default:
+                logger.warn(`Unknown action: ${action}`, 'App');
+        }
+    }
+    
+    // 切换视图
+    async toggleView() {
+        if (window.calendarManager) {
+            await window.calendarManager.toggleView();
+            Utils.showToast('视图已切换', 'success');
+        } else {
+            Utils.showToast('切换视图不可用', 'error');
+        }
+    }
+
+    //  筛选任务
+    async filterTasks(statusValue, dueDateValue, toastMsg) {
+        if (window.todoManager) {
+            window.todoManager.statusFilter = statusValue;
+            window.todoManager.dueDateFilter = dueDateValue;
+            await window.todoManager.loadTasks();
+
+            // 触发筛选更新
+            Utils.showToast(toastMsg, 'success');
+
+            // 刷新UI
+            const statusFilter = document.getElementById('status-filter');
+            const dueDateFilter = document.getElementById('due-date-filter');
+            if (statusFilter) statusFilter.value = statusValue;
+            if (dueDateFilter) dueDateFilter.value = dueDateValue;
         }
     }
 }
