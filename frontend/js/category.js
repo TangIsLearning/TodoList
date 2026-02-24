@@ -110,39 +110,10 @@ class CategoryManager {
     // 加载分类
     async loadCategories() {
         try {
-            let response;
-            let useCache = false;
-            
-            try {
-                // 优先查询数据库
-                response = await pywebview.api.get_categories();
-            } catch (error) {
-                console.warn('数据库查询分类失败，尝试使用缓存:', error);
-                // 数据库查询失败，尝试使用缓存
-                const cachedCategories = window.DataCache.get('categories');
-                
-                if (cachedCategories) {
-                    console.log('使用缓存的分类数据');
-                    response = cachedCategories;
-                    useCache = true;
-                } else {
-                    this.categories = [];
-                    Utils.showToast(window.languageManager.getText('loadCategoriesFailed', '加载分类失败'), 'error');
-                    return;
-                }
-            }
+            const response = await pywebview.api.get_categories();
             
             if (response.success) {
                 this.categories = response.categories;
-                
-                // 缓存分类数据
-                if (!useCache) {
-                    window.DataCache.set('categories', response);
-                }
-                
-                if (useCache) {
-                    Utils.showToast(window.languageManager.getText('useTaskCached', '使用缓存数据'), 'warning');
-                }
             } else {
                 Utils.showToast(`${window.languageManager.getText('loadCategoriesFailed', '加载分类失败')}: ${response.error}`, 'error');
             }
@@ -345,10 +316,7 @@ class CategoryManager {
                     window.languageManager.getText('categoryUpdated', '分类更新成功') :
                     window.languageManager.getText('categoryCreated', '分类创建成功'), 'success');
                 Utils.ModalManager.hide('category-modal');
-                
-                // 清除缓存，因为数据已更新
-                window.DataCache.remove('categories');
-                
+
                 await this.loadCategories();
                 await this.renderCategories();
                 
@@ -410,10 +378,7 @@ class CategoryManager {
                 const response = await pywebview.api.delete_category(categoryId);
                 if (response.success) {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
-                    
-                    // 清除缓存，因为数据已更新
-                    window.DataCache.remove('categories');
-                    
+
                     // 如果当前选中的是被删除的分类，切换到"全部"
                     if (this.currentCategory === categoryId) {
                         this.filterByCategory('all');

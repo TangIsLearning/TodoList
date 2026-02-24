@@ -509,52 +509,26 @@ class TodoManager {
     async loadTasks() {
         try {
             Utils.setLoading(true, '加载任务...');
-            
-            let response;
-            let useCache = false;
 
-            try {
-                // 查询数据库
-                response = await this.safeGetTodos(
-                    this.currentPage,
-                    this.pageSize,
-                    this.currentFilter === 'all' ? null : this.currentFilter,
-                    this.statusFilter === 'all' ? null : this.statusFilter,
-                    this.priorityFilter === 'all' ? null : this.priorityFilter,
-                    this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-                    null,  // year
-                    null,  // month
-                    this.searchQuery || null,
-                    this.customDateFilter || null
-                );
-                console.log('查询数据库');
-            } catch (error) {
-                // 使用缓存
-                const cachedData = window.DataCache.get('tasks');
-                if (cachedData) {
-                    console.log('使用缓存数据');
-                    response = cachedData;
-                    useCache = true;
-                } else {
-                    console.log('无缓存数据，加载任务为空');
-                    response = { success: false, tasks: [], total: 0, total_pages: 0 };
-                }
-            }
+            // 查询数据库
+            let response = await this.safeGetTodos(
+                this.currentPage,
+                this.pageSize,
+                this.currentFilter === 'all' ? null : this.currentFilter,
+                this.statusFilter === 'all' ? null : this.statusFilter,
+                this.priorityFilter === 'all' ? null : this.priorityFilter,
+                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                null,  // year
+                null,  // month
+                this.searchQuery || null,
+                this.customDateFilter || null
+            );
+            console.log('查询数据库');
             
             if (response.success) {
                 this.tasks = response.tasks;
                 this.totalTasks = response.total;
                 this.totalPages = response.total_pages;
-
-                // 缓存任务数据（仅首次加载全部数据时缓存）
-                if (!useCache && this.currentPage === 1 &&
-                    this.currentFilter === 'all' &&
-                    this.statusFilter === 'all' &&
-                    this.priorityFilter === 'all' &&
-                    this.dueDateFilter === 'all' &&
-                    !this.searchQuery && !this.customDateFilter) {
-                    window.DataCache.set('tasks', response);
-                }
 
                 // 调试信息：检查周期性任务字段
                 const recurringTasks = this.tasks.filter(t => t.isRecurring || t.parentTaskId);
@@ -606,12 +580,8 @@ class TodoManager {
                 if (window.categoryManager) {
                     window.categoryManager.setActiveCategory(this.currentFilter);
                 }
-
-                if (useCache) {
-                    Utils.showToast(window.languageManager.getText('useTaskCached', '使用缓存数据'), 'warning');
-                }
             } else {
-                console.error('无缓存加载任务失败:', error);
+                console.error('加载任务失败:', response.error);
                 Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error');
             }
         } catch (error) {
@@ -1092,9 +1062,6 @@ class TodoManager {
                     await this.updateStats();
                     await this.updateCategoryCounts();
                     
-                    // 清除缓存，因为数据已更新
-                    window.DataCache.remove('tasks');
-                    
                     // 不需要调用 renderCategories()，updateCategoryCounts() 已经更新了分类统计
                     Utils.showToast(task.completed ?
                         window.languageManager.getText('taskCompleted', '任务已完成') :
@@ -1511,9 +1478,6 @@ class TodoManager {
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
                 
-                // 清除缓存，因为数据已更新
-                window.DataCache.remove('tasks');
-                
                 await this.loadTasks();
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
@@ -1614,10 +1578,7 @@ class TodoManager {
                     window.languageManager.getText('periodicTaskDeleted', '整个周期任务删除成功') :
                     window.languageManager.getText('taskDeleted', '任务删除成功');
                 Utils.showToast(message, 'success');
-                
-                // 清除缓存，因为数据已更新
-                window.DataCache.remove('tasks');
-                
+
                 // 安全检查：确保任务列表存在
                 if (Array.isArray(this.tasks)) {
                     console.log('删除前任务数量:', this.tasks.length);
