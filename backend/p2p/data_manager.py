@@ -45,9 +45,7 @@ class DataManager:
         try:
             print("路径查询：", self.db_path)
             conn = sqlite3.connect(self.db_path)
-            print("连接异常")
             cursor = conn.cursor()
-            print("游标异常")
 
             # 导出任务
             cursor.execute('SELECT * FROM tasks')
@@ -94,11 +92,11 @@ class DataManager:
 
             conn.close()
 
-            print("导出数据无异常", str(Path(os.path.join(self.app_data_dir, 'todo.db')).stat().st_mtime))
+            print("导出数据无异常", str(Path(self.db_path).stat().st_mtime))
 
             return {
                 'version': '1.0',
-                'export_time': str(Path(os.path.join(self.app_data_dir, 'todo.db')).stat().st_mtime),
+                'export_time': str(Path(self.db_path).stat().st_mtime),
                 'tasks': tasks,
                 'categories': categories,
                 'settings': settings
