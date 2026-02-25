@@ -2058,7 +2058,7 @@ input:checked + .slider:before {
         height: 100% !important;
         padding: var(--spacing-sm);
         border-radius: unset !important;
-        max-height: max-content !important;
+        max-height: unset !important;
     }
 
     .modal-header {
