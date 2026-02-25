@@ -404,16 +404,19 @@ class App {
                 await this.toggleView();
                 break;
             case 'filter-uncompleted':
-                await this.filterTasks('uncompleted', 'all', '已筛选未完成任务');
+                await this.filterTasks('uncompleted', 'all', '', '已筛选未完成任务');
                 break;
             case 'filter-overdue':
-                await this.filterTasks('overdue', 'all', '已筛选已逾期任务');
+                await this.filterTasks('overdue', 'all', '', '已筛选已逾期任务');
                 break;
             case 'filter-all':
-                await this.filterTasks('all', 'all', '已显示所有任务');
+                await this.filterTasks('all', 'all', '', '已显示所有任务');
                 break;
             case 'filter-today':
-                await this.filterTasks('all', 'today', '已筛选今天任务');
+                await this.filterTasks('all', 'today', '', '已筛选今天任务');
+                break;
+            case 'filter-tag':
+                await this.filterTasks('all', 'all', '#', '已筛选含标签任务');
                 break;
             default:
                 logger.warn(`Unknown action: ${action}`, 'App');
@@ -431,10 +434,11 @@ class App {
     }
 
     //  筛选任务
-    async filterTasks(statusValue, dueDateValue, toastMsg) {
+    async filterTasks(statusValue, dueDateValue, tagValue, toastMsg) {
         if (window.todoManager) {
             window.todoManager.statusFilter = statusValue;
             window.todoManager.dueDateFilter = dueDateValue;
+            window.todoManager.searchQuery = tagValue;
             await window.todoManager.loadTasks();
 
             // 触发筛选更新
@@ -443,8 +447,10 @@ class App {
             // 刷新UI
             const statusFilter = document.getElementById('status-filter');
             const dueDateFilter = document.getElementById('due-date-filter');
+            const searchInput = document.getElementById('search-input');
             if (statusFilter) statusFilter.value = statusValue;
             if (dueDateFilter) dueDateFilter.value = dueDateValue;
+            if (searchInput) searchInput.value = tagValue;
         }
     }
 }
