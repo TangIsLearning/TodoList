@@ -2,6 +2,7 @@
 
 class TodoManager {
     constructor() {
+        this.instances = [];
         this.tasks = [];
         this.currentFilter = 'all';
         this.searchQuery = '';
@@ -914,7 +915,7 @@ class TodoManager {
 
         // 小屏幕卡片式布局(保持原样)
         return `
-            <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+            <div class="small-screen-task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
                 <div class="task-header">
                     <div class="task-checkbox ${task.completed ? 'checked' : ''}"
                          data-task-id="${task.id}"></div>
@@ -943,12 +944,14 @@ class TodoManager {
                             ${tagsHtml ? `<div class="task-tags">${tagsHtml}</div>` : ''}
                         </div>
                     </div>
-                    <div class="task-actions">
-                        <button class="task-action-btn edit" data-task-id="${task.id}"
-                                title="编辑">✏️</button>
-                        <button class="task-action-btn delete" data-task-id="${task.id}"
-                                title="删除">🗑️</button>
-                    </div>
+                </div>
+                <div class="task-actions">
+                    <button class="task-action-btn view" data-task-id="${task.id}"
+                                title="查看">👁️</button>
+                    <button class="task-action-btn edit" data-task-id="${task.id}"
+                            title="编辑">✏️</button>
+                    <button class="task-action-btn delete" data-task-id="${task.id}"
+                            title="删除">🗑️</button>
                 </div>
             </div>
         `;
@@ -970,6 +973,189 @@ class TodoManager {
                 const taskId = e.target.dataset.taskId;
                 this.viewTaskDetails(taskId);
             };
+        });
+
+        // 先重置所有小屏幕任务项的样式
+        document.querySelectorAll('.small-screen-task-item').forEach(item => {
+            const content = item.querySelector('.task-header');
+            if (content) {
+                // 重置所有样式到初始状态
+                content.style.left = '0px';
+                content.style.transition = 'left 0.2s ease';
+                content._isOpen = false;
+            }
+
+            // 移除之前绑定的所有事件
+            if (item._dragStartHandler) {
+                item.removeEventListener('mousedown', item._dragStartHandler);
+            }
+            if (item._dragMoveHandler) {
+                item.removeEventListener('mousemove', item._dragMoveHandler);
+            }
+            if (item._dragEndHandler) {
+                item.removeEventListener('mouseup', item._dragEndHandler);
+            }
+            if (item._clickHandler) {
+                item.removeEventListener('click', item._clickHandler);
+            }
+        });
+
+        // 清空实例数组
+        this.instances = [];
+
+        // 重新绑定
+        document.querySelectorAll('.small-screen-task-item').forEach(item => {
+            const content = item.querySelector('.task-header');
+            if (!content) return;
+
+            const btnWidth = 80;
+
+            // 确保初始状态正确
+            content.style.left = '0px';
+            content.style.position = 'relative'; // 确保定位正确
+            content._isOpen = false;
+
+            // 为每个item创建独立的状态
+            const state = {
+                isDragging: false,
+                startX: 0,
+                currentX: 0,
+                currentLeft: 0,
+                isOpen: false
+            };
+
+            // 创建事件处理函数
+            const dragStartHandler = (e) => {
+                // 如果点击的是操作按钮区域或复选框，不触发拖拽
+                if (e.target.closest('.task-actions') || e.target.closest('.task-checkbox')) return;
+
+                // 如果当前是打开状态，只关闭但不开始拖拽
+                if (content._isOpen) {
+                    // 关闭当前项
+                    content._isOpen = false;
+                    content.style.left = '0px';
+                    content.style.transition = 'left 0.2s ease';
+
+                    // 从实例数组中移除
+                    const index = this.instances.indexOf(content);
+                    if (index > -1) {
+                        this.instances.splice(index, 1);
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
+                // 开始拖拽
+                state.isDragging = true;
+                state.startX = e.clientX;
+                state.currentLeft = content.offsetLeft;
+                state.currentX = 0;
+
+                content.style.transition = 'none';
+                e.preventDefault();
+            };
+
+            const dragMoveHandler = (e) => {
+                if (!state.isDragging) return;
+                e.preventDefault();
+
+                const deltaX = e.clientX - state.startX;
+                let newLeft = state.currentLeft + deltaX;
+
+                // 边界限制
+                if (newLeft > 0) newLeft = 0;
+                if (newLeft < -btnWidth) newLeft = -btnWidth;
+
+                content.style.left = newLeft + 'px';
+                state.currentX = newLeft;
+            };
+
+            const dragEndHandler = (e) => {
+                if (!state.isDragging) return;
+
+                state.isDragging = false;
+                content.style.transition = 'left 0.2s ease';
+
+                // 判断是否打开
+                if (state.currentX < -btnWidth / 2) {
+                    // 打开前关闭其他所有项
+                    this.instances.forEach(instance => {
+                        if (instance && instance !== content) {
+                            instance.style.left = '0px';
+                            instance.style.transition = 'left 0.2s ease';
+                            instance._isOpen = false;
+                        }
+                    });
+
+                    // 打开当前项
+                    content._isOpen = true;
+                    content.style.left = -btnWidth + 'px';
+
+                    // 更新实例数组
+                    this.instances = [content];
+                } else {
+                    // 关闭当前项
+                    content._isOpen = false;
+                    content.style.left = '0px';
+
+                    // 从实例数组中移除
+                    const index = this.instances.indexOf(content);
+                    if (index > -1) {
+                        this.instances.splice(index, 1);
+                    }
+                }
+
+                // 重置拖拽状态
+                state.currentX = 0;
+                state.currentLeft = 0;
+            };
+
+            // 点击处理函数
+            const clickHandler = (e) => {
+                // 如果点击的是操作按钮区域或复选框，不处理
+                if (e.target.closest('.task-actions') || e.target.closest('.task-checkbox')) {
+                    return;
+                }
+
+                // 如果当前是打开状态，阻止点击事件
+                if (content._isOpen) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
+                // 如果当前不是打开状态，正常触发编辑
+                // 不需要阻止事件
+            };
+
+            // 存储事件处理函数
+            item._dragStartHandler = dragStartHandler;
+            item._dragMoveHandler = dragMoveHandler;
+            item._dragEndHandler = dragEndHandler;
+            item._clickHandler = clickHandler;
+
+            // 绑定事件
+            item.addEventListener('mousedown', dragStartHandler);
+            item.addEventListener('mousemove', dragMoveHandler);
+            item.addEventListener('mouseup', dragEndHandler);
+            item.addEventListener('click', clickHandler);
+            item.addEventListener('dragstart', (e) => e.preventDefault());
+        });
+
+        // 全局点击关闭
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.small-screen-task-item')) {
+                this.instances.forEach(instance => {
+                    if (instance) {
+                        instance.style.left = '0px';
+                        instance.style.transition = 'left 0.2s ease';
+                        instance._isOpen = false;
+                    }
+                });
+                this.instances = [];
+            }
         });
 
         // 编辑按钮

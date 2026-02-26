@@ -1003,7 +1003,6 @@
         display: flex;
         align-items: flex-start;
         gap: var(--spacing-md);
-        margin-bottom: var(--spacing-md);
         width: auto;
     }
 
@@ -1102,21 +1101,56 @@
 
     .task-actions {
         display: flex;
-        gap: var(--spacing-sm);
         transition: var(--transition-fast);
         width: auto;
-        margin-top: var(--spacing-md);
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 80px;
+        height: 100%;
+        color: white;
+        display: flex;
+        justify-content: center;
+        border-radius: 0 8px 8px 0;
+        z-index: 1;
+        font-weight: bold;
+        margin: 1px;
     }
 
     .task-action-btn {
-        padding: var(--spacing-xs) var(--spacing-sm);
         background: none;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius-sm);
+        border: 1px solid transparent !important;
+        border-radius: 0 !important;
         color: var(--text-secondary);
         cursor: pointer;
         font-size: var(--font-size-sm);
         transition: var(--transition-fast);
+    }
+
+    .task-header {
+        top: 0;
+        left: 0;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-primary);
+        padding: 8px;
+        box-sizing: border-box;
+        z-index: 2;
+        transition: left 0.2s ease; /* 平滑动画 */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .task-action-btn.view {
+        background-color: var(--primary-color);
+    }
+
+    .task-action-btn.edit {
+        background-color: var(--warning-color);
+    }
+
+    .task-action-btn.delete {
+        background-color: var(--danger-color);
     }
 
     .task-action-btn:hover {
@@ -1134,7 +1168,6 @@
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
 }
 
 .task-checkbox {
@@ -1164,6 +1197,16 @@
     content: '✓';
     color: white;
     font-weight: bold;
+}
+
+.small-screen-task-item {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden; /* 隐藏超出部分 */
+  user-select: none; /* 防止拖拽时选中文字 */
+  border: 1px solid #eee;
 }
 
 .task-content {
@@ -1408,7 +1451,6 @@
 
 .task-actions {
     display: flex;
-    gap: var(--spacing-sm);
     transition: var(--transition-fast);
 }
 

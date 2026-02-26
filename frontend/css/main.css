@@ -1959,10 +1959,6 @@ input:checked + .slider:before {
         padding: var(--spacing-md);
         min-height: 100px !important;
     }
-
-    .task-header {
-        margin-bottom: var(--spacing-sm);
-    }
     
     .task-title {
         font-size: var(--font-size-base);
@@ -2501,7 +2497,6 @@ input:checked + .slider:before {
     
     .task-header {
         gap: 4px !important;
-        margin-bottom: 2px !important;
         align-items: flex-start;
     }
     
@@ -2544,12 +2539,7 @@ input:checked + .slider:before {
         font-size: 8px !important;
     }
     
-    .task-actions {
-        gap: 2px !important;
-    }
-    
     .task-action-btn {
-        padding: 2px 4px !important;
         font-size: 8px !important;
     }
 
@@ -2788,7 +2778,6 @@ input:checked + .slider:before {
     }
     
     .task-actions {
-        gap: 1px !important;
         opacity: 1 !important; /* 在小屏幕上常显示操作按钮 */
     }
     
