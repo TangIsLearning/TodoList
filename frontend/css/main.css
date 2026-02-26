@@ -2047,6 +2047,7 @@ input:checked + .slider:before {
     }
 
     #task-modal .modal-content,
+    #confirm-dialog.view-modal .modal-content,
     #settings-modal .modal-content,
     #data-transfer-modal .modal-content,
     #category-modal .modal-content {
@@ -2054,7 +2055,9 @@ input:checked + .slider:before {
         height: 100% !important;
         padding: var(--spacing-sm);
         border-radius: unset !important;
+        max-width: unset !important;
         max-height: unset !important;
+        margin: 0px;
     }
 
     .modal-header {

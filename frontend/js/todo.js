@@ -1394,7 +1394,7 @@ class TodoManager {
             null,
             null,
             '任务详情',
-            false
+            'view-modal'
         );
 
         // 加载分类名称

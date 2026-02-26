@@ -195,7 +195,7 @@ const ModalManager = {
 };
 
 // 确认对话框
-function confirmDialog(message, callback, onCancel = null, title = null) {
+function confirmDialog(message, callback, onCancel = null, title = null, className = '') {
     const messageEl = document.getElementById('confirm-message');
     const cancelBtn = document.getElementById('confirm-cancel');
     const okBtn = document.getElementById('confirm-ok');
@@ -242,6 +242,7 @@ function confirmDialog(message, callback, onCancel = null, title = null) {
     // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
     confirmModal.classList.add('show');
+    confirmModal.classList.add(className);
     confirmModal.style.display = 'flex';
     
     // 绑定事件
