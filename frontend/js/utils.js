@@ -242,7 +242,7 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
     confirmModal.classList.add('show');
-    confirmModal.classList.add(className);
+    if (className != '') confirmModal.classList.add(className);
     confirmModal.style.display = 'flex';
     
     // 绑定事件
