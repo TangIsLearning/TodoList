@@ -580,27 +580,14 @@ class TodoApi:
     def select_file_dialog(self):
         """打开文件选择对话框"""
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-            import threading
-            
-            # 创建隐藏的根窗口
-            root = tk.Tk()
-            root.withdraw()  # 隐藏主窗口
-            root.attributes('-topmost', True)  # 置顶显示
-            
-            # 打开文件选择对话框
-            selected_path = filedialog.askopenfilename(
-                title="选择数据存储文件",
-                filetypes=[
-                    ("SQLite Database", "*.db"),
-                    ("All Files", "*.*")
-                ]
+            import webview
+            active_window = webview.active_window()
+            file_types = ('Data Files (*.db)', 'All files (*.*)')
+            selected_path = active_window.create_file_dialog(
+                webview.FileDialog.OPEN,
+                file_types=file_types
             )
-            
-            # 销毁根窗口
-            root.destroy()
-            
+
             if selected_path:
                 return {
                     'success': True,
@@ -612,10 +599,8 @@ class TodoApi:
                     'success': False,
                     'error': '用户取消了文件选择'
                 }
-                
+
         except Exception as e:
-            # 如果tkinter不可用，提供备用方案
-            backend_logger.warning(f"文件选择对话框失败，使用备用方案: {e}")
             return {
                 'success': False,
                 'error': f'文件选择对话框不可用: {str(e)}',
