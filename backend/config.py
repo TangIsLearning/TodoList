@@ -36,6 +36,12 @@ PRIORITY_LEVELS = {
 # 数据文件配置
 DEFAULT_DATA_FILE = "data/todo.db"
 
+# Android配置
+ANDROID_PACKAGE_NAME = "com.pywebview.todos.todolist"
+ANDROID_PRIMARY_USR_DIR = "/data/user/0/com.pywebview.todos.todolist"
+ANDROID_PRIMARY_DATA_DIR = "/data/data/com.pywebview.todos.todolist"
+ANDROID_EXTERNAL_DIR = "/sdcard/Android/data/com.pywebview.todos.todolist"
+
 
 def get_default_data_file():
     """获取默认数据文件路径"""

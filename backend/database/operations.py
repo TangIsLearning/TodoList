@@ -8,6 +8,8 @@ from pathlib import Path
 import sqlite3
 import os
 import sys
+
+from backend.config import ANDROID_PACKAGE_NAME, ANDROID_PRIMARY_DATA_DIR
 from backend.utils.logger import backend_logger
 from backend.database.models import Tag, Task, Category
 
@@ -56,10 +58,10 @@ def get_app_data_dir():
         except ImportError:
             # 备选方案：使用标准的安卓应用数据目录
             if 'ANDROID_DATA' in os.environ:
-                base_dir = Path('/data/data') / 'com.yourcompany.todolist' / 'files'
+                base_dir = Path(ANDROID_PRIMARY_DATA_DIR)
             else:
                 # 安卓模拟器或其他情况
-                base_dir = Path('/storage/emulated/0/Android/data/com.yourcompany.todolist/files')
+                base_dir = Path('/storage/emulated/0/Android/data') / ANDROID_PACKAGE_NAME
     elif os.name == 'nt':  # Windows
         base_dir = Path(os.environ['APPDATA']) / 'TodoList'
     elif os.name == 'posix':  # macOS/Linux
@@ -128,6 +130,9 @@ class TodoDatabase:
     """Todo数据库操作类"""
     def __init__(self):
         db_file = get_app_data_file()
+
+        # 确保父目录存在
+        db_file.parent.mkdir(parents=True, exist_ok=True)
         
         # 数据库文件路径
         self.db_path = str(db_file) if isinstance(db_file, Path) else db_file

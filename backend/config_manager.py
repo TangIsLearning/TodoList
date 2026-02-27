@@ -5,8 +5,11 @@
 
 import os
 import json
+import platform
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+from backend.config import ANDROID_PRIMARY_USR_DIR, ANDROID_PRIMARY_DATA_DIR, ANDROID_EXTERNAL_DIR, ANDROID_PACKAGE_NAME
 
 class ConfigManager:
     """外部配置管理器，独立于数据库"""
@@ -15,12 +18,75 @@ class ConfigManager:
         self.config_file = self._get_config_file_path()
         self.config = self._load_config()
     
+    def _is_android(self) -> bool:
+        """检测是否为Android系统"""
+        try:
+            # 方法1: 检查platform信息
+            if platform.system() == 'Linux':
+                # 方法2: 检查Android特有的环境变量
+                if os.environ.get('ANDROID_ROOT') or os.environ.get('ANDROID_DATA'):
+                    return True
+                
+                # 方法3: 检查Android特有的系统文件
+                android_files = [
+                    '/system/build.prop',
+                    '/system/framework/framework-res.apk',
+                    '/proc/version'
+                ]
+                
+                for file_path in android_files:
+                    if file_path == '/proc/version':
+                        # 特殊处理/proc/version
+                        try:
+                            with open(file_path, 'r') as f:
+                                content = f.read().lower()
+                                if 'android' in content:
+                                    return True
+                        except:
+                            continue
+                    else:
+                        if os.path.exists(file_path):
+                            return True
+            
+            # 方法4: 检查是否在Termux环境中
+            if 'com.termux' in os.environ.get('PREFIX', '') or \
+               'termux' in os.environ.get('PATH', '').lower():
+                return True
+                
+            return False
+        except Exception:
+            return False
+    
     def _get_config_file_path(self) -> Path:
         """获取配置文件路径"""
         # 在用户目录下创建配置文件，避免权限问题
         if os.name == 'nt':  # Windows
             config_dir = Path(os.environ.get('APPDATA', '')) / 'TodoList'
-        else:  # Unix-like systems
+        elif self._is_android():  # Android系统
+            # Android应用配置目录
+            android_config_dirs = [
+                Path(ANDROID_PRIMARY_USR_DIR + '/files/.config'),  # 私有存储
+                Path(ANDROID_EXTERNAL_DIR + '/files'),   # 外部存储
+                Path.home() / '.config'  # 备用方案
+            ]
+            
+            # 尝试使用第一个可写的目录
+            config_dir = None
+            for dir_path in android_config_dirs:
+                try:
+                    dir_path.mkdir(parents=True, exist_ok=True)
+                    if os.access(dir_path, os.W_OK):
+                        config_dir = dir_path / 'TodoList'
+                        break
+                except:
+                    continue
+            
+            # 如果都没有权限，则使用应用私有目录
+            if config_dir is None:
+                config_dir = Path(ANDROID_PRIMARY_DATA_DIR + '/shared_prefs') / 'TodoList'
+                config_dir.mkdir(parents=True, exist_ok=True)
+                
+        else:  # Unix-like systems (Linux/macOS)
             config_dir = Path.home() / '.config' / 'TodoList'
         
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -76,6 +142,30 @@ class ConfigManager:
             
         # 返回默认文件
         project_root = Path(__file__).parent.parent
+        
+        # Android系统使用专用的数据目录
+        if self._is_android():
+            # Android数据文件目录
+            android_data_dirs = [
+                Path(ANDROID_PRIMARY_USR_DIR + '/databases'),  # 应用私有数据库目录
+                Path(ANDROID_EXTERNAL_DIR + '/databases'),  # 外部存储
+                project_root / 'data'  # 开发环境备用
+            ]
+            
+            # 尝试使用第一个可写的目录
+            for dir_path in android_data_dirs:
+                try:
+                    dir_path.mkdir(parents=True, exist_ok=True)
+                    if os.access(dir_path, os.W_OK):
+                        return str(dir_path / 'todo.db')
+                except:
+                    continue
+            
+            # 如果都不可写，使用应用私有目录
+            private_dir = Path(ANDROID_PRIMARY_DATA_DIR + '/databases')
+            private_dir.mkdir(parents=True, exist_ok=True)
+            return str(private_dir / 'todo.db')
+        
         return str(project_root / 'data' / 'todo.db')
     
     def set_data_file(self, path: str) -> bool:
