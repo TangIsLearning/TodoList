@@ -85,7 +85,7 @@ def start_app(window):
     )
 
     app_logger.info("启动webview...")
-    webview.start(bind, window, ssl=True, debug=True)
+    webview.start(bind, window, private_mode=False, ssl=True, debug=True)
     
     # 应用关闭时停止提醒服务
     app_logger.info("停止任务提醒服务...")
