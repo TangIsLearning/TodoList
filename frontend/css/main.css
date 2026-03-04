@@ -329,6 +329,10 @@ body {
     color: var(--text-primary);
 }
 
+.mobile-shown-item {
+    display: none;
+}
+
 /* 开关按钮样式 */
 .switch {
     position: relative;
@@ -807,7 +811,7 @@ input:checked + .slider:before {
 }
 
 /* 数据传输模态框 */
-.data-transfer-modal-content {
+.data-transfer-modal-content, .data-sync-modal-content {
     max-width: 600px;
 }
 
@@ -1058,7 +1062,6 @@ input:checked + .slider:before {
     }
 
     .action-btn {
-        padding: var(--spacing-sm);
         font-size: var(--font-size-sm);
     }
 
@@ -1124,7 +1127,7 @@ input:checked + .slider:before {
         color: var(--text-secondary);
     }
 
-    .data-transfer-modal-content {
+    .data-transfer-modal-content, .data-sync-modal-content {
         width: 95%;
         max-width: none;
         margin: 10px auto;
@@ -2013,9 +2016,12 @@ input:checked + .slider:before {
         display: flex;
     }
 
-    /* 移动端隐藏窗口置顶设置项 */
-    .setting-section:first-child {
+    .mobile-unshown-item {
         display: none;
+    }
+
+    .mobile-shown-item {
+        display: flex;
     }
 }
 
@@ -2050,6 +2056,7 @@ input:checked + .slider:before {
     #confirm-dialog.view-modal .modal-content,
     #settings-modal .modal-content,
     #data-transfer-modal .modal-content,
+    #data-sync-modal .modal-content,
     #category-modal .modal-content {
         width: 100% !important;
         height: 100% !important;
@@ -2827,9 +2834,11 @@ input:checked + .slider:before {
 
 .config-item {
     display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.data-dir-btn {
+.data-dir-btn, .webdav-input {
     flex: 1;
     padding: var(--spacing-md);
     border: 2px solid transparent;
@@ -2846,10 +2855,17 @@ input:checked + .slider:before {
 
 .config-item .data-label {
     background-color: var(--bg-secondary);
-    text-align: center;
     padding: var(--spacing-md);
     border-radius: var(--border-radius) 0 0 var(--border-radius);
+}
+
+.data-directory-config .config-item .data-label {
+    text-align: center;
     border-right: solid 1px var(--border-color);
+}
+
+.webdav-config-panel .config-item .data-label {
+    text-align: left;
 }
 
 .apply-dir-btn {
@@ -2857,7 +2873,7 @@ input:checked + .slider:before {
     border-radius: 0 var(--border-radius) var(--border-radius) 0;
 }
 
-.data-dir-btn:hover {
+.data-dir-btn:hover, .webdav-input:hover {
     background-color: var(--bg-tertiary);
 }
 
@@ -2874,14 +2890,13 @@ input:checked + .slider:before {
 
 /* 数据目录配置响应式样式 */
 @media (max-width: 768px) {
-    .data-dir-btn {
-        border-radius: var(--border-radius-sm);
+    .data-dir-btn, .webdav-input {
         border-left: 1px solid var(--border-color);
-    }
-    
-    .data-dir-btn {
         font-size: var(--font-size-xs);
-        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .data-directory-config .config-item .data-label {
+        font-size: var(--font-size-xs);
     }
 }
 

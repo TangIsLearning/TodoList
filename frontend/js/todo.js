@@ -93,6 +93,17 @@ class TodoManager {
         this.initInfiniteScroll();
     }
     
+    // 触发云端同步上传
+    async triggerCloudUpload() {
+        try {
+            if (window.pywebview && window.pywebview.api) {
+                await window.pywebview.api.trigger_upload_on_change();
+            }
+        } catch (error) {
+            console.error('触发云端上传失败:', error);
+        }
+    }
+
     // 绑定事件
     bindEvents() {
         // 统计维度切换
@@ -1667,6 +1678,9 @@ class TodoManager {
                 await this.loadTasks();
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
+                
+                // 触发云端同步上传
+                await this.triggerCloudUpload();
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }
@@ -1777,6 +1791,9 @@ class TodoManager {
                 }
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
+                
+                // 触发云端同步上传
+                await this.triggerCloudUpload();
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }

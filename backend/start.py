@@ -12,6 +12,7 @@ from pathlib import Path
 from backend.api.todo_api import TodoApi
 from backend.utils.task_reminder import start_reminder, stop_reminder
 from backend.utils.logger import app_logger
+from backend.webdav.data_sync import get_data_sync_manager
 
 # 获取当前目录
 current_dir = Path(__file__).parent
@@ -67,6 +68,24 @@ def start_app(window):
     # 启动任务提醒服务
     app_logger.info("启动任务提醒服务...")
     start_reminder()
+    
+    # 初始化数据同步管理器
+    app_logger.info("初始化数据同步管理器...")
+    sync_manager = get_data_sync_manager()
+    
+    # 设置同步回调，当云端数据更新时刷新前端
+    def on_sync_complete():
+        try:
+            if window:
+                window.evaluate_js("location.reload();")
+                app_logger.info("前端页面已刷新以反映云端数据变化")
+        except Exception as e:
+            app_logger.error(f"同步回调执行失败: {e}")
+    
+    sync_manager.set_sync_callback(on_sync_complete)
+    
+    # 启动自动同步
+    sync_manager.start_auto_sync()
     
     # 获取前端文件路径
     frontend_path = get_resource_path('frontend/index.html')

@@ -324,6 +324,11 @@ class CategoryManager {
                 if (window.todoManager) {
                     await window.todoManager.loadTasks();
                 }
+                
+                // 触发云端同步上传
+                if (window.todoManager) {
+                    await window.todoManager.triggerCloudUpload();
+                }
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
             }
@@ -390,6 +395,11 @@ class CategoryManager {
                     // 重新加载任务列表
                     if (window.todoManager) {
                         await window.todoManager.loadTasks();
+                    }
+                    
+                    // 触发云端同步上传
+                    if (window.todoManager) {
+                        await window.todoManager.triggerCloudUpload();
                     }
                 } else {
                     Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');

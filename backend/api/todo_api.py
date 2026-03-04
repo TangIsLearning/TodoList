@@ -3,11 +3,14 @@ TodoList应用的前后端通信API
 """
 
 import sys
+import logging
 from datetime import datetime
 from pathlib import Path
 
 from backend.database.operations import TodoDatabase
 from backend.utils.logger import backend_logger, log_frontend_message
+
+logger = logging.getLogger(__name__)
 
 # 确保能找到database模块
 current_dir = Path(__file__).parent
@@ -642,3 +645,136 @@ class TodoApi:
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+    
+    # ==================== WebDAV同步相关API ====================
+    
+    def get_webdav_config(self):
+        """获取WebDAV配置"""
+        try:
+            from backend.config_manager import get_webdav_config
+            config = get_webdav_config()
+            return {
+                'success': True,
+                'config': config
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def set_webdav_config(self, config):
+        """设置WebDAV配置"""
+        try:
+            from backend.config_manager import set_webdav_config
+            
+            # 保存配置
+            success = set_webdav_config(config)
+            
+            if success:
+                # 如果启用了自动同步，重启同步管理器
+                if config.get('enabled') and config.get('auto_sync'):
+                    from backend.webdav.data_sync import get_data_sync_manager
+                    sync_manager = get_data_sync_manager()
+                    sync_manager.start_auto_sync()
+                elif not config.get('enabled') or not config.get('auto_sync'):
+                    # 停止自动同步
+                    from backend.webdav.data_sync import get_data_sync_manager
+                    sync_manager = get_data_sync_manager()
+                    sync_manager.stop_auto_sync()
+                
+                return {
+                    'success': True,
+                    'message': 'WebDAV配置保存成功'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': '配置保存失败'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def test_webdav_connection(self, username, password, remote_path):
+        """测试WebDAV连接"""
+        try:
+            from backend.webdav.webdav_client import WebDAVClient
+            
+            # 创建临时客户端进行测试
+            client = WebDAVClient()
+            if client.configure(username, password, remote_path):
+                result = client.test_connection()
+                return result
+            else:
+                return {
+                    'success': False,
+                    'error': '客户端配置失败'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def sync_from_cloud(self, is_overwrite = False):
+        """从云端同步数据到本地"""
+        try:
+            from backend.webdav.data_sync import get_data_sync_manager
+            sync_manager = get_data_sync_manager()
+            result = sync_manager.sync_from_cloud(is_overwrite)
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def sync_to_cloud(self):
+        """将本地数据同步到云端"""
+        try:
+            from backend.webdav.data_sync import get_data_sync_manager
+            sync_manager = get_data_sync_manager()
+            result = sync_manager.sync_to_cloud()
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def get_sync_status(self):
+        """获取同步状态"""
+        try:
+            from backend.webdav.data_sync import get_data_sync_manager
+            sync_manager = get_data_sync_manager()
+            status = sync_manager.get_sync_status()
+            return {
+                'success': True,
+                'status': status
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def trigger_upload_on_change(self):
+        """在数据变更时触发上传"""
+        try:
+            from backend.webdav.data_sync import get_data_sync_manager
+            sync_manager = get_data_sync_manager()
+            sync_manager.trigger_upload_on_change()
+            logger.info(f"更新文件成功")
+            return {
+                'success': True
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }

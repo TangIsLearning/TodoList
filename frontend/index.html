@@ -365,7 +365,7 @@
             <div class="setting-section">
                 <h3>通用设置</h3>
                 <!-- 窗口置顶设置 -->
-                <div class="setting-item">
+                <div class="setting-item mobile-unshown-item">
                     <div class="setting-label">
                         <span class="setting-icon">📌</span>
                         <span class="setting-text">窗口置顶</span>
@@ -403,7 +403,7 @@
             <div class="setting-section">
                 <h3>数据管理</h3>
                 <!-- 数据目录配置 -->
-                <div class="data-directory-config">
+                <div class="data-directory-config mobile-unshown-item">
                     <div class="config-item">
                         <label class="data-label">存储路径</label>
                         <button id="data-dir-btn" class="data-dir-btn">浏览</button>
@@ -415,6 +415,13 @@
                     <div class="setting-label">
                         <span class="setting-icon">📤</span>
                         <span class="setting-text">共享数据</span>
+                    </div>
+                </div>
+                <!-- 数据同步管理 -->
+                <div class="setting-item mobile-shown-item" id="data-sync-btn">
+                    <div class="setting-label">
+                        <span class="setting-icon">💾</span>
+                        <span class="setting-text">同步数据</span>
                     </div>
                 </div>
             </div>
@@ -495,6 +502,64 @@
                         <button id="confirm-import-btn" class="action-btn danger-btn">确认导入</button>
                         <button id="cancel-import-btn" class="action-btn cancel-btn">取消</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="data-sync-modal" class="modal">
+    <div class="modal-content data-sync-modal-content">
+        <div class="modal-header">
+            <h2>数据同步</h2>
+            <button class="modal-close" id="data-sync-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="setting-section">
+                <!-- WebDAV同步开关 -->
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span class="setting-icon">☁️</span>
+                        <span class="setting-text">坚果云同步</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="webdav-enable-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- WebDAV配置面板 -->
+                <div id="webdav-config-panel" class="webdav-config-panel" style="display: none;">
+                    <div class="config-item">
+                        <label class="data-label">账号</label>
+                        <input type="email" id="webdav-username" class="webdav-input" placeholder="请输入邮箱地址">
+                    </div>
+
+                    <div class="config-item">
+                        <label class="data-label">密码</label>
+                        <input type="password" id="webdav-password" class="webdav-input" placeholder="请输入授权应用密码">
+                    </div>
+
+                    <div class="config-item">
+                        <label class="data-label">路径</label>
+                        <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程文件路径">
+                    </div>
+
+                    <div class="config-item">
+                        <label class="data-label">自动同步(每15s一次)</label>
+                        <label class="switch">
+                            <input type="checkbox" id="webdav-auto-sync-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="webdav-actions">
+                        <button id="webdav-test-btn" class="action-btn secondary-btn">测试连接</button>
+                        <button id="webdav-save-btn" class="action-btn primary-btn">保存配置</button>
+                    </div>
+
+                    <div id="webdav-status" class="webdav-status" style="display: none;"></div>
                 </div>
             </div>
         </div>

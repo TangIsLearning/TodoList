@@ -13,6 +13,18 @@ class SettingsUIManager {
         this.settingsBtn = null;
         this.windowTopToggle = null;
         this.dataShareBtn = null;
+        this.dataSyncBtn = null;
+
+        // WebDAV相关元素
+        this.webdavEnableToggle = null;
+        this.webdavConfigPanel = null;
+        this.webdavUsernameInput = null;
+        this.webdavPasswordInput = null;
+        this.webdavRemotePathInput = null;
+        this.webdavAutoSyncToggle = null;
+        this.webdavTestBtn = null;
+        this.webdavSaveBtn = null;
+        this.webdavStatusDiv = null;
 
         // 延迟初始化
         setTimeout(() => this.init(), 100);
@@ -43,10 +55,22 @@ class SettingsUIManager {
         this.windowTopToggle = document.getElementById('window-top-toggle');
         this.themeDarkToggle = document.getElementById('theme-dark-toggle');
         this.dataShareBtn = document.getElementById('data-share-btn');
+        this.dataSyncBtn = document.getElementById('data-sync-btn');
 
         // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
         this.applyDirBtn = document.getElementById('apply-dir-btn');
+        
+        // WebDAV配置元素
+        this.webdavEnableToggle = document.getElementById('webdav-enable-toggle');
+        this.webdavConfigPanel = document.getElementById('webdav-config-panel');
+        this.webdavUsernameInput = document.getElementById('webdav-username');
+        this.webdavPasswordInput = document.getElementById('webdav-password');
+        this.webdavRemotePathInput = document.getElementById('webdav-remote-path');
+        this.webdavAutoSyncToggle = document.getElementById('webdav-auto-sync-toggle');
+        this.webdavTestBtn = document.getElementById('webdav-test-btn');
+        this.webdavSaveBtn = document.getElementById('webdav-save-btn');
+        this.webdavStatusDiv = document.getElementById('webdav-status');
     }
     
     bindEvents() {
@@ -88,6 +112,11 @@ class SettingsUIManager {
         if (this.dataShareBtn) {
             this.dataShareBtn.addEventListener('click', () => this.openDataTransfer('share'));
         }
+
+        // 数据同步按钮
+        if (this.dataSyncBtn) {
+            this.dataSyncBtn.addEventListener('click', () => this.openDataSync());
+        }
         
         // 数据文件配置事件绑定
         if (this.dataDirBtn) {
@@ -104,6 +133,19 @@ class SettingsUIManager {
                     this.applyDataDirectory();
                 }
             });
+        }
+        
+        // WebDAV事件绑定
+        if (this.webdavEnableToggle) {
+            this.webdavEnableToggle.addEventListener('change', () => this.toggleWebDAV());
+        }
+        
+        if (this.webdavTestBtn) {
+            this.webdavTestBtn.addEventListener('click', () => this.testWebDAVConnection());
+        }
+        
+        if (this.webdavSaveBtn) {
+            this.webdavSaveBtn.addEventListener('click', () => this.saveWebDAVConfig());
         }
         
         // ESC键关闭
@@ -348,6 +390,42 @@ class SettingsUIManager {
             Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
         }
     }
+
+    //  处理数据管理按钮点击
+    openDataSync() {
+        // 关闭设置中心
+        this.closeModal();
+
+        // 延迟打开数据同步模态框，确保设置中心完全关闭
+        const modal = document.getElementById('data-sync-modal');
+        setTimeout(() => {
+            console.log('打开模态框');
+            if (modal) {
+                modal.style.display = 'flex';
+                this.updateWebDAVConfig();
+            } else {
+                console.log('模态框未找到！');
+                Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
+            }
+        }, 100);
+
+        // 添加关闭按钮点击事件
+        const closeBtn = document.getElementById('data-sync-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            });
+        }
+
+        // 点击模态框外部关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            }
+        });
+    }
     
     async restoreSettings() {
         try {
@@ -470,17 +548,7 @@ class SettingsUIManager {
                             // 更新显示
                             await this.updateDataFileConfig();
 
-                            // 重新加载任务列表
-                            if (window.todoManager) {
-                                await window.todoManager.loadTasks();
-                            }
-                            if (window.categoryManager) {
-                                await window.categoryManager.loadCategories();
-                                await window.categoryManager.renderCategories(false);
-                            }
-
-                            // 显示成功提示
-                            Utils.showToast('数据文件设置成功', 'success');
+                            this.refreshData('数据文件设置成功');
                         } else {
                             Utils.showToast('设置失败: ' + result.error, 'error');
                         }
@@ -496,6 +564,20 @@ class SettingsUIManager {
         } finally {
             this.setDirectoryButtonsDisabled(false);
         }
+    }
+
+    async refreshData(message) {
+        // 重新加载任务列表
+        if (window.todoManager) {
+            await window.todoManager.loadTasks();
+        }
+        if (window.categoryManager) {
+            await window.categoryManager.loadCategories();
+            await window.categoryManager.renderCategories(false);
+        }
+
+        // 显示成功提示
+        Utils.showToast(message, 'success');
     }
     
     setDirectoryButtonsDisabled(disabled) {
@@ -523,6 +605,182 @@ class SettingsUIManager {
             console.log('Settings saved successfully');
         } catch (error) {
             console.error('Failed to save settings:', error);
+        }
+    }
+
+    // ==================== WebDAV相关方法 ====================
+    async updateWebDAVConfig() {
+        // 更新WebDAV配置显示
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+
+            const result = await window.pywebview.api.get_webdav_config();
+
+            if (result.success && result.config) {
+                const config = result.config;
+
+                console.log('WebDAV config:', config);
+
+                // 更新开关状态
+                if (this.webdavEnableToggle) {
+                    this.webdavEnableToggle.checked = config.enabled || false;
+                    this.toggleWebDAVPanel();
+                }
+
+                // 更新输入框
+                if (this.webdavUsernameInput) {
+                    this.webdavUsernameInput.value = config.username || '';
+                }
+
+                if (this.webdavPasswordInput) {
+                    this.webdavPasswordInput.value = config.password || '';
+                }
+
+                if (this.webdavRemotePathInput) {
+                    this.webdavRemotePathInput.value = config.remote_path || '';
+                }
+
+                if (this.webdavAutoSyncToggle) {
+                    this.webdavAutoSyncToggle.checked = config.auto_sync !== false;
+                }
+            }
+        } catch (error) {
+            console.error('更新WebDAV配置失败:', error);
+        }
+    }
+
+    async toggleWebDAV() {
+        // 切换WebDAV启用状态
+        const isEnabled = this.webdavEnableToggle.checked;
+        this.toggleWebDAVPanel();
+
+        // 如果禁用，直接保存配置
+        if (!isEnabled) {
+            await this.saveWebDAVConfig();
+        }
+    }
+
+    toggleWebDAVPanel() {
+        // 切换WebDAV配置面板显示
+        const isEnabled = this.webdavEnableToggle.checked;
+        if (this.webdavConfigPanel) {
+            this.webdavConfigPanel.style.display = isEnabled ? 'block' : 'none';
+        }
+    }
+
+    async testWebDAVConnection() {
+        // 测试WebDAV连接
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                Utils.showToast('API未就绪', 'error');
+                return;
+            }
+
+            // 获取当前输入的配置
+            const username = this.webdavUsernameInput.value.trim();
+            const password = this.webdavPasswordInput.value;
+            const remotePath = this.webdavRemotePathInput.value;
+
+            if (!username || !password) {
+                Utils.showToast('请填写完整的账号和密码', 'warning');
+                return;
+            }
+
+            if (!remotePath) {
+                Utils.showToast('远程数据文件路径不能为空', 'warning');
+                return;
+            }
+
+            // 显示测试状态
+            this.showWebDAVStatus('正在测试连接...', 'info');
+
+            // 调用测试API
+            const result = await window.pywebview.api.test_webdav_connection(username, password, remotePath);
+
+            if (result.success) {
+                this.showWebDAVStatus('✅ 连接成功！可以正常使用云端同步功能', 'success');
+                Utils.showToast('连接测试成功', 'success');
+            } else {
+                this.showWebDAVStatus(`❌ 连接失败：${result.error}`, 'error');
+                Utils.showToast(`连接测试失败: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('测试WebDAV连接失败:', error);
+            this.showWebDAVStatus(`❌ 测试过程出错：${error.message}`, 'error');
+            Utils.showToast('测试过程出错', 'error');
+        }
+    }
+
+    async saveWebDAVConfig() {
+        // 保存WebDAV配置
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                Utils.showToast('API未就绪', 'error');
+                return;
+            }
+
+            const config = {
+                enabled: this.webdavEnableToggle.checked,
+                username: this.webdavUsernameInput.value.trim(),
+                password: this.webdavPasswordInput.value,
+                remote_path : this.webdavRemotePathInput.value,
+                auto_sync: this.webdavAutoSyncToggle.checked
+            };
+
+            // 验证启用时必需的字段
+            if (config.enabled) {
+                if (!config.username || !config.password || !config.remote_path) {
+                    Utils.showToast('启用WebDAV同步需要填写账号,密码和远程文件路径', 'warning');
+                    return;
+                }
+            }
+
+            // 强制同步
+            const modal = document.getElementById('data-sync-modal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            // 确认提示
+            Utils.confirmDialog(
+                '注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。\n\n是否继续？',
+                async () => {
+                    try {
+                        // 保存配置
+                        const result = await window.pywebview.api.set_webdav_config(config);
+
+                        if (result.success) {
+                            Utils.showToast('WebDAV配置保存成功', 'success');
+
+                            // 强制同步
+                            await window.pywebview.api.sync_from_cloud(true);
+
+                            this.showWebDAVStatus('配置已保存', 'success');
+
+                            this.refreshData('页面数据已刷新');
+                        } else {
+                            Utils.showToast(`保存失败: ${result.error}`, 'error');
+                            this.showWebDAVStatus(`保存失败：${result.error}`, 'error');
+                        }
+                    } catch (error) {
+                        console.error('应用配置失败:', error);
+                        Utils.showToast('配置过程中发生错误', 'error');
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('保存WebDAV配置失败:', error);
+            Utils.showToast('保存配置时发生错误', 'error');
+            this.showWebDAVStatus(`保存出错：${error.message}`, 'error');
+        }
+    }
+
+    showWebDAVStatus(message, type) {
+        // 显示WebDAV状态信息
+        if (this.webdavStatusDiv) {
+            this.webdavStatusDiv.textContent = message;
+            this.webdavStatusDiv.className = `webdav-status ${type}`;
+            this.webdavStatusDiv.style.display = 'block';
         }
     }
 }

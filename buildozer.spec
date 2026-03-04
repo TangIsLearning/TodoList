@@ -13,10 +13,10 @@ package.domain = com.pywebview.todos
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas,html,jar,css,js,ico
+source.include_exts = py,png,jpg,kv,atlas,html,jar,css,js,json,ico
 
 # (list) List of inclusions using pattern matching
-source.include_patterns = frontend/*,backend/*,lib/*
+source.include_patterns = frontend/*,backend/*,lib/*,data/*
 
 # (list) Source files to exclude (let empty to not exclude anything)
 source.exclude_exts = spec
@@ -37,7 +37,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography
+requirements = python3,kivy==2.3.0,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,pyjnius==1.4.0,python-dateutil==2.9.0.post0
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -51,7 +51,7 @@ icon.filename = todo_icon.ico
 
 # (list) Supported orientations
 # Valid options are: landscape, portrait, portrait-reverse or landscape-reverse
-orientation = portrait,landscape
+orientation = portrait
 
 # (list) List of service to declare
 #services = NAME:ENTRYPOINT_TO_PY,NAME2:ENTRYPOINT2_TO_PY
@@ -95,7 +95,7 @@ android.presplash_color = #FFFFFF
 
 # (list) Permissions
 # (See https://python-for-android.readthedocs.io/en/latest/buildoptions/#build-options-1 for all the supported syntaxes and properties)
-android.permissions = android.permission.INTERNET, android.permission.WRITE_EXTERNAL_STORAGE, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=18)
+android.permissions = android.permission.INTERNET,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.READ_EXTERNAL_STORAGE,android.permission.MANAGE_EXTERNAL_STORAGE
 
 # (list) features (adds uses-feature -tags to manifest)
 #android.features = android.hardware.usb.host
