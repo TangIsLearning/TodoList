@@ -2016,12 +2016,12 @@ input:checked + .slider:before {
         display: flex;
     }
 
-    .mobile-unshown-item {
-        display: none;
+    .mobile-unshown-item, .data-directory-config {
+        display: none !important;
     }
 
     .mobile-shown-item {
-        display: flex;
+        display: flex !important;
     }
 }
 

@@ -1263,6 +1263,9 @@ class TodoManager {
                     Utils.showToast(task.completed ?
                         window.languageManager.getText('taskCompleted', '任务已完成') :
                         window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
+
+                    // 触发云端同步上传
+                    await this.triggerCloudUpload();
                 }
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
