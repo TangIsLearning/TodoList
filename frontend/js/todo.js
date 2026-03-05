@@ -996,15 +996,19 @@ class TodoManager {
                 content._isOpen = false;
             }
 
-            // 移除之前绑定的所有事件
+            // 移除之前绑定的所有事件（包括触摸事件）
             if (item._dragStartHandler) {
                 item.removeEventListener('mousedown', item._dragStartHandler);
+                item.removeEventListener('touchstart', item._dragStartHandler);
             }
             if (item._dragMoveHandler) {
                 item.removeEventListener('mousemove', item._dragMoveHandler);
+                item.removeEventListener('touchmove', item._dragMoveHandler);
             }
             if (item._dragEndHandler) {
                 item.removeEventListener('mouseup', item._dragEndHandler);
+                item.removeEventListener('touchend', item._dragEndHandler);
+                item.removeEventListener('touchcancel', item._dragEndHandler);
             }
             if (item._clickHandler) {
                 item.removeEventListener('click', item._clickHandler);
@@ -1023,7 +1027,7 @@ class TodoManager {
 
             // 确保初始状态正确
             content.style.left = '0px';
-            content.style.position = 'relative'; // 确保定位正确
+            content.style.position = 'relative';
             content._isOpen = false;
 
             // 为每个item创建独立的状态
@@ -1032,7 +1036,23 @@ class TodoManager {
                 startX: 0,
                 currentX: 0,
                 currentLeft: 0,
-                isOpen: false
+                isOpen: false,
+                startClientX: 0 // 用于存储触摸或鼠标的起始坐标
+            };
+
+            // 获取客户端X坐标的统一函数
+            const getClientX = (e) => {
+                if (e.type.startsWith('touch')) {
+                    return e.touches[0] ? e.touches[0].clientX : 0;
+                }
+                return e.clientX;
+            };
+
+            // 阻止默认行为的统一函数
+            const preventDefault = (e) => {
+                if (e.cancelable) {
+                    e.preventDefault();
+                }
             };
 
             // 创建事件处理函数
@@ -1053,26 +1073,30 @@ class TodoManager {
                         this.instances.splice(index, 1);
                     }
 
-                    e.preventDefault();
+                    preventDefault(e);
                     e.stopPropagation();
                     return;
                 }
 
                 // 开始拖拽
                 state.isDragging = true;
-                state.startX = e.clientX;
+                state.startClientX = getClientX(e);
                 state.currentLeft = content.offsetLeft;
                 state.currentX = 0;
 
                 content.style.transition = 'none';
-                e.preventDefault();
+                preventDefault(e);
             };
 
             const dragMoveHandler = (e) => {
                 if (!state.isDragging) return;
-                e.preventDefault();
 
-                const deltaX = e.clientX - state.startX;
+                preventDefault(e);
+
+                const currentClientX = getClientX(e);
+                if (currentClientX === 0) return; // 无效的触摸点
+
+                const deltaX = currentClientX - state.startClientX;
                 let newLeft = state.currentLeft + deltaX;
 
                 // 边界限制
@@ -1121,6 +1145,8 @@ class TodoManager {
                 // 重置拖拽状态
                 state.currentX = 0;
                 state.currentLeft = 0;
+
+                preventDefault(e);
             };
 
             // 点击处理函数
@@ -1136,9 +1162,6 @@ class TodoManager {
                     e.stopPropagation();
                     return;
                 }
-
-                // 如果当前不是打开状态，正常触发编辑
-                // 不需要阻止事件
             };
 
             // 存储事件处理函数
@@ -1147,16 +1170,24 @@ class TodoManager {
             item._dragEndHandler = dragEndHandler;
             item._clickHandler = clickHandler;
 
-            // 绑定事件
+            // 绑定鼠标事件
             item.addEventListener('mousedown', dragStartHandler);
             item.addEventListener('mousemove', dragMoveHandler);
             item.addEventListener('mouseup', dragEndHandler);
+
+            // 绑定触摸事件（移动端）
+            item.addEventListener('touchstart', dragStartHandler);
+            item.addEventListener('touchmove', dragMoveHandler, { passive: false });
+            item.addEventListener('touchend', dragEndHandler);
+            item.addEventListener('touchcancel', dragEndHandler);
+
+            // 点击和原生拖拽阻止
             item.addEventListener('click', clickHandler);
             item.addEventListener('dragstart', (e) => e.preventDefault());
         });
 
-        // 全局点击关闭
-        document.addEventListener('click', (e) => {
+        // 全局点击关闭（也要支持触摸）
+        const closeAllHandler = (e) => {
             if (!e.target.closest('.small-screen-task-item')) {
                 this.instances.forEach(instance => {
                     if (instance) {
@@ -1167,7 +1198,25 @@ class TodoManager {
                 });
                 this.instances = [];
             }
-        });
+        };
+
+        document.addEventListener('click', closeAllHandler);
+        document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
+
+        // 添加CSS样式防止移动端默认行为
+        const style = document.createElement('style');
+        style.textContent = `
+            .small-screen-task-item {
+                touch-action: pan-y; /* 允许垂直滚动，但禁止水平滚动和缩放 */
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            .task-header {
+                touch-action: pan-y;
+                will-change: transform; /* 优化性能 */
+            }
+        `;
+        document.head.appendChild(style);
 
         // 编辑按钮
         document.querySelectorAll('.task-action-btn.edit').forEach(btn => {
