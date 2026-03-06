@@ -195,15 +195,14 @@ class WebDAVClient:
             # 步骤4：对比时间戳（版本），仅远程更新时下载
             # 加1秒容差：避免系统时间微小差异导致误判
             if remote_modified > local_modified.timestamp() + 1 or is_overwrite:
-                print(f"远程文件更新（远程时间：{remote_modified} > 本地时间：{local_modified}），执行下载")
                 self.client.download_sync(remote_path=self.remote_path, local_path=local_file_path)
+                print("下载成功")
                 return {
                     "success": True,
                     "message": "文件下载成功",
                     "local_path": local_file_path
                 }
             else:
-                print(f"远程文件版本早于本地，跳过下载")
                 return {
                     "success": False,
                     "error": "远程文件版本早于本地，跳过下载"

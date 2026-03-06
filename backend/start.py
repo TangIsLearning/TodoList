@@ -77,7 +77,17 @@ def start_app(window):
     def on_sync_complete():
         try:
             if window:
-                window.evaluate_js("location.reload();")
+                js_str = """
+                    // 重新加载任务列表
+                    if (window.todoManager) {
+                        window.todoManager.loadTasks();
+                    }
+                    if (window.categoryManager) {
+                        window.categoryManager.loadCategories();
+                        window.categoryManager.renderCategories(false);
+                    }
+                    """
+                window.evaluate_js(js_str)
                 app_logger.info("前端页面已刷新以反映云端数据变化")
         except Exception as e:
             app_logger.error(f"同步回调执行失败: {e}")
