@@ -161,11 +161,11 @@ class DataTransfer {
                 if (result.success && result.summary) {
                     const summary = result.summary;
                     this.shareDataSummary.innerHTML = `
-                        <p><strong>总任务数:</strong> ${summary.total_tasks}</p>
-                        <p><strong>已完成:</strong> ${summary.completed_tasks}</p>
-                        <p><strong>未完成:</strong> ${summary.total_tasks - summary.completed_tasks}</p>
-                        <p><strong>分类数:</strong> ${summary.total_categories}</p>
-                        <p><strong>最后更新:</strong> ${summary.last_updated || '无'}</p>
+                        <p><strong>${window.languageManager.getText('statsTotalTasks', '总任务数')}:</strong> ${summary.total_tasks}</p>
+                        <p><strong>${window.languageManager.getText('statsCompletedTasks', '已完成')}:</strong> ${summary.completed_tasks}</p>
+                        <p><strong>${window.languageManager.getText('statsUnCompletedTasks', '未完成')}:</strong> ${summary.total_tasks - summary.completed_tasks}</p>
+                        <p><strong>${window.languageManager.getText('statsCategories', '分类数')}:</strong> ${summary.total_categories}</p>
+                        <p><strong>${window.languageManager.getText('statsLastUpdateTime', '最后更新')}:</strong> ${summary.last_updated || '无'}</p>
                     `;
                 }
             }

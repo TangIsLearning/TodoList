@@ -563,13 +563,69 @@ class LanguageManager {
         // 数据管理
         if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
 
-        const dataSettingItem = document.getElementById('data-share-btn');
-        const dataLabel = dataSettingItem.querySelector('.setting-text');
-        if (dataLabel) {
-            dataLabel.textContent = lang.settingsDataShare;
+        // 数据共享
+        const dataTransferTitle = document.querySelector('#data-transfer-modal h2');
+        if (dataTransferTitle) dataTransferTitle.textContent = lang.settingsDataShare;
+        const dataShareSettingItem = document.getElementById('data-share-btn');
+        const dataShareLabel = dataShareSettingItem.querySelector('.setting-text');
+        if (dataShareLabel) {
+            dataShareLabel.textContent = lang.settingsDataShare;
         }
 
-        // 更新数据存储标签
+        const dataSyncSettingItem = document.getElementById('data-sync-btn');
+        const dataSyncLabel = dataSyncSettingItem.querySelector('.setting-text');
+        if (dataSyncLabel) {
+            dataSyncLabel.textContent = lang.settingsDataSync;
+        }
+        const shareModeText = document.querySelector('#share-mode-btn .mode-text');
+        if (shareModeText) shareModeText.textContent = lang.shareMode;
+        const receiveModeText = document.querySelector('#receive-mode-btn .mode-text');
+        if (receiveModeText) receiveModeText.textContent = lang.receiveMode;
+        const dataSharePanel = document.getElementById('share-mode-panel');
+        const dataShareDataLabel = dataSharePanel.querySelectorAll('h3');
+        if (dataShareDataLabel.length >= 3) {
+            dataShareDataLabel[0].textContent = lang.currentDataSummary;
+            dataShareDataLabel[1].textContent = lang.shareSettings;
+            dataShareDataLabel[2].textContent = lang.shareStatus;
+        }
+
+        const dataSummaryTitle = document.querySelector('#share-mode-panel h3');
+        if (dataSummaryTitle) dataSummaryTitle.textContent = lang.currentDataSummary;
+        const dataSummaryText = document.querySelector('#share-data-summary p');
+        if (dataSummaryText) dataSummaryText.textContent = lang.loading;
+        const startShareBtn = document.getElementById('start-share-btn');
+        if (startShareBtn) startShareBtn.textContent = lang.startShare;
+        const stopShareBtn = document.getElementById('stop-share-btn');
+        if (stopShareBtn) stopShareBtn.textContent = lang.stopShare;
+
+        const shareStatus = document.getElementById('share-status');
+        const shareStatusInfo = shareStatus.querySelectorAll('strong');
+        if (shareStatusInfo.length >= 3) {
+            shareStatusInfo[0].textContent = lang.ipAddress;
+            shareStatusInfo[1].textContent = lang.port;
+            shareStatusInfo[2].textContent = lang.sharingData;
+        }
+        const receiveModePanel = document.getElementById('receive-mode-panel');
+        const receiveModeTitle = receiveModePanel.querySelectorAll('h3');
+        if (receiveModeTitle.length >= 3) {
+            receiveModeTitle[0].textContent = lang.scanDevice;
+            receiveModeTitle[1].textContent = lang.availableDevices;
+            receiveModeTitle[2].textContent = lang.receivedDataPreview;
+        }
+        const scanDevicesBtn = document.getElementById('scan-devices-btn');
+        if (scanDevicesBtn) scanDevicesBtn.textContent = lang.scanNetworkDevice;
+        const deviceList = document.querySelector('#device-list p');
+        if (deviceList) deviceList.textContent = lang.noDevicesFound;
+        const waitForDataText = document.querySelector('#receive-data-summary p');
+        if (waitForDataText) waitForDataText.textContent = lang.waitingForData;
+        const importWarningText = document.querySelector('#import-warning p');
+        if (importWarningText) importWarningText.textContent = lang.importWarning;
+        const confirmImportBtn = document.getElementById('confirm-import-btn');
+        if (confirmImportBtn) confirmImportBtn.textContent = lang.confirmImport;
+        const cancelImportBtn = document.getElementById('cancel-import-btn');
+        if (cancelImportBtn) cancelImportBtn.textContent = lang.cancelImport;
+
+        // 数据存储
         const dataStorageLabel = document.querySelector('.data-label');
         if (dataStorageLabel) {
             dataStorageLabel.textContent = lang.dataStoragePath;
@@ -578,6 +634,27 @@ class LanguageManager {
         if (dataStorageApplyLabel) {
             dataStorageApplyLabel.textContent = lang.dataStorageApply;
         }
+
+        // 数据同步
+        const dataSyncTitle = document.querySelector('#data-sync-modal h2');
+        if (dataSyncTitle) dataSyncTitle.textContent = lang.settingsDataSync;
+        const webDavCheckbox = document.getElementById('webdav-enable-toggle');
+        const webDavSettingItem = webDavCheckbox.closest('.setting-item');
+        const webDavLabel = webDavSettingItem.querySelector('.setting-text');
+        if (webDavLabel) webDavLabel.textContent = lang.dataSync;
+
+        const dataSyncPanel = document.getElementById('webdav-config-panel');
+        const dataSyncDataLabel = dataSyncPanel.querySelectorAll('.data-label');
+        if (dataSyncDataLabel.length >= 4) {
+            dataSyncDataLabel[0].textContent = lang.account;
+            dataSyncDataLabel[1].textContent = lang.password;
+            dataSyncDataLabel[2].textContent = lang.filepath;
+            dataSyncDataLabel[3].textContent = lang.autoSync;
+        }
+        const webDavTestBtn = document.getElementById('webdav-test-btn');
+        if (webDavTestBtn) webDavTestBtn.textContent = lang.testConnection;
+        const webDavSaveBtn = document.getElementById('webdav-save-btn');
+        if (webDavSaveBtn) webDavSaveBtn.textContent = lang.saveConfiguration;
     }
     
     // 更新日期选择器

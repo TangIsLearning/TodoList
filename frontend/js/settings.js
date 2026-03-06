@@ -357,10 +357,16 @@ class SettingsUIManager {
         }
 
         // 更新数据管理标签
-        const dataSettingItem = document.getElementById('data-share-btn');
-        const dataLabel = dataSettingItem.querySelector('.setting-text');
-        if (dataLabel) {
-            dataLabel.textContent = window.languageManager.getText('settingsDataShare', '共享数据');
+        const dataShareSettingItem = document.getElementById('data-share-btn');
+        const dataShareLabel = dataShareSettingItem.querySelector('.setting-text');
+        if (dataShareLabel) {
+            dataShareLabel.textContent = window.languageManager.getText('settingsDataShare', '共享数据');
+        }
+
+        const dataSyncSettingItem = document.getElementById('data-sync-btn');
+        const dataSyncLabel = dataSyncSettingItem.querySelector('.setting-text');
+        if (dataSyncLabel) {
+            dataSyncLabel.textContent = window.languageManager.getText('settingsDataSync', '同步数据');
         }
     }
 
@@ -449,7 +455,7 @@ class SettingsUIManager {
         // 更新数据文件配置显示
         try {
             if (!window.pywebview || !window.pywebview.api) {
-                Utils.showToast('API未就绪，请稍后再试', 'error');
+                Utils.showToast(window.languageManager.getText('retry', '发生未知异常，请稍后重试！'), 'error');
                 return;
             }
             
@@ -472,7 +478,7 @@ class SettingsUIManager {
         // 浏览选择文件
         try {
             if (!window.pywebview || !window.pywebview.api) {
-                Utils.showToast('API未就绪', 'error');
+                Utils.showToast(window.languageManager.getText('retry', '发生未知异常，请稍后重试！'), 'error');
                 return;
             }
             
@@ -538,9 +544,7 @@ class SettingsUIManager {
             // 确认提示
             this.closeModal();
             Utils.confirmDialog(
-                `确定要将数据文件切换到:\n${newFile}\n\n` +
-                    '注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。\n' +
-                    '建议先备份重要数据。\n\n是否继续？',
+                window.languageManager.getText('settingsStorageWarning', '注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。建议先备份重要数据。是否继续？'),
                 async () => {
                     try {
                         const result = await window.pywebview.api.set_data_file_config(newFile);
@@ -548,25 +552,25 @@ class SettingsUIManager {
                             // 更新显示
                             await this.updateDataFileConfig();
 
-                            this.refreshData('数据文件设置成功');
+                            this.refreshData();
                         } else {
-                            Utils.showToast('设置失败: ' + result.error, 'error');
+                            Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${response.error}`, 'error');
                         }
                     } catch (error) {
                         console.error('应用数据文件配置失败:', error);
-                        Utils.showToast('设置过程中发生错误', 'error');
+                        Utils.showToast(window.languageManager.getText('settingsFailed', '设置失败'), 'error');
                     }
                 }
             );
         } catch (error) {
             console.error('应用数据文件配置失败:', error);
-            Utils.showToast('设置失败', 'error');
+            Utils.showToast(window.languageManager.getText('settingsFailed', '设置失败'), 'error');
         } finally {
             this.setDirectoryButtonsDisabled(false);
         }
     }
 
-    async refreshData(message) {
+    async refreshData() {
         // 重新加载任务列表
         if (window.todoManager) {
             await window.todoManager.loadTasks();
@@ -577,7 +581,7 @@ class SettingsUIManager {
         }
 
         // 显示成功提示
-        Utils.showToast(message, 'success');
+        Utils.showToast(window.languageManager.getText('refreshDataSuccess', '刷新数据成功'), 'success');
     }
     
     setDirectoryButtonsDisabled(disabled) {
@@ -674,7 +678,7 @@ class SettingsUIManager {
         // 测试WebDAV连接
         try {
             if (!window.pywebview || !window.pywebview.api) {
-                Utils.showToast('API未就绪', 'error');
+                Utils.showToast(window.languageManager.getText('retry', '发生未知异常，请稍后重试！'), 'error');
                 return;
             }
 
@@ -683,33 +687,25 @@ class SettingsUIManager {
             const password = this.webdavPasswordInput.value;
             const remotePath = this.webdavRemotePathInput.value;
 
-            if (!username || !password) {
-                Utils.showToast('请填写完整的账号和密码', 'warning');
+            if (!username || !password || !remotePath) {
+                Utils.showToast(window.languageManager.getText('itemRequired', '请填写必填项！'), 'warning');
                 return;
             }
-
-            if (!remotePath) {
-                Utils.showToast('远程数据文件路径不能为空', 'warning');
-                return;
-            }
-
-            // 显示测试状态
-            this.showWebDAVStatus('正在测试连接...', 'info');
 
             // 调用测试API
             const result = await window.pywebview.api.test_webdav_connection(username, password, remotePath);
 
             if (result.success) {
-                this.showWebDAVStatus('✅ 连接成功！可以正常使用云端同步功能', 'success');
-                Utils.showToast('连接测试成功', 'success');
+                this.showWebDAVStatus(`✅ ${window.languageManager.getText('settingsConnectSuccess', '连接成功！可以正常使用云端同步功能！')}`, 'success');
+                Utils.showToast(window.languageManager.getText('settingsConnectSuccess', '连接成功！可以正常使用云端同步功能！'), 'success');
             } else {
-                this.showWebDAVStatus(`❌ 连接失败：${result.error}`, 'error');
-                Utils.showToast(`连接测试失败: ${result.error}`, 'error');
+                this.showWebDAVStatus(`❌ ${window.languageManager.getText('settingsConnectionFailed', '连接失败')}：${result.error}`, 'error');
+                Utils.showToast(`${window.languageManager.getText('settingsConnectionFailed', '连接失败')}: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('测试WebDAV连接失败:', error);
-            this.showWebDAVStatus(`❌ 测试过程出错：${error.message}`, 'error');
-            Utils.showToast('测试过程出错', 'error');
+            this.showWebDAVStatus(`❌ ${window.languageManager.getText('settingsConnectionFailed', '连接失败')}：${error.message}`, 'error');
+            Utils.showToast(window.languageManager.getText('settingsConnectionFailed', '连接失败'), 'error');
         }
     }
 
@@ -717,7 +713,7 @@ class SettingsUIManager {
         // 保存WebDAV配置
         try {
             if (!window.pywebview || !window.pywebview.api) {
-                Utils.showToast('API未就绪', 'error');
+                Utils.showToast(window.languageManager.getText('retry', '发生未知异常，请稍后重试！'), 'error');
                 return;
             }
 
@@ -732,7 +728,7 @@ class SettingsUIManager {
             // 验证启用时必需的字段
             if (config.enabled) {
                 if (!config.username || !config.password || !config.remote_path) {
-                    Utils.showToast('启用WebDAV同步需要填写账号,密码和远程文件路径', 'warning');
+                    Utils.showToast(window.languageManager.getText('itemRequired', '请填写必填项！'), 'warning');
                     return;
                 }
             }
@@ -743,35 +739,35 @@ class SettingsUIManager {
             modal.classList.remove('show');
             // 确认提示
             Utils.confirmDialog(
-                '注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。\n\n是否继续？',
+                window.languageManager.getText('settingsWebDavWarning', '注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？'),
                 async () => {
                     try {
                         // 保存配置
                         const result = await window.pywebview.api.set_webdav_config(config);
 
                         if (result.success) {
-                            Utils.showToast('WebDAV配置保存成功', 'success');
+                            Utils.showToast(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
 
                             // 强制同步
                             await window.pywebview.api.sync_from_cloud(true);
 
-                            this.showWebDAVStatus('配置已保存', 'success');
+                            this.showWebDAVStatus(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
 
-                            this.refreshData('页面数据已刷新');
+                            this.refreshData();
                         } else {
-                            Utils.showToast(`保存失败: ${result.error}`, 'error');
-                            this.showWebDAVStatus(`保存失败：${result.error}`, 'error');
+                            Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${response.error}`, 'error');
+                            this.showWebDAVStatus(`${window.languageManager.getText('settingsFailed', '设置失败')}：${result.error}`, 'error');
                         }
                     } catch (error) {
                         console.error('应用配置失败:', error);
-                        Utils.showToast('配置过程中发生错误', 'error');
+                        Utils.showToast(window.languageManager.getText('settingsFailed', '设置失败'), 'error');
                     }
                 }
             );
         } catch (error) {
             console.error('保存WebDAV配置失败:', error);
-            Utils.showToast('保存配置时发生错误', 'error');
-            this.showWebDAVStatus(`保存出错：${error.message}`, 'error');
+            Utils.showToast(window.languageManager.getText('settingsFailed', '设置失败'), 'error');
+            this.showWebDAVStatus(`${window.languageManager.getText('settingsFailed', '设置失败')}：${error.message}`, 'error');
         }
     }
 

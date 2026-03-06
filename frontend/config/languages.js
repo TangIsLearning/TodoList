@@ -18,6 +18,8 @@ const Languages = {
         view: "查看",
         close: "关闭",
         loading: "加载中...",
+        retry: "发生未知异常，请稍后重试！",
+        itemRequired: "请填写必填项！",
         
         // 任务相关
         task: "任务",
@@ -60,8 +62,11 @@ const Languages = {
         // 统计信息
         statsTotalTasks: "总任务",
         statsCompletedTasks: "已完成",
+        statsUnCompletedTasks: "未完成",
         statsCompletionRate: "完成率",
         statsNoDueDateTasks: "无截止日期",
+        statsLastUpdateTime: "最后更新",
+        statsCategories: "分类数",
         statsTimeDimension: {
             all: "全部",
             year: "今年",
@@ -154,6 +159,7 @@ const Languages = {
         initializationFailed: "应用初始化失败",
         unknownErrorOccurred: "发生了未知错误",
         refreshDataFailed: "刷新数据失败",
+        refreshDataSuccess: "刷新数据成功",
         resetStateFailed: "应用状态重置失败",
         resetStateSuccess: "应用状态已重置",
         sharingStopped: "共享已停止",
@@ -198,7 +204,15 @@ const Languages = {
         settingsData: "数据管理",
         settingsDataShare: "共享数据",
         settingsDataReceive: "接收数据",
-        
+        settingsDataSync: "同步数据",
+        settingsSuccess: "设置成功",
+        settingsSaveSuccess: "保存成功",
+        settingsFailed: "设置失败",
+        settingsConnectSuccess: "连接成功！可以正常使用云端同步功能！",
+        settingsConnectionFailed: "连接失败",
+        settingsStorageWarning: "注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。建议先备份重要数据。是否继续？",
+        settingsWebDavWarning: "注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？",
+
         // 语言设置
         language: "中英文切换",
 
@@ -230,17 +244,27 @@ const Languages = {
         startShare: "启动共享",
         stopShare: "停止共享",
         shareStatus: "共享状态",
-        ipAddress: "IP地址",
-        port: "端口",
+        ipAddress: "IP地址：",
+        port: "端口：",
         sharingData: "正在共享数据",
-        scanDevices: "扫描局域网设备",
+        scanDevice: "扫描设备",
+        scanNetworkDevice: "扫描局域网设备",
         availableDevices: "可用设备",
         noDevicesFound: "未找到设备",
         receivedDataPreview: "接收到的数据预览",
         waitingForData: "等待接收数据...",
         importWarning: "注意: 导入数据将覆盖当前所有数据，建议先备份数据！",
         confirmImport: "确认导入",
-        cancelImport: "取消"
+        cancelImport: "取消",
+
+        // 数据同步
+        dataSync: "坚果云同步",
+        account: "账号*",
+        password: "密码*",
+        filepath: "路径*",
+        autoSync: "自动同步(每15s一次)",
+        testConnection: "测试连接",
+        saveConfiguration: "保存配置",
     },
     
     // 英文
@@ -257,6 +281,8 @@ const Languages = {
         view: "View",
         close: "Close",
         loading: "Loading...",
+        retry: "An unknown exception occurred. Please try again later.",
+        itemRequired: "Please fill in the required fields.",
         
         // 任务相关
         task: "Task",
@@ -299,8 +325,11 @@ const Languages = {
         // 统计信息
         statsTotalTasks: "Total Tasks",
         statsCompletedTasks: "Completed",
+        statsUnCompletedTasks: "Uncompleted",
         statsCompletionRate: "Completion Rate",
         statsNoDueDateTasks: "No Due Date",
+        statsLastUpdateTime: "Last Updated Time",
+        statsCategories: "Total Categories",
         statsTimeDimension: {
             all: "All Time",
             year: "This Year",
@@ -393,6 +422,7 @@ const Languages = {
         initializationFailed: "Application initialization failed",
         unknownErrorOccurred: "An unknown error occurred",
         refreshDataFailed: "Failed to refresh data",
+        refreshDataSuccess: "Refresh data successfully",
         resetStateFailed: "Failed to reset application state",
         resetStateSuccess: "Application state has been reset",
         sharingStopped: "Sharing has stopped",
@@ -437,6 +467,14 @@ const Languages = {
         settingsData: "Data Management",
         settingsDataShare: "Share Data",
         settingsDataReceive: "Receive Data",
+        settingsDataSync: "Synchronize Data",
+        settingsSuccess: "Setting successful",
+        settingsSaveSuccess: "Save successful",
+        settingsFailed: "Setting failed",
+        settingsConnectSuccess: "Connection successful! The cloud synchronization feature is now available for use.",
+        settingsConnectionFailed: "Connection failed",
+        settingsStorageWarning: "Note: This will affect all data read and write operations, and the current data will be moved to the new file. It is recommended to back up important data first. Continue?",
+        settingsWebDavWarning: "Warning: The current operation will directly trigger a remote data override of the local file data. It is recommended to back up important data first. Continue anyway?",
         
         // 语言设置
         language: "Chinese/English Switch",
@@ -469,17 +507,27 @@ const Languages = {
         startShare: "Start Sharing",
         stopShare: "Stop Sharing",
         shareStatus: "Sharing Status",
-        ipAddress: "IP Address",
-        port: "Port",
+        ipAddress: "IP Address: ",
+        port: "Port: ",
         sharingData: "Sharing Data",
-        scanDevices: "Scan Devices",
+        scanDevice: "Scan Devices",
+        scanNetworkDevice: "Scan Local Network Devices",
         availableDevices: "Available Devices",
         noDevicesFound: "No devices found",
         receivedDataPreview: "Received Data Preview",
         waitingForData: "Waiting to receive data...",
         importWarning: "Warning: Importing will overwrite all current data. Please backup first!",
         confirmImport: "Confirm Import",
-        cancelImport: "Cancel"
+        cancelImport: "Cancel",
+
+        // 数据同步
+        dataSync: "Jianguoyun Sync",
+        account: "Account*",
+        password: "Password*",
+        filepath: "Filepath*",
+        autoSync: "Auto-sync (every 15 seconds)",
+        testConnection: "Test Connection",
+        saveConfiguration: "Save Configuration",
     }
 };
 

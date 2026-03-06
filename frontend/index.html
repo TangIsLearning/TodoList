@@ -470,7 +470,7 @@
                     <div class="status-info">
                         <p><strong>IP地址:</strong> <span id="share-ip">--</span></p>
                         <p><strong>端口:</strong> <span id="share-port">--</span></p>
-                        <p class="status-active"><span class="status-dot"></span> 正在共享数据</p>
+                        <p class="status-active"><span class="status-dot"></span> <strong>正在共享数据</strong></p>
                     </div>
                 </div>
             </div>
@@ -496,7 +496,7 @@
                     </div>
                     <div class="import-warning" id="import-warning" style="display: none;">
                         <p class="warning-icon">⚠️</p>
-                        <p><strong>注意:</strong> 导入数据将覆盖当前所有数据，建议先备份数据！</p>
+                        <p>注意: 导入数据将覆盖当前所有数据，建议先备份数据！</p>
                     </div>
                     <div class="import-actions">
                         <button id="confirm-import-btn" class="action-btn danger-btn">确认导入</button>
@@ -532,17 +532,17 @@
                 <!-- WebDAV配置面板 -->
                 <div id="webdav-config-panel" class="webdav-config-panel" style="display: none;">
                     <div class="config-item">
-                        <label class="data-label">账号</label>
+                        <label class="data-label">账号*</label>
                         <input type="email" id="webdav-username" class="webdav-input" placeholder="请输入邮箱地址">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">密码</label>
+                        <label class="data-label">密码*</label>
                         <input type="password" id="webdav-password" class="webdav-input" placeholder="请输入授权应用密码">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">路径</label>
+                        <label class="data-label">路径*</label>
                         <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程文件路径">
                     </div>
 
