@@ -21,7 +21,7 @@ class SettingsUIManager {
         this.webdavUsernameInput = null;
         this.webdavPasswordInput = null;
         this.webdavRemotePathInput = null;
-        this.webdavAutoSyncToggle = null;
+        this.webdavFirstSyncModeSelect = null;
         this.webdavTestBtn = null;
         this.webdavSaveBtn = null;
         this.webdavStatusDiv = null;
@@ -67,7 +67,7 @@ class SettingsUIManager {
         this.webdavUsernameInput = document.getElementById('webdav-username');
         this.webdavPasswordInput = document.getElementById('webdav-password');
         this.webdavRemotePathInput = document.getElementById('webdav-remote-path');
-        this.webdavAutoSyncToggle = document.getElementById('webdav-auto-sync-toggle');
+        this.webdavFirstSyncModeSelect = document.getElementById('webdav-first-sync-mode');
         this.webdavTestBtn = document.getElementById('webdav-test-btn');
         this.webdavSaveBtn = document.getElementById('webdav-save-btn');
         this.webdavStatusDiv = document.getElementById('webdav-status');
@@ -646,8 +646,8 @@ class SettingsUIManager {
                     this.webdavRemotePathInput.value = config.remote_path || '';
                 }
 
-                if (this.webdavAutoSyncToggle) {
-                    this.webdavAutoSyncToggle.checked = config.auto_sync !== false;
+                if (this.webdavFirstSyncModeSelect) {
+                    this.webdavFirstSyncModeSelect.value = config.first_sync_mode || 'remote_overwrite';
                 }
             }
         } catch (error) {
@@ -722,7 +722,8 @@ class SettingsUIManager {
                 username: this.webdavUsernameInput.value.trim(),
                 password: this.webdavPasswordInput.value,
                 remote_path : this.webdavRemotePathInput.value,
-                auto_sync: this.webdavAutoSyncToggle.checked
+                auto_sync: true,
+                first_sync_mode: this.webdavFirstSyncModeSelect.value
             };
 
             // 验证启用时必需的字段
@@ -739,7 +740,9 @@ class SettingsUIManager {
             modal.classList.remove('show');
             // 确认提示
             Utils.confirmDialog(
-                window.languageManager.getText('settingsWebDavWarning', '注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？'),
+                config.first_sync_mode === 'local_overwrite' ?
+                window.languageManager.getText('settingsSyncModeLocalWarning', '注意：当前操作将直接触发一次本地数据强制覆盖远程文件数据。建议先备份重要数据。是否继续？') :
+                window.languageManager.getText('settingsSyncModeRemoteWarning', '注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？'),
                 async () => {
                     try {
                         // 保存配置
@@ -748,8 +751,14 @@ class SettingsUIManager {
                         if (result.success) {
                             Utils.showToast(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
 
-                            // 强制同步
-                            await window.pywebview.api.sync_from_cloud(true);
+                            // 根据首次同步模式执行不同的操作
+                            if (config.first_sync_mode === 'local_overwrite') {
+                                // 本地覆盖远程：上传本地数据到云端
+                                await window.pywebview.api.sync_to_cloud();
+                            } else {
+                                // 远程覆盖本地：从云端下载数据
+                                await window.pywebview.api.sync_from_cloud(true);
+                            }
 
                             this.showWebDAVStatus(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
 

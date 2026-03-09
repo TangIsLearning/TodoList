@@ -211,7 +211,8 @@ const Languages = {
         settingsConnectSuccess: "连接成功！可以正常使用云端同步功能！",
         settingsConnectionFailed: "连接失败",
         settingsStorageWarning: "注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。建议先备份重要数据。是否继续？",
-        settingsWebDavWarning: "注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？",
+        settingsSyncModeLocalWarning: "注意：当前操作将直接触发一次本地数据强制覆盖远程文件数据。建议先备份重要数据。是否继续？",
+        settingsSyncModeRemoteWarning: "注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？",
 
         // 语言设置
         language: "中英文切换",
@@ -262,9 +263,12 @@ const Languages = {
         account: "账号*",
         password: "密码*",
         filepath: "路径*",
-        autoSync: "自动同步(每15s一次)",
+        firstSyncMode: "首次同步",
+        firstSyncModeRemote: "远程覆盖本地",
+        firstSyncModeLocal: "本地覆盖远程",
         testConnection: "测试连接",
         saveConfiguration: "保存配置",
+        autoSyncNotice: "⚠️ 首次同步外的数据自动同步规则：存在数据更新的端点，15s内会自动同步数据到其他端点",
     },
     
     // 英文
@@ -474,8 +478,9 @@ const Languages = {
         settingsConnectSuccess: "Connection successful! The cloud synchronization feature is now available for use.",
         settingsConnectionFailed: "Connection failed",
         settingsStorageWarning: "Note: This will affect all data read and write operations, and the current data will be moved to the new file. It is recommended to back up important data first. Continue?",
-        settingsWebDavWarning: "Warning: The current operation will directly trigger a remote data override of the local file data. It is recommended to back up important data first. Continue anyway?",
-        
+        settingsSyncModeLocalWarning: "Warning: The current operation will directly trigger a local data override of the remote file data. It is recommended to back up important data first. Continue anyway?",
+        settingsSyncModeRemoteWarning: "Warning: The current operation will directly trigger a remote data override of the local file data. It is recommended to back up important data first. Continue anyway?",
+
         // 语言设置
         language: "Chinese/English Switch",
 
@@ -525,9 +530,12 @@ const Languages = {
         account: "Account*",
         password: "Password*",
         filepath: "Filepath*",
-        autoSync: "Auto-sync (every 15 seconds)",
+        firstSyncMode: "First Sync Mode",
+        firstSyncModeRemote: "Remote Overwrite Local",
+        firstSyncModeLocal: "Local Overwrite Remote",
         testConnection: "Test Connection",
         saveConfiguration: "Save Configuration",
+        autoSyncNotice: "⚠️ Auto-sync rule for data updates after initial sync: If a device has updated data, it will be automatically synced to other devices within 15 seconds.",
     }
 };
 

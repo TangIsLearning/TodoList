@@ -2866,6 +2866,20 @@ input:checked + .slider:before {
     text-overflow: ellipsis;
 }
 
+.webdav-select {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    border-radius: var(--border-radius);
+    outline: none;
+}
+
+.webdav-select:focus-visible {
+    border-color: var(--primary-color);
+}
+
 .config-item .data-label {
     background-color: var(--bg-secondary);
     padding: var(--spacing-md);

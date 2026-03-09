@@ -548,12 +548,14 @@
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">自动同步(每15s一次)</label>
-                        <label class="switch">
-                            <input type="checkbox" id="webdav-auto-sync-toggle">
-                            <span class="slider"></span>
-                        </label>
+                        <label class="data-label">首次同步</label>
+                        <select id="webdav-first-sync-mode" class="webdav-select">
+                            <option value="remote_overwrite">远程覆盖本地</option>
+                            <option value="local_overwrite">本地覆盖远程</option>
+                        </select>
                     </div>
+
+                    <div class="edit-notice">⚠️ 首次同步外的数据自动同步规则：存在数据更新的端点，15s内会自动同步数据到其他端点</div>
 
                     <div class="webdav-actions">
                         <button id="webdav-test-btn" class="action-btn secondary-btn">测试连接</button>

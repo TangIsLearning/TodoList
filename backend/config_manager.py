@@ -228,7 +228,8 @@ def get_webdav_config() -> Dict[str, Any]:
         'password': config.get('password', ''),
         'remote_path': config.get('remote_path', ''),
         'auto_sync': config.get('auto_sync', True),
-        'sync_interval': config.get('sync_interval', 15)  # 默认15s
+        'sync_interval': config.get('sync_interval', 15),  # 默认 15s
+        'first_sync_mode': config.get('first_sync_mode', 'remote_overwrite')  # 默认远程覆盖本地
     }
 
 def set_webdav_config(config: Dict[str, Any]) -> bool:
@@ -253,7 +254,8 @@ def set_webdav_config(config: Dict[str, Any]) -> bool:
         'password': str(config.get('password', '')),
         'remote_path': str(config.get('remote_path', '')),
         'auto_sync': bool(config.get('auto_sync', True)),
-        'sync_interval': int(config.get('sync_interval', 15))
+        'sync_interval': int(config.get('sync_interval', 15)),
+        'first_sync_mode': str(config.get('first_sync_mode', 'remote_overwrite'))  # local_overwrite | remote_overwrite
     }
     
     return get_config_manager().set(WEBDAV_CONFIG_KEY, webdav_config)

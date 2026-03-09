@@ -649,8 +649,16 @@ class LanguageManager {
             dataSyncDataLabel[0].textContent = lang.account;
             dataSyncDataLabel[1].textContent = lang.password;
             dataSyncDataLabel[2].textContent = lang.filepath;
-            dataSyncDataLabel[3].textContent = lang.autoSync;
+            dataSyncDataLabel[3].textContent = lang.firstSyncMode;
         }
+        const firstSyncModeSelect = document.getElementById('webdav-first-sync-mode');
+        const firstSyncModeOptions = firstSyncModeSelect.querySelectorAll('option');
+        if (firstSyncModeOptions.length >= 2) {
+            firstSyncModeOptions[0].textContent = lang.firstSyncModeRemote;
+            firstSyncModeOptions[1].textContent = lang.firstSyncModeLocal;
+        }
+        const autoSyncNotice = dataSyncPanel.querySelector('.edit-notice');
+        autoSyncNotice.textContent = lang.autoSyncNotice;
         const webDavTestBtn = document.getElementById('webdav-test-btn');
         if (webDavTestBtn) webDavTestBtn.textContent = lang.testConnection;
         const webDavSaveBtn = document.getElementById('webdav-save-btn');
