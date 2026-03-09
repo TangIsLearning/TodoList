@@ -2873,8 +2873,8 @@ input:checked + .slider:before {
     border-radius: 0 var(--border-radius) var(--border-radius) 0;
 }
 
-.data-dir-btn:hover, .webdav-input:hover {
-    background-color: var(--bg-tertiary);
+.webdav-input:focus-visible {
+    outline: none;
 }
 
 .secondary-btn {
