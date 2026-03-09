@@ -238,6 +238,15 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     } else {
         messageEl.textContent = message;
     }
+
+    // 如果存在设置侧边栏弹窗，则关闭侧边栏
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('open');
+    if (isOpen && sidebar && overlay) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+    }
     
     // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
