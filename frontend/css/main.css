@@ -1319,6 +1319,19 @@ input:checked + .slider:before {
     flex-wrap: wrap;
 }
 
+.edit-notice {
+    background-color: rgb(255, 243, 205);
+    border: 1px solid rgb(255, 234, 167);
+    color: rgb(133, 100, 4);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* 移动端菜单按钮 */
 .mobile-menu-btn {
     display: none;

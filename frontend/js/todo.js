@@ -324,18 +324,6 @@ class TodoManager {
             if (!notice) {
                 notice = document.createElement('div');
                 notice.className = 'edit-notice';
-                notice.style.cssText = `
-                    background-color: #fff3cd;
-                    border: 1px solid #ffeaa7;
-                    color: #856404;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    margin-top: 8px;
-                    font-size: 12px;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                `;
                 notice.innerHTML = `⚠️ ${window.languageManager.getText('recurringEditNotice', '非周期性任务编辑模式下不支持改周期性任务')}`;
                 
                 // 插入到周期性选项区域之前
