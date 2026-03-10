@@ -26,6 +26,9 @@ class SettingsUIManager {
         this.webdavSaveBtn = null;
         this.webdavStatusDiv = null;
 
+        // 开机自启动相关元素
+        this.autoStartToggle = null;
+
         // 延迟初始化
         setTimeout(() => this.init(), 100);
     }
@@ -71,6 +74,9 @@ class SettingsUIManager {
         this.webdavTestBtn = document.getElementById('webdav-test-btn');
         this.webdavSaveBtn = document.getElementById('webdav-save-btn');
         this.webdavStatusDiv = document.getElementById('webdav-status');
+        
+        // 开机自启动元素
+        this.autoStartToggle = document.getElementById('auto-start-toggle');
     }
     
     bindEvents() {
@@ -148,6 +154,11 @@ class SettingsUIManager {
             this.webdavSaveBtn.addEventListener('click', () => this.saveWebDAVConfig());
         }
         
+        // 开机自启动事件绑定
+        if (this.autoStartToggle) {
+            this.autoStartToggle.addEventListener('change', () => this.toggleAutoStart());
+        }
+        
         // ESC键关闭
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal && this.modal.style.display === 'flex') {
@@ -190,6 +201,9 @@ class SettingsUIManager {
         
         // 更新语言状态
         this.updateLanguageSwitchState();
+        
+        // 更新开机自启动状态
+        this.updateAutoStartState();
     }
 
     // 更新语言状态
@@ -298,6 +312,45 @@ class SettingsUIManager {
         }
     }
     
+    // 切换开机自启动状态
+    async toggleAutoStart() {
+        if (!this.autoStartToggle) {
+            return;
+        }
+        
+        const enabled = this.autoStartToggle.checked;
+        
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                Utils.showToast(window.languageManager.getText('retry', '发生未知异常，请稍后重试！'), 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            this.autoStartToggle.disabled = true;
+            
+            const result = await window.pywebview.api.set_auto_start_config(enabled);
+            
+            if (result.success) {
+                Utils.showToast(enabled ?
+                    window.languageManager.getText('settingsAutoStartEnabled','开机自启动已启用') :
+                    window.languageManager.getText('settingsAutoStartDisabled', '开机自启动已禁用'), 'success');
+            } else {
+                // 恢复开关状态
+                this.autoStartToggle.checked = !enabled;
+                Utils.showToast(result.error || window.languageManager.getText('settingsFailed', '设置失败'), 'error');
+            }
+        } catch (error) {
+            console.error('设置开机自启动失败:', error);
+            // 恢复开关状态
+            this.autoStartToggle.checked = !enabled;
+            Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${error.message}`, 'error');
+        } finally {
+            // 恢复开关状态
+            this.autoStartToggle.disabled = false;
+        }
+    }
+    
     // 更新设置中心的语言文本
     updateSettingsLanguage() {
         if (!window.languageManager) {
@@ -346,6 +399,14 @@ class SettingsUIManager {
             languageLabel.textContent = window.languageManager.getText('language', '中英文切换');
         }
 
+        // 开机自启动标签
+        const autoStartCheckbox = document.getElementById('auto-start-toggle');
+        const autoStartSettingItem = autoStartCheckbox.closest('.setting-item');
+        const autoStartLabel = autoStartSettingItem.querySelector('.setting-text');
+        if (autoStartLabel) {
+            autoStartLabel.textContent = window.languageManager.getText('settingsAutoStart', '开机自启动');
+        }
+
         // 更新数据存储标签
         const dataStorageLabel = document.querySelector('.data-label');
         if (dataStorageLabel) {
@@ -367,6 +428,35 @@ class SettingsUIManager {
         const dataSyncLabel = dataSyncSettingItem.querySelector('.setting-text');
         if (dataSyncLabel) {
             dataSyncLabel.textContent = window.languageManager.getText('settingsDataSync', '同步数据');
+        }
+    }
+    
+    // 更新开机自启动状态
+    async updateAutoStartState() {
+        if (!this.autoStartToggle) {
+            return;
+        }
+        
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+            
+            const result = await window.pywebview.api.get_auto_start_config();
+            
+            if (result.success) {
+                this.autoStartToggle.checked = result.config.enabled;
+                
+                // 如果平台不支持，禁用开关
+                if (!result.config.supported) {
+                    this.autoStartToggle.disabled = true;
+                    Utils.showToast(window.languageManager.getText('settingsAutoStartWarning', '当前平台不支持开机自启动功能'), 'warning');
+                } else {
+                    this.autoStartToggle.disabled = false;
+                }
+            }
+        } catch (error) {
+            console.error('更新开机自启动状态失败:', error);
         }
     }
 

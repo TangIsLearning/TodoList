@@ -560,6 +560,12 @@ class LanguageManager {
         const languageLabel = languageSettingItem.querySelector('.setting-text');
         if (languageLabel) languageLabel.textContent = lang.language;
 
+        // 自启动设置
+        const autoStartCheckbox = document.getElementById('auto-start-toggle');
+        const autoStartSettingItem = autoStartCheckbox.closest('.setting-item');
+        const autoStartLabel = autoStartSettingItem.querySelector('.setting-text');
+        if (autoStartLabel) autoStartLabel.textContent = lang.settingsAutoStart;
+
         // 数据管理
         if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
 

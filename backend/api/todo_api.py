@@ -778,3 +778,60 @@ class TodoApi:
                 'success': False,
                 'error': str(e)
             }
+    
+    # ==================== 开机自启动相关API ====================
+    
+    def get_auto_start_config(self):
+        """获取开机自启动配置"""
+        try:
+            from backend.auto_start_manager import get_auto_start_status
+            status = get_auto_start_status()
+            return {
+                'success': True,
+                'config': {
+                    'enabled': status['enabled'],
+                    'platform': status['platform'],
+                    'supported': status['supported']
+                }
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def set_auto_start_config(self, enabled):
+        """设置开机自启动配置"""
+        try:
+            from backend.auto_start_manager import set_auto_start_enabled
+            success = set_auto_start_enabled(enabled)
+            if success:
+                return {
+                    'success': True,
+                    'message': '开机自启动设置已保存'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': '设置开机自启动失败'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def get_auto_start_status(self):
+        """获取开机自启动状态详情"""
+        try:
+            from backend.auto_start_manager import get_auto_start_status
+            status = get_auto_start_status()
+            return {
+                'success': True,
+                'status': status
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
