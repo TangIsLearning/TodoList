@@ -199,7 +199,8 @@ class TaskReminder:
                 ['powershell', '-Command', ps_script],
                 capture_output=True,
                 text=True,
-                timeout=15
+                timeout=15,
+                creationflags=subprocess.CREATE_NO_WINDOW  # 隐藏控制台窗口
             )
             
             if result.returncode != 0:
