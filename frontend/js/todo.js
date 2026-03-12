@@ -129,7 +129,6 @@ class TodoManager {
             resizeTimeout = setTimeout(() => {
                 this.handleResize();
             }, 300);
-            this.resetInfiniteScroll();
         });
 
         // 搜索
@@ -1025,7 +1024,8 @@ class TodoManager {
                 currentX: 0,
                 currentLeft: 0,
                 isOpen: false,
-                startClientX: 0 // 用于存储触摸或鼠标的起始坐标
+                startClientX: 0, // 用于存储触摸或鼠标的起始X坐标
+                startClientY: 0  // 用于存储触摸或鼠标的起始Y坐标
             };
 
             // 获取客户端X坐标的统一函数
@@ -1069,30 +1069,40 @@ class TodoManager {
                 // 开始拖拽
                 state.isDragging = true;
                 state.startClientX = getClientX(e);
+                state.startClientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
                 state.currentLeft = content.offsetLeft;
                 state.currentX = 0;
 
                 content.style.transition = 'none';
-                preventDefault(e);
+                // 暂时不阻止默认行为，等判断是水平拖拽后再阻止
             };
 
             const dragMoveHandler = (e) => {
                 if (!state.isDragging) return;
 
-                preventDefault(e);
-
                 const currentClientX = getClientX(e);
                 if (currentClientX === 0) return; // 无效的触摸点
 
+                const currentClientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
                 const deltaX = currentClientX - state.startClientX;
-                let newLeft = state.currentLeft + deltaX;
+                const deltaY = currentClientY - state.startClientY;
 
-                // 边界限制
-                if (newLeft > 0) newLeft = 0;
-                if (newLeft < -btnWidth) newLeft = -btnWidth;
+                // 只有当水平拖拽距离大于垂直拖拽距离时，才认为是水平拖拽
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    preventDefault(e);
 
-                content.style.left = newLeft + 'px';
-                state.currentX = newLeft;
+                    let newLeft = state.currentLeft + deltaX;
+
+                    // 边界限制
+                    if (newLeft > 0) newLeft = 0;
+                    if (newLeft < -btnWidth) newLeft = -btnWidth;
+
+                    content.style.left = newLeft + 'px';
+                    state.currentX = newLeft;
+                } else {
+                    // 垂直拖拽，不阻止默认行为，允许滚动
+                    state.isDragging = false;
+                }
             };
 
             const dragEndHandler = (e) => {
@@ -1195,12 +1205,10 @@ class TodoManager {
         const style = document.createElement('style');
         style.textContent = `
             .small-screen-task-item {
-                touch-action: pan-y; /* 允许垂直滚动，但禁止水平滚动和缩放 */
                 user-select: none;
                 -webkit-user-select: none;
             }
             .task-header {
-                touch-action: pan-y;
                 will-change: transform; /* 优化性能 */
             }
         `;
