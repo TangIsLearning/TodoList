@@ -477,9 +477,9 @@ class TodoManager {
     }
 
     // 加载pywebview的api
-    async loadPywebviewApi(maxRetries = 10, interval = 500) {
+    async loadPywebviewApi(maxRetries = 20, interval = 300) {
         for (let i = 0; i < maxRetries; i++) {
-            if (pywebview && pywebview.api) {
+            if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
                 return true; // pywebview 已加载完成
             }
 
@@ -488,6 +488,7 @@ class TodoManager {
                 await new Promise(resolve => setTimeout(resolve, interval));
             }
         }
+        console.error('pywebview 加载超时');
         return false; // 超时未加载
     }
 
@@ -547,7 +548,7 @@ class TodoManager {
 
                 if (isLargeScreen) {
                     // 大屏幕(大于480px)：使用表格分页模式，每页10条
-                    this.renderTasks();
+                    await this.renderTasks();
                     this.renderPagination();
 
                     // 隐藏无限下拉相关
@@ -557,7 +558,7 @@ class TodoManager {
                     if (noMoreEl) noMoreEl.style.display = 'none';
                 } else {
                     // 小屏幕：使用无限下拉模式
-                    this.renderTasks();
+                    await this.renderTasks();
 
                     // 隐藏分页
                     const pagination = document.getElementById('pagination');
@@ -592,7 +593,7 @@ class TodoManager {
     }
     
     // 渲染任务列表
-    renderTasks() {
+    async renderTasks() {
         const tasksList = document.getElementById('tasks-list');
         const emptyState = document.getElementById('empty-state');
         const pagination = document.getElementById('pagination');
@@ -651,7 +652,7 @@ class TodoManager {
         tasksList.innerHTML = html;
 
         // 绑定任务事件
-        this.bindTaskEvents();
+        await this.bindTaskEvents();
     }
     
     // 过滤任务
@@ -956,7 +957,7 @@ class TodoManager {
     }
     
     // 绑定任务事件
-    bindTaskEvents() {
+    async bindTaskEvents() {
         // 复选框点击
         document.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
@@ -1264,13 +1265,20 @@ class TodoManager {
         });
 
         // 加载分类名称
-        this.loadCategoryNames();
+        await this.loadCategoryNames();
     }
     
     // 加载分类名称
-    loadCategoryNames() {
+    async loadCategoryNames() {
         try {
-            const response = pywebview.api.get_categories();
+            // 确保pywebview已加载完成
+            const isLoaded = await this.loadPywebviewApi();
+            if (!isLoaded) {
+                console.error('pywebview未加载，无法获取分类');
+                return;
+            }
+            
+            const response = await window.pywebview.api.get_categories();
             if (response.success) {
                 const categories = response.categories;
                 const categoryMap = {};

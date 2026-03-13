@@ -31,14 +31,19 @@ class App {
             this.isInitialized = true;
             logger.info('TodoList App initialized successfully', 'App');
             
-            // 隐藏加载状态
-            Utils.setLoading(false);
-            
         } catch (error) {
             logger.error(`Failed to initialize app: ${error}`, 'App');
             console.error('Failed to initialize app:', error);
             Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
+        } finally {
+            // 隐藏加载状态
             Utils.setLoading(false);
+            
+            // 隐藏骨架屏
+            const skeletonScreen = document.getElementById('skeleton-screen');
+            if (skeletonScreen) {
+                skeletonScreen.style.display = 'none';
+            }
         }
     }
     
@@ -460,8 +465,11 @@ const app = new App();
 
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    // 显示加载状态
-    Utils.setLoading(true, '初始化应用...');
+    // 显示骨架屏
+    const skeletonScreen = document.getElementById('skeleton-screen');
+    if (skeletonScreen) {
+        skeletonScreen.style.display = 'flex';
+    }
     
     // 延迟初始化，确保所有资源加载完成
     setTimeout(() => {
