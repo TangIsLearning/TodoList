@@ -208,6 +208,14 @@ class App {
             { name: 'TodoManager', instance: window.todoManager },
             { name: 'CalendarManager', instance: window.calendarManager }
         ];
+
+        // 先等待 pywebview 加载完成
+        const isLoaded = await Utils.loadPywebviewApi();
+
+        if (!isLoaded) {
+           Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
+           throw new Error('pywebview加载失败！');
+        }
         
         for (const module of modules) {
             try {

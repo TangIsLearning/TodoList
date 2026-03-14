@@ -156,8 +156,8 @@ class DataTransfer {
 
     async loadDataSummary() {
         try {
-            if (typeof pywebview !== 'undefined' && pywebview.api) {
-                const result = await pywebview.api.p2p_get_data_summary();
+            if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
+                const result = await window.pywebview.api.p2p_get_data_summary();
                 if (result.success && result.summary) {
                     const summary = result.summary;
                     this.shareDataSummary.innerHTML = `
@@ -178,13 +178,13 @@ class DataTransfer {
     async startSharing() {
         console.log('启动共享...');
         try {
-            const exportResult = await pywebview.api.p2p_export_data();
+            const exportResult = await window.pywebview.api.p2p_export_data();
             if (exportResult.success) {
                 this.sharedData = exportResult.data;
 
                 // 显示加载状态
                 Utils.setLoading(true, '配置开启防火墻中...');
-                const result = await pywebview.api.p2p_start_server();
+                const result = await window.pywebview.api.p2p_start_server();
                 if (result.success) {
                     this.isSharing = true;
                     this.startShareBtn.style.display = 'none';
@@ -219,7 +219,7 @@ class DataTransfer {
         try {
             // 显示加载状态
             Utils.setLoading(true, '配置关闭防火墻中...');
-            const result = await pywebview.api.p2p_stop_server();
+            const result = await window.pywebview.api.p2p_stop_server();
             if (result.success) {
                 this.isSharing = false;
                 this.startShareBtn.style.display = 'block';
@@ -244,7 +244,7 @@ class DataTransfer {
             this.scanDevicesBtn.disabled = true;
             this.scanDevicesBtn.textContent = '扫描中...';
 
-            const result = await pywebview.api.p2p_scan_devices();
+            const result = await window.pywebview.api.p2p_scan_devices();
             if (result.success) {
                 if (result.devices && result.devices.length > 0) {
                     this.displayDevices(result.devices);
@@ -283,12 +283,12 @@ class DataTransfer {
         try {
             this.deviceList.innerHTML = '<p style="text-align: center;">正在接收数据...</p>';
 
-            const result = await pywebview.api.p2p_receive_data(ip);
+            const result = await window.pywebview.api.p2p_receive_data(ip);
             if (result.success && result.data) {
                 this.displayReceivedData(result.data);
                 this.receiveDataPreviewSection.style.display = 'block';
 
-                const hasDataResult = await pywebview.api.p2p_has_data();
+                const hasDataResult = await window.pywebview.api.p2p_has_data();
                 if (hasDataResult.success && hasDataResult.has_data) {
                     this.importWarning.style.display = 'flex';
                 }
@@ -327,9 +327,9 @@ class DataTransfer {
             this.confirmImportBtn.disabled = true;
             this.confirmImportBtn.textContent = '导入中...';
 
-            const result = await pywebview.api.p2p_get_received_data();
+            const result = await window.pywebview.api.p2p_get_received_data();
             if (result.success && result.data) {
-                const importResult = await pywebview.api.p2p_import_data(result.data);
+                const importResult = await window.pywebview.api.p2p_import_data(result.data);
                 if (importResult.success) {
                     Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
                     this.closeModal();

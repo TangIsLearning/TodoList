@@ -476,33 +476,17 @@ class TodoManager {
         }
     }
 
-    // 加载pywebview的api
-    async loadPywebviewApi(maxRetries = 20, interval = 300) {
-        for (let i = 0; i < maxRetries; i++) {
-            if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
-                return true; // pywebview 已加载完成
-            }
-
-            if (i < maxRetries - 1) {
-                console.log(`等待 pywebview 加载... (${i + 1}/${maxRetries})`);
-                await new Promise(resolve => setTimeout(resolve, interval));
-            }
-        }
-        console.error('pywebview 加载超时');
-        return false; // 超时未加载
-    }
-
     // 加载pywebview的todos-api
     async safeGetTodos(...args) {
         // 先等待 pywebview 加载完成
-        const isLoaded = await this.loadPywebviewApi();
+        const isLoaded = await Utils.loadPywebviewApi();
 
         if (!isLoaded) {
            throw new Error('pywebview加载失败！');
         }
 
         // pywebview 已加载，正常调用
-        return await pywebview.api.get_todos(...args);
+        return await window.pywebview.api.get_todos(...args);
     }
     
     // 加载任务
@@ -1272,7 +1256,7 @@ class TodoManager {
     async loadCategoryNames() {
         try {
             // 确保pywebview已加载完成
-            const isLoaded = await this.loadPywebviewApi();
+            const isLoaded = await Utils.loadPywebviewApi();
             if (!isLoaded) {
                 console.error('pywebview未加载，无法获取分类');
                 return;
@@ -1301,7 +1285,7 @@ class TodoManager {
     // 切换任务状态
     async toggleTask(taskId) {
         try {
-            const response = await pywebview.api.toggle_todo(taskId);
+            const response = await window.pywebview.api.toggle_todo(taskId);
             if (response.success) {
                 // 更新本地数据
                 const task = this.tasks.find(t => t.id === taskId);
@@ -1370,7 +1354,7 @@ class TodoManager {
     }
     
     // 查看任务详情
-    viewTaskDetails(taskId) {
+    async viewTaskDetails(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
 
@@ -1465,15 +1449,15 @@ class TodoManager {
         );
 
         // 加载分类名称
-        this.loadCategoryNameForDetail(task.categoryId);
+        await this.loadCategoryNameForDetail(task.categoryId);
     }
 
     // 加载分类名称(用于详情对话框)
-    loadCategoryNameForDetail(categoryId) {
+    async loadCategoryNameForDetail(categoryId) {
         if (!categoryId) return;
 
         try {
-            const response = pywebview.api.get_categories();
+            const response = await window.pywebview.api.get_categories();
             if (response.success) {
                 const categories = response.categories;
                 const category = categories.find(cat => cat.id === categoryId);
@@ -1629,7 +1613,7 @@ class TodoManager {
         if (!categorySelect) return;
         
         try {
-            const response = await pywebview.api.get_categories();
+            const response = await window.pywebview.api.get_categories();
             if (response.success) {
                 const categories = response.categories;
                 
@@ -1715,13 +1699,13 @@ class TodoManager {
             
             let response;
             if (isEdit) {
-                response = await pywebview.api.update_todo(editingId, taskData);
+                response = await window.pywebview.api.update_todo(editingId, taskData);
             } else {
                 // 如果是周期性任务，使用专门的API
                 if (taskData.isRecurring) {
-                    response = await pywebview.api.add_recurring_todo(taskData);
+                    response = await window.pywebview.api.add_recurring_todo(taskData);
                 } else {
-                    response = await pywebview.api.add_todo(taskData);
+                    response = await window.pywebview.api.add_todo(taskData);
                 }
             }
             
@@ -1826,7 +1810,7 @@ class TodoManager {
         try {
             Utils.setLoading(true, '删除中...');
             
-            const response = await pywebview.api.delete_todo(taskId, deleteAll);
+            const response = await window.pywebview.api.delete_todo(taskId, deleteAll);
             console.log('删除API响应:', response);
             
             if (response.success) {
@@ -1874,7 +1858,7 @@ class TodoManager {
     async updateCategoryCounts() {
         if (window.categoryManager) {
             // 获取当前筛选条件下的所有任务（不分页）
-            const response = await pywebview.api.get_todos(
+            const response = await window.pywebview.api.get_todos(
                 1,  // page
                 999999,  // page_size - 设置一个足够大的值以获取所有任务
                 null,  // 分类
@@ -2017,7 +2001,7 @@ class TodoManager {
             this.updateStatsDateRange();
 
             // 从后端获取所有任务的统计数据
-            const response = await pywebview.api.get_stats(this.statsDimension);
+            const response = await window.pywebview.api.get_stats(this.statsDimension);
 
             if (response.success) {
                 const totalTasksEl = document.getElementById('total-tasks');
@@ -2423,7 +2407,7 @@ class TodoManager {
     // 加载标签选择器
     async loadTagsSelector() {
         try {
-            const response = await pywebview.api.get_all_tags();
+            const response = await window.pywebview.api.get_all_tags();
             if (response.success) {
                 this.availableTags = response.tags;
                 this.renderTagsSelector();
@@ -2522,7 +2506,7 @@ class TodoManager {
             '确定要删除这个标签吗？',
             async () => {
                 try {
-                    const response = await pywebview.api.delete_tag(tagId);
+                    const response = await window.pywebview.api.delete_tag(tagId);
                     if (response.success) {
                         Utils.showToast(window.languageManager.getText('taskTagDeleted', '标签删除成功'), 'success');
                         // 从已选标签中移除

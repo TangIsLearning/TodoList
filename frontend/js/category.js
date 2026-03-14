@@ -110,7 +110,7 @@ class CategoryManager {
     // 加载分类
     async loadCategories() {
         try {
-            const response = await pywebview.api.get_categories();
+            const response = await window.pywebview.api.get_categories();
             
             if (response.success) {
                 this.categories = response.categories;
@@ -185,7 +185,7 @@ class CategoryManager {
             if (filteredTasks) {
                 tasks = filteredTasks;
             } else {
-                const response = defaultFiltered ? await pywebview.api.get_todos() : await pywebview.api.get_todos(
+                const response = defaultFiltered ? await window.pywebview.api.get_todos() : await window.pywebview.api.get_todos(
                     1,  // page
                     999999,  // page_size - 设置一个足够大的值以获取所有任务
                     null,  // 分类
@@ -306,9 +306,9 @@ class CategoryManager {
             
             let response;
             if (isEdit) {
-                response = await pywebview.api.update_category(editingId, categoryData);
+                response = await window.pywebview.api.update_category(editingId, categoryData);
             } else {
-                response = await pywebview.api.add_category(categoryData);
+                response = await window.pywebview.api.add_category(categoryData);
             }
             
             if (response.success) {
@@ -380,7 +380,7 @@ class CategoryManager {
             try {
                 Utils.setLoading(true, '删除中...');
                 
-                const response = await pywebview.api.delete_category(categoryId);
+                const response = await window.pywebview.api.delete_category(categoryId);
                 if (response.success) {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
 
@@ -416,7 +416,7 @@ class CategoryManager {
     // 获取分类下的任务数量
     async getCategoryTaskCount(categoryId) {
         try {
-            const response = await pywebview.api.get_todos();
+            const response = await window.pywebview.api.get_todos();
             if (response.success) {
                 return response.tasks.filter(task => task.categoryId === categoryId).length;
             }

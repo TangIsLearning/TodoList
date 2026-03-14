@@ -293,6 +293,22 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     document.addEventListener('keydown', handleEscape);
 }
 
+// 加载pywebview的api
+async function loadPywebviewApi(maxRetries = 20, interval = 300) {
+    for (let i = 0; i < maxRetries; i++) {
+        if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
+            return true; // pywebview 已加载完成
+        }
+
+        if (i < maxRetries - 1) {
+            console.log(`等待 pywebview 加载... (${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+    }
+    console.error('pywebview 加载超时');
+    return false; // 超时未加载
+}
+
 // 导出工具函数到全局
 window.Utils = {
     formatDate,
@@ -308,5 +324,6 @@ window.Utils = {
     getPriorityInfo,
     isOverdue,
     ModalManager,
-    confirmDialog
+    confirmDialog,
+    loadPywebviewApi
 };
