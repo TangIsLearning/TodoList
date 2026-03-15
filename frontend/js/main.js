@@ -473,12 +473,6 @@ const app = new App();
 
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    // 显示骨架屏
-    const skeletonScreen = document.getElementById('skeleton-screen');
-    if (skeletonScreen) {
-        skeletonScreen.style.display = 'flex';
-    }
-    
     // 延迟初始化，确保所有资源加载完成
     setTimeout(() => {
         app.init();
