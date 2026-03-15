@@ -36,6 +36,24 @@ class DataManager:
         # 数据库路径就是文件路径
         self.db_path = str(self.data_file)
 
+        # 设置SQLite文本处理，避免编码问题
+        self._text_factory = lambda x: str(x, 'utf-8', 'replace') if isinstance(x, bytes) else x
+
+    # 获取安全的数据连接
+    def _get_connection(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.text_factory = self._text_factory
+        return conn
+
+    # 简单的字符串清理
+    def _clean_str(self, s):
+        if s is None or not isinstance(s, str):
+            return s
+        try:
+            return s.encode('utf-8', errors='ignore').decode('utf-8')
+        except:
+            return str(s)
+
     def export_data(self) -> dict:
         """导出数据库中的所有数据
 
@@ -44,7 +62,7 @@ class DataManager:
         """
         try:
             print("路径查询：", self.db_path)
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             # 导出任务
@@ -122,7 +140,7 @@ class DataManager:
                 backup_path = self._create_backup()
                 print(f"已创建数据库备份: {backup_path}")
 
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             # 清空现有数据
@@ -138,11 +156,20 @@ class DataManager:
                                       recurrence_count, parent_task_id, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    task['id'], task['title'], task['description'], task['completed'],
-                    task['priority'], task['category_id'], task['due_date'],
-                    task['is_recurring'], task['recurrence_type'],
-                    task['recurrence_interval'], task['recurrence_count'],
-                    task['parent_task_id'], task['created_at'], task['updated_at']
+                    task['id'],
+                    self._clean_str(task['title']),
+                    self._clean_str(task['description']),
+                    task['completed'],
+                    task['priority'],
+                    task['category_id'],
+                    task['due_date'],
+                    task['is_recurring'],
+                    task['recurrence_type'],
+                    task['recurrence_interval'],
+                    task['recurrence_count'],
+                    task['parent_task_id'],
+                    task['created_at'],
+                    task['updated_at']
                 ))
 
             # 导入分类
@@ -150,11 +177,17 @@ class DataManager:
                 cursor.execute('''
                     INSERT INTO categories (id, name, color, created_at)
                     VALUES (?, ?, ?, ?)
-                ''', (category['id'], category['name'], category['color'], category['created_at']))
+                ''', (
+                    category['id'],
+                    self._clean_str(category['name']),
+                    category['color'],
+                    category['created_at']
+                ))
 
             # 导入设置
             for key, value in data.get('settings', {}).items():
-                value_str = json.dumps(value) if not isinstance(value, str) else value
+                # 使用 ensure_ascii=False 避免编码问题
+                value_str = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
                 cursor.execute('''
                     INSERT INTO settings (key, value, updated_at)
                     VALUES (?, ?, CURRENT_TIMESTAMP)
@@ -217,7 +250,7 @@ class DataManager:
     def _create_backup(self) -> str:
         """创建数据库备份"""
         import time
-        backup_dir = self.app_data_dir / 'backups'
+        backup_dir = self.data_file.parent / 'backups'
         backup_dir.mkdir(exist_ok=True)
 
         timestamp = time.strftime('%Y%m%d_%H%M%S')

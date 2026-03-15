@@ -1,7 +1,7 @@
 """
 TodoList应用的前后端通信API
 """
-
+import os
 import sys
 import logging
 from datetime import datetime
@@ -470,6 +470,9 @@ class TodoApi:
         try:
             from backend.p2p.data_manager import DataManager
             data_manager = DataManager()
+            is_android = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ
+            if is_android:
+                backup = False # 在安卓设备上由于可能存在权限问题，因而不做备份操作
             success = data_manager.import_data(data, backup=backup)
             if success:
                 # 导入成功后刷新前端缓存
