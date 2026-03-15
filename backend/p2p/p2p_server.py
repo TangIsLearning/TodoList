@@ -67,12 +67,12 @@ class P2PServer:
             listen_thread = threading.Thread(target=self._listen_for_connections, daemon=True)
             listen_thread.start()
 
-            print(f"[P2P服务器] ✓ 服务器启动成功，监听 0.0.0.0:{self.port}")
+            print(f"[P2P服务器] [OK] 服务器启动成功，监听 0.0.0.0:{self.port}")
             return True, f"服务器启动成功{firewall_message}"
 
         except OSError as e:
             error_msg = f"服务器启动失败（端口 {self.port} 可能被占用）: {e}"
-            print(f"[P2P服务器] ✗ {error_msg}")
+            print(f"[P2P服务器] [FAIL] {error_msg}")
 
             # 启动失败时清理防火墙规则
             if self._firewall_manager:
@@ -81,7 +81,7 @@ class P2PServer:
             return False, error_msg
         except Exception as e:
             error_msg = f"服务器启动失败: {e}"
-            print(f"[P2P服务器] ✗ {error_msg}")
+            print(f"[P2P服务器] [FAIL] {error_msg}")
 
             # 启动失败时清理防火墙规则
             if self._firewall_manager:
@@ -122,7 +122,7 @@ class P2PServer:
             else:
                 print(f"[P2P服务器] {fw_msg}")
 
-        print(f"[P2P服务器] ✓ 服务器已停止")
+        print(f"[P2P服务器] [OK] 服务器已停止")
         return True, "服务器已停止"
 
     def _listen_for_connections(self):

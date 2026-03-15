@@ -204,9 +204,11 @@ class DataTransfer {
                     Utils.showToast(message, 'success');
                 } else {
                     Utils.setLoading(false);
+                    console.error('启动P2P失败:', result.error);
                     Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${result.error}`, 'error');
                 }
             } else {
+                console.error('导出数据失败:', exportResult.error);
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${exportResult.error}`, 'error');
             }
         } catch (error) {

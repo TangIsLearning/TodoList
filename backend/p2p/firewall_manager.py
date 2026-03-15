@@ -70,7 +70,7 @@ class FirewallManager:
 
         # 检查是否有管理员权限
         if not is_admin():
-            print(f"[防火墙] ⚠ 当前用户权限不足，尝试以管理员权限执行...")
+            print(f"[防火墙] [WARN] 当前用户权限不足，尝试以管理员权限执行...")
             return self._add_rule_with_admin()
 
         try:
@@ -100,22 +100,22 @@ class FirewallManager:
             )
 
             if result.returncode == 0:
-                print(f"[防火墙] ✓ 防火墙规则添加成功")
+                print(f"[防火墙] [OK] 防火墙规则添加成功")
                 print(f"[防火墙] 规则名称: {self.rule_name}")
                 print(f"[防火墙] 开放端口: {self.port}/TCP")
                 return True, "防火墙规则添加成功"
             else:
                 error_msg = result.stderr.strip() if result.stderr else "未知错误"
-                print(f"[防火墙] ✗ 添加防火墙规则失败: {error_msg}")
+                print(f"[防火墙] [FAIL] 添加防火墙规则失败: {error_msg}")
                 return False, f"添加防火墙规则失败: {error_msg}"
 
         except subprocess.TimeoutExpired:
             error_msg = "添加防火墙规则超时，请检查系统权限"
-            print(f"[防火墙] ✗ {error_msg}")
+            print(f"[防火墙] [FAIL] {error_msg}")
             return False, error_msg
         except Exception as e:
             error_msg = f"添加防火墙规则时发生异常: {str(e)}"
-            print(f"[防火墙] ✗ {error_msg}")
+            print(f"[防火墙] [FAIL] {error_msg}")
             return False, error_msg
 
     def _add_rule_with_admin(self) -> Tuple[bool, str]:
@@ -134,7 +134,7 @@ class FirewallManager:
                 f'profile=any'
             )
 
-            print(f"[防火墙] ⚠ 当前用户权限不足")
+            print(f"[防火墙] [WARN] 当前用户权限不足")
             print(f"[防火墙] 正在创建临时批处理文件...")
 
             # 创建临时批处理文件
@@ -161,7 +161,7 @@ timeout /t 3 /nobreak >nul
 exit /b 0
 '''
 
-            with open(bat_path, 'w', encoding='gbk') as f:
+            with open(bat_path, 'w', encoding='utf-8') as f:
                 f.write(bat_content)
 
             print(f"[防火墙] 临时文件: {bat_path}")
@@ -202,13 +202,13 @@ exit /b 0
 
                 # 检查规则是否添加成功
                 if self.is_rule_exists():
-                    print(f"[防火墙] ✓ 防火墙规则添加成功")
+                    print(f"[防火墙] [OK] 防火墙规则添加成功")
                     print(f"[防火墙] 规则名称: {self.rule_name}")
                     print(f"[防火墙] 开放端口: {self.port}/TCP")
                     return True, "防火墙规则添加成功"
                 else:
                     # 规则未添加成功
-                    print(f"[防火墙] ✗ 防火墙规则未添加")
+                    print(f"[防火墙] [FAIL] 防火墙规则未添加")
                     error_msg = (
                         "防火墙规则添加失败\n\n"
                         "可能的原因：\n"
@@ -224,7 +224,7 @@ exit /b 0
                     return False, error_msg
             else:
                 # ShellExecute失败
-                print(f"[防火墙] ✗ 无法请求管理员权限（错误代码: {result}）")
+                print(f"[防火墙] [FAIL] 无法请求管理员权限（错误代码: {result}）")
                 error_msg = (
                     "无法请求管理员权限\n\n"
                     "请尝试以下方法：\n"
@@ -236,7 +236,7 @@ exit /b 0
                 return False, error_msg
 
         except Exception as e:
-            print(f"[防火墙] ✗ 提升权限失败: {e}")
+            print(f"[防火墙] [FAIL] 提升权限失败: {e}")
             import traceback
             traceback.print_exc()
 
@@ -281,7 +281,7 @@ exit /b 0
 
         # 检查是否有管理员权限
         if not is_admin():
-            print(f"[防火墙] ⚠ 当前用户权限不足，尝试以管理员权限执行...")
+            print(f"[防火墙] [WARN] 当前用户权限不足，尝试以管理员权限执行...")
             return self._remove_rule_with_admin()
 
         try:
@@ -305,24 +305,24 @@ exit /b 0
             )
 
             if result.returncode == 0:
-                print(f"[防火墙] ✓ 防火墙规则删除成功")
+                print(f"[防火墙] [OK] 防火墙规则删除成功")
                 return True, "防火墙规则删除成功"
             else:
                 error_msg = result.stderr.strip() if result.stderr else "未知错误"
-                print(f"[防火墙] ✗ 删除防火墙规则失败: {error_msg}")
+                print(f"[防火墙] [FAIL] 删除防火墙规则失败: {error_msg}")
                 # 即使删除失败，如果规则不存在也视为成功
                 if not self.is_rule_exists():
-                    print(f"[防火墙] ✓ 防火墙规则已不存在，视为删除成功")
+                    print(f"[防火墙] [OK] 防火墙规则已不存在，视为删除成功")
                     return True, "防火墙规则删除成功"
                 return False, f"删除防火墙规则失败: {error_msg}"
 
         except subprocess.TimeoutExpired:
             error_msg = "删除防火墙规则超时，请检查系统权限"
-            print(f"[防火墙] ✗ {error_msg}")
+            print(f"[防火墙] [FAIL] {error_msg}")
             return False, error_msg
         except Exception as e:
             error_msg = f"删除防火墙规则时发生异常: {str(e)}"
-            print(f"[防火墙] ✗ {error_msg}")
+            print(f"[防火墙] [FAIL] {error_msg}")
             return False, error_msg
 
     def _remove_rule_with_admin(self) -> Tuple[bool, str]:
@@ -335,7 +335,7 @@ exit /b 0
             # 构建netsh命令
             cmd = f'netsh advfirewall firewall delete rule name="{self.rule_name}"'
 
-            print(f"[防火墙] ⚠ 当前用户权限不足")
+            print(f"[防火墙] [WARN] 当前用户权限不足")
             print(f"[防火墙] 正在创建临时批处理文件...")
 
             # 创建临时批处理文件
@@ -362,7 +362,7 @@ timeout /t 2 /nobreak >nul
 exit /b 0
 '''
 
-            with open(bat_path, 'w', encoding='gbk') as f:
+            with open(bat_path, 'w', encoding='utf-8') as f:
                 f.write(bat_content)
 
             print(f"[防火墙] 临时文件: {bat_path}")
@@ -403,11 +403,11 @@ exit /b 0
 
                 # 检查规则是否删除成功
                 if not self.is_rule_exists():
-                    print(f"[防火墙] ✓ 防火墙规则删除成功")
+                    print(f"[防火墙] [OK] 防火墙规则删除成功")
                     return True, "防火墙规则删除成功"
                 else:
                     # 规则仍然存在
-                    print(f"[防火墙] ✗ 防火墙规则仍然存在")
+                    print(f"[防火墙] [FAIL] 防火墙规则仍然存在")
                     error_msg = (
                         "防火墙规则删除失败\n\n"
                         "可能的原因：\n"
@@ -422,7 +422,7 @@ exit /b 0
                     return False, error_msg
             else:
                 # ShellExecute失败
-                print(f"[防火墙] ✗ 无法请求管理员权限（错误代码: {result}）")
+                print(f"[防火墙] [FAIL] 无法请求管理员权限（错误代码: {result}）")
                 error_msg = (
                     "无法请求管理员权限\n\n"
                     "请尝试以下方法：\n"
@@ -434,7 +434,7 @@ exit /b 0
                 return False, error_msg
 
         except Exception as e:
-            print(f"[防火墙] ✗ 提升权限失败: {e}")
+            print(f"[防火墙] [FAIL] 提升权限失败: {e}")
             import traceback
             traceback.print_exc()
 
