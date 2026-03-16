@@ -37,7 +37,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.3.0,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,pyjnius==1.4.0,python-dateutil==2.9.0.post0
+requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -283,7 +283,7 @@ android.add_jars = lib/pywebview-android.jar
 
 # (list) The Android archs to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
 # In past, was `android.arch` as we weren't supporting builds for multiple archs at the same time.
-android.archs = arm64-v8a, armeabi-v7a,x86,x86_64
+android.archs = arm64-v8a
 
 # (int) overrides automatic versionCode computation (used in build.gradle)
 # this is not the same as app version and should only be edited if you know what you're doing

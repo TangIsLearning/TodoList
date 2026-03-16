@@ -31,30 +31,13 @@ TodoList是一款真正跨平台的待办事项管理应用，基于Python和Web
 - **桌面端**：Windows、macOS、Linux
 - **移动端**：Android、 iOS
 
-说明：理论上支持macOS、Linux和iOS，但是由于开发者无相关设备或环境，无法测试，请自行测试。
+*\*说明：理论上支持macOS、Linux和iOS，但是由于开发者无相关设备或环境，无法测试，请自行测试。*
 
 ## 🚀 快速开始
 
 ### 安装方法
 
 #### 桌面端安装
-
-##### 方式一：自动安装（推荐）
-
-**Windows用户**：
-```bash
-# 双击运行
-install.bat
-```
-
-**macOS/Linux用户**：
-```bash
-# 给脚本执行权限并运行
-chmod +x install.sh
-./install.sh
-```
-
-##### 方式二：手动安装
 
 **环境要求**：
 - Python >= 3.10.9
@@ -70,7 +53,12 @@ pip install -r requirements.txt
 
 # 3. 启动应用
 python main.py
+
+# 4. 打包应用生成exe(可选)
+python build.py
 ```
+
+*\*说明：build脚本使用默认图标，可以通过scripts/utils/create_icon.py生成自定义图标置于根目录即可自动打包到exe中。*
 
 #### 安卓移动端安装
 
@@ -102,6 +90,8 @@ buildozer android debug
 buildozer android deploy run
 ```
 
+*\*说明：buildozer配置文件可以参考scripts/config/buildozer.spec。*
+
 ## 🔧 技术栈
 
 - **前端**：HTML5 + CSS3 + JavaScript (ES6+)
@@ -118,10 +108,15 @@ TodoList/
 ├── frontend/          # 前端界面和交互逻辑
 ├── data/             # 数据库文件
 ├── docs/             # 项目文档资料
-├── buildozer.spec    # Buildozer配置文件（用于安卓构建）
+├── scripts/          # 脚本归档
 ├── TodoList.spec     # PyInstaller配置文件（用于桌面构建）
+├── build.py          # 桌面端应用构建脚本
+├── main.py           # 桌面端应用启动脚本
+├── requirements.txt  # 项目所需的依赖包
 └── README.md         # 项目说明
 ```
+
+*\*说明：启动项目核心仅需要backend目录、frontend目录和main.py即可。*
 
 ## 🛠️ 故障排除
 
