@@ -164,6 +164,17 @@ class App {
             });
         }
 
+        // 站外链接点击跳转事件
+        const externalLinks = document.querySelectorAll('.external-link');
+        externalLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault(); // 阻止链接在 WebView 内打开
+                var url = e.target.href;
+                // 调用 Python 后端的 open_in_browser 方法
+                window.pywebview.api.open_in_browser(url);
+            });
+        })
+
         // 错误处理
         window.addEventListener('error', (e) => {
             console.error('Global error:', e.error);

@@ -221,6 +221,12 @@ const Languages = {
         // 语言设置
         language: "中英文切换",
 
+        // 关于
+        about: "关于",
+        sourceCode: "源码地址",
+        statement: "开源声明",
+        statementText: "仅供使用，勿商用",
+
         // 数据存储路径
         dataStoragePath: "存储路径",
         dataStorageApply: "应用",
@@ -491,6 +497,12 @@ const Languages = {
 
         // 语言设置
         language: "Chinese/English Switch",
+
+        // 关于
+        about: "About",
+        sourceCode: "SourceCode",
+        statement: "Statement",
+        statementText: "Personal use only, not for commercial use.",
 
         // 数据存储路径
         dataStoragePath: "Storage Path",

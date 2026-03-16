@@ -4,6 +4,7 @@ TodoList应用的前后端通信API
 import os
 import sys
 import logging
+import webbrowser
 from datetime import datetime
 from pathlib import Path
 
@@ -838,3 +839,6 @@ class TodoApi:
                 'success': False,
                 'error': str(e)
             }
+
+    def open_in_browser(self, url):
+        webbrowser.open(url)

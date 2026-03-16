@@ -567,7 +567,7 @@ class LanguageManager {
         if (autoStartLabel) autoStartLabel.textContent = lang.settingsAutoStart;
 
         // 数据管理
-        if (sectionTitles[2]) sectionTitles[2].textContent = lang.settingsData;
+        if (sectionTitles[1]) sectionTitles[1].textContent = lang.settingsData;
 
         // 数据共享
         const dataTransferTitle = document.querySelector('#data-transfer-modal h2');
@@ -669,6 +669,19 @@ class LanguageManager {
         if (webDavTestBtn) webDavTestBtn.textContent = lang.testConnection;
         const webDavSaveBtn = document.getElementById('webdav-save-btn');
         if (webDavSaveBtn) webDavSaveBtn.textContent = lang.saveConfiguration;
+
+        // 关于
+        if (sectionTitles[2]) sectionTitles[2].textContent = lang.about;
+        const aboutSection = sectionTitles[2].closest('.setting-section');
+        const aboutOptions = aboutSection.querySelectorAll('.setting-text');
+        if (aboutOptions.length >= 2) {
+            aboutOptions[0].textContent = lang.sourceCode;
+            aboutOptions[1].textContent = lang.statement;
+        }
+        const externalLinks = aboutSection.querySelectorAll('.external-link');
+        if (externalLinks.length >= 2) {
+            externalLinks[1].textContent = lang.statementText;
+        }
     }
     
     // 更新日期选择器
