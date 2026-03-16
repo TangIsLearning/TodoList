@@ -463,6 +463,10 @@ class App {
             window.todoManager.statusFilter = statusValue;
             window.todoManager.dueDateFilter = dueDateValue;
             window.todoManager.searchQuery = tagValue;
+            window.todoManager.priorityFilter = 'all';
+            window.todoManager.currentPage = 1;
+            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
             await window.todoManager.loadTasks();
 
             // 触发筛选更新
