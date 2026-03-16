@@ -1714,8 +1714,20 @@ class TodoManager {
                     window.languageManager.getText('taskCreated', '任务创建成功');
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
-                
-                await this.loadTasks();
+
+                // 移动端调整：如果当前页不是第一页，重置到第一页
+                if (this.isMobileDevice()) {
+                    if (this.currentPage > 1) {
+                        this.currentPage = 1;
+                        this.loadTasks();
+                    } else {
+                        this.renderTasks();
+                        this.renderPagination();
+                    }
+                } else {
+                    await this.loadTasks();
+                }
+
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
                 
@@ -1819,15 +1831,26 @@ class TodoManager {
                     window.languageManager.getText('taskDeleted', '任务删除成功');
                 Utils.showToast(message, 'success');
 
-                // 安全检查：确保任务列表存在
-                if (Array.isArray(this.tasks)) {
-                    console.log('删除前任务数量:', this.tasks.length);
-                    await this.loadTasks();
-                    console.log('删除后任务数量:', this.tasks.length);
+                // 移动端调整：如果当前页不是第一页，重置到第一页
+                if (this.isMobileDevice()) {
+                    if (this.currentPage > 1) {
+                        this.currentPage = 1;
+                        this.loadTasks();
+                    } else {
+                        this.renderTasks();
+                        this.renderPagination();
+                    }
                 } else {
-                    console.warn('任务列表状态异常，重新初始化');
-                    this.tasks = [];
-                    await this.loadTasks();
+                    // 安全检查：确保任务列表存在
+                    if (Array.isArray(this.tasks)) {
+                        console.log('删除前任务数量:', this.tasks.length);
+                        await this.loadTasks();
+                        console.log('删除后任务数量:', this.tasks.length);
+                    } else {
+                        console.warn('任务列表状态异常，重新初始化');
+                        this.tasks = [];
+                        await this.loadTasks();
+                    }
                 }
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
@@ -2381,6 +2404,14 @@ class TodoManager {
             // 设置列表为flex布局
             if (tasksList) {
                 tasksList.style.display = 'flex';
+            }
+
+            if (this.currentPage > 1) {
+                this.currentPage = 1;
+                this.loadTasks();
+            } else {
+                this.renderTasks();
+                this.renderPagination();
             }
 
             // 隐藏分页
