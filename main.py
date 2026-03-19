@@ -28,7 +28,7 @@ try:
     app_logger.info("=" * 60)
     app_logger.info("从 main.py 启动 TodoList 应用")
     app_logger.info("=" * 60)
-    start.start_app(window=None)
+    start.start_app()
 except ImportError as e:
     print(f"导入错误: {e}")
     print("请检查Python环境是否正确安装了依赖：pip install pywebview")

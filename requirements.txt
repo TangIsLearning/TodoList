@@ -4,3 +4,4 @@ Pillow>=9.0.0  # 可选：用于创建图标
 python-dateutil>=2.8.0  # 用于日期计算
 webdavclient3>=3.14.7  # WebDAV客户端
 lxml>=6.0.2
+desktop-notifier>=6.2.0  # 用于跨平台桌面通知

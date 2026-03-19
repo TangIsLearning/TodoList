@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
 任务到期提醒功能模块
-支持Windows系统通知栏消息提醒
+支持桌面端通知栏消息提醒
 """
 
 import threading
 import time
-from datetime import datetime, timedelta
-from queue import Queue
+import sys
+import os
 import platform
-import subprocess
-
+import backend.globals
+from datetime import datetime
+from queue import Queue
+from backend.utils import utils
 from backend.database.operations import TodoDatabase
 from backend.utils.logger import app_logger
 
@@ -26,9 +28,15 @@ class TaskReminder:
         self.notified_tasks = set()  # 已提醒的任务ID集合
         self.scheduled_tasks = {}  # 已安排提醒的任务 {task_id: due_datetime}
         self.check_thread = None
+        self.asyncio_thread = None
         self.notify_thread = None
         self.system = platform.system()
-        
+        self.notifier = None
+        self.is_android = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ
+        if not self.is_android:
+            import asyncio
+            self.loop = asyncio.new_event_loop()
+
     def start(self):
         """启动提醒服务"""
         if self.running:
@@ -41,7 +49,11 @@ class TaskReminder:
         # 启动检查线程
         self.check_thread = threading.Thread(target=self._check_tasks, daemon=True)
         self.check_thread.start()
-        
+
+        # 专门负责运行 asyncio 循环的线程
+        self.asyncio_thread = threading.Thread(target=self._run_asyncio, daemon=True)
+        self.asyncio_thread.start()
+
         # 启动通知线程
         self.notify_thread = threading.Thread(target=self._process_notifications, daemon=True)
         self.notify_thread.start()
@@ -108,7 +120,20 @@ class TaskReminder:
             
             # 等待下一次检查
             time.sleep(self.check_interval)
-    
+
+    def _run_asyncio(self):
+        # 专门负责运行 asyncio 循环的线程
+        import asyncio
+        asyncio.set_event_loop(self.loop)
+        from desktop_notifier import DesktopNotifier
+
+        self.notifier = DesktopNotifier(
+            app_name="TodoList",
+            app_icon=utils.get_app_icon(),
+            notification_limit=5,
+        )
+        self.loop.run_forever()
+
     def _cleanup_completed_tasks(self, current_tasks):
         """清理已完成或已删除任务的记录"""
         current_task_ids = {task['id'] for task in current_tasks}
@@ -128,12 +153,43 @@ class TaskReminder:
         while self.running:
             try:
                 notification = self.notification_queue.get(timeout=1)
-                self._show_notification(notification)
+                if not self.is_android:
+                    import asyncio
+                    asyncio.run_coroutine_threadsafe(self._show_notification(notification), self.loop)
             except Exception as e:
                 pass  # 队列为空或超时
-                
-    def _show_notification(self, notification):
+
+    async def _show_notification(self, notification):
         """显示系统通知"""
+        def force_focus(window_title):
+            """强制聚焦屏幕"""
+            import win32gui
+            import win32con
+            hwnd = win32gui.FindWindow(None, window_title)
+            if hwnd:
+                # 恢复窗口（如果最小化）
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                # 强制推至前台
+                win32gui.SetForegroundWindow(hwnd)
+
+        def on_click():
+            """定义点击通知时的回调函数"""
+            print("用户点击了通知，准备唤醒窗口...")
+            # 关键判断：确保窗口实例存在且未被销毁
+            if backend.globals.window:
+                try:
+                    # 1. 从最小化恢复
+                    backend.globals.window.restore
+                    # 2. 提到最前显示（如果之前是 hide 状态）
+                    backend.globals.window.show
+                    # 3. 某些平台下可能需要额外聚焦
+                    backend.globals.window.focus
+                    force_focus("TodoList")
+                except Exception as e:
+                    print(f"唤醒失败，窗口可能已关闭: {e}")
+            else:
+                print("错误：找不到窗口实例！")
+
         try:
             task_title = notification['title']
             due_date = notification['due_date']
@@ -162,72 +218,19 @@ class TaskReminder:
                 title = "📋 任务到期提醒"
             else:
                 title = "📝 任务到期提醒"
-            
-            # 根据操作系统显示不同的通知
-            if self.system == 'Windows':
-                self._show_windows_notification(title, message)
-            elif self.system == 'Darwin':  # macOS
-                self._show_macos_notification(title, message)
-            elif self.system == 'Linux':
-                self._show_linux_notification(title, message)
-            else:
-                print(f"\n{title}\n{message}\n")
-                
+
+            from desktop_notifier.common import Button
+            from desktop_notifier import Urgency
+            await self.notifier.send(
+                title=title,
+                message=message,
+                urgency=Urgency.Critical if priority == 'high' else Urgency.Normal,
+                on_clicked=lambda: on_click(),
+                timeout=0  # 0表示通知常驻
+            )
         except Exception as e:
             print(f"显示通知时出错: {e}")
-    
-    def _show_windows_notification(self, title, message):
-        """在Windows系统显示通知"""
-        try:
-            # 使用Windows PowerShell显示Toast通知
-            ps_script = f'''
-            Add-Type -AssemblyName System.Windows.Forms
-            $global:balloon = New-Object System.Windows.Forms.NotifyIcon
-            $path = (Get-Process -Id $pid).Path
-            $balloon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
-            $balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
-            $balloon.BalloonTipText = '{message}'
-            $balloon.BalloonTipTitle = '{title}'
-            $balloon.Visible = $true
-            $balloon.ShowBalloonTip(10000)
-            Start-Sleep -Seconds 10
-            $balloon.Dispose()
-            '''
-            
-            # 执行PowerShell脚本
-            result = subprocess.run(
-                ['powershell', '-Command', ps_script],
-                capture_output=True,
-                text=True,
-                timeout=15,
-                creationflags=subprocess.CREATE_NO_WINDOW  # 隐藏控制台窗口
-            )
-            
-            if result.returncode != 0:
-                print(f"Windows通知执行失败: {result.stderr}")
-                
-        except Exception as e:
-            print(f"显示Windows通知失败: {e}")
-    
-    def _show_macos_notification(self, title, message):
-        """在macOS系统显示通知"""
-        try:
-            script = f'display notification "{message}" with title "{title}"'
-            subprocess.run(['osascript', '-e', script], timeout=5)
-        except Exception as e:
-            print(f"显示macOS通知失败: {e}")
-    
-    def _show_linux_notification(self, title, message):
-        """在Linux系统显示通知"""
-        try:
-            subprocess.run([
-                'notify-send',
-                title,
-                message
-            ], timeout=5)
-        except Exception as e:
-            print(f"显示Linux通知失败: {e}")
-    
+
     def reset_notified_tasks(self):
         """重置已提醒任务列表(用于测试或重新提醒)"""
         self.notified_tasks.clear()
