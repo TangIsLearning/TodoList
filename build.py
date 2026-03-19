@@ -54,7 +54,8 @@ def check_dependencies():
     
     required_packages = {
         'pyinstaller': 'PyInstaller',
-        'pywebview': 'webview'
+        'pywebview': 'webview',
+        'desktop-notifier': 'desktop_notifier'
     }
     
     missing_packages = []

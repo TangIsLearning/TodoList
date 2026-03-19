@@ -61,6 +61,11 @@ a = Analysis(
         'html',
         'webbrowser',
         'tkinter',
+        'desktop_notifier.resources',
+        'desktop_notifier.main',
+        'desktop_notifier.platforms.windows', # 如果是Windows
+        'winsdk.windows.ui.notifications', #(针对 Windows)
+        'winsdk.windows.foundation',
         'tkinter.messagebox',
         'tkinter.filedialog',
         'tkinter.simpledialog',

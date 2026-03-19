@@ -28,7 +28,7 @@ class TodoApi:
         backend_logger.info("数据库连接成功")
         # 重置已提醒任务列表，确保新任务可以被提醒
         try:
-            from backend.utils.task_reminder import get_reminder
+            from backend.reminder.task_reminder import get_reminder
             reminder = get_reminder()
             reminder.reset_notified_tasks()
             backend_logger.info("任务提醒器已重置")
