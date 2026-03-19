@@ -25,14 +25,14 @@ try:
 
         # 绘制对勾
         check_points = [
-            (box_x + 20, box_y + box_size // 2),
-            (box_x + 45, box_y + box_size - 20),
-            (box_x + box_size - 20, box_y + 20)
+            (box_x + 25, box_y + box_size // 2),
+            (box_x + 50, box_y + box_size - 30),
+            (box_x + box_size - 25, box_y + 30)
         ]
-        draw.line(check_points, fill=(0, 123, 255), width=8)
+        draw.line(check_points, fill=(0, 123, 255), width=8*2, joint = "curve")
         
         # 保存为ICO文件
-        img.save('todo_icon.ico', format='ICO', sizes=[(256, 256), (128, 128), (64, 64), (32, 32), (16, 16)])
+        img.save('todo_icon.ico', format='ICO', sizes=[(256*8, 256*8), (128*8, 128*8), (64*8, 64*8), (32*8, 32*8), (16*8, 16*8)])
         print("✅ 图标创建成功: todo_icon.ico")
         return True
     

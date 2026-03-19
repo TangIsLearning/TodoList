@@ -15,8 +15,8 @@ def create_icon():
     
     try:
         # 尝试运行图标创建脚本
-        result = subprocess.run([sys.executable, 'create_icon.py'], 
-                              capture_output=True, text=True)
+        result = subprocess.run([sys.executable, Path(os.path.dirname(__file__), "scripts", "utils", 'create_icon.py')],
+                                capture_output=True, text=True, encoding='utf-8')
         if result.returncode == 0:
             print("   ✅ 图标创建成功")
             return True
