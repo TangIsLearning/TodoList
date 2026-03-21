@@ -77,6 +77,16 @@ class SettingsUIManager {
         
         // 开机自启动元素
         this.autoStartToggle = document.getElementById('auto-start-toggle');
+
+        // API 访问相关元素
+        this.apiAccessToggle = document.getElementById('api-access-toggle');
+        this.httpServerToggle = document.getElementById('http-server-toggle');
+        this.apiTokenInput = document.getElementById('api-token-input');
+        this.showTokenBtn = document.getElementById('show-token-btn');
+        this.copyTokenBtn = document.getElementById('copy-token-btn');
+        this.generateTokenBtn = document.getElementById('generate-token-btn');
+        this.revokeTokenBtn = document.getElementById('revoke-token-btn');
+        this.apiDocsLink = document.getElementById('api-docs-link');
     }
     
     bindEvents() {
@@ -204,6 +214,9 @@ class SettingsUIManager {
         
         // 更新开机自启动状态
         this.updateAutoStartState();
+
+        // 更新 API 访问配置
+        this.updateApiAccessConfig();
     }
 
     // 更新语言状态
@@ -877,6 +890,188 @@ class SettingsUIManager {
             this.webdavStatusDiv.className = `webdav-status ${type}`;
             this.webdavStatusDiv.style.display = 'block';
         }
+    }
+
+    // ==================== API 访问管理方法 ====================
+
+    // 更新 API 访问配置显示
+    async updateApiAccessConfig() {
+        if (!this.apiAccessToggle || !this.httpServerToggle) {
+            return;
+        }
+
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+
+            // 获取 API Token 配置
+            const result = await window.pywebview.api.get_api_token_config();
+
+            if (result.success) {
+                const config = result.config;
+                this.apiAccessToggle.checked = config.enabled;
+
+                // 更新 Token 显示
+                if (this.apiTokenInput) {
+                    if (config.has_token && config.is_valid) {
+                        this.apiTokenInput.value = '••••••••••••••••••••••••';
+                        this.apiTokenInput.disabled = false;
+                        if (this.generateTokenBtn) this.generateTokenBtn.style.display = 'none';
+                        if (this.revokeTokenBtn) this.revokeTokenBtn.style.display = 'inline-block';
+                    } else if (config.is_expired) {
+                        this.apiTokenInput.value = 'Token 已过期';
+                        this.apiTokenInput.disabled = true;
+                        if (this.generateTokenBtn) this.generateTokenBtn.style.display = 'inline-block';
+                        if (this.revokeTokenBtn) this.revokeTokenBtn.style.display = 'none';
+                    } else {
+                        this.apiTokenInput.value = '';
+                        this.apiTokenInput.placeholder = '未生成 Token';
+                        this.apiTokenInput.disabled = true;
+                        if (this.generateTokenBtn) this.generateTokenBtn.style.display = 'inline-block';
+                        if (this.revokeTokenBtn) this.revokeTokenBtn.style.display = 'none';
+                    }
+                }
+
+                // 更新 HTTP 服务器状态
+                const serverStatus = await window.pywebview.api.get_http_server_status();
+                if (serverStatus.success && serverStatus.status) {
+                    this.httpServerToggle.checked = serverStatus.status.running;
+                }
+            }
+        } catch (error) {
+            console.error('更新 API 访问配置失败:', error);
+        }
+    }
+
+    // 切换 API 访问状态
+    async toggleApiAccess() {
+        if (!this.apiAccessToggle) return;
+        const enabled = this.apiAccessToggle.checked;
+        try {
+            this.apiAccessToggle.disabled = true;
+            const result = enabled
+                ? await window.pywebview.api.enable_api_access()
+                : await window.pywebview.api.disable_api_access();
+            if (result.success) {
+                Utils.showToast(result.message, 'success');
+            } else {
+                this.apiAccessToggle.checked = !enabled;
+                Utils.showToast(result.error || '设置失败', 'error');
+            }
+        } catch (error) {
+            this.apiAccessToggle.checked = !enabled;
+            Utils.showToast(`设置失败：${error.message}`, 'error');
+        } finally {
+            this.apiAccessToggle.disabled = false;
+        }
+    }
+
+    // 切换 HTTP 服务器状态
+    async toggleHttpServer() {
+        if (!this.httpServerToggle) return;
+        const enabled = this.httpServerToggle.checked;
+        try {
+            this.httpServerToggle.disabled = true;
+            const result = enabled
+                ? await window.pywebview.api.start_http_server()
+                : await window.pywebview.api.stop_http_server();
+            if (result.success) {
+                Utils.showToast(result.message, 'success');
+                await this.updateApiAccessConfig();
+            } else {
+                this.httpServerToggle.checked = !enabled;
+                Utils.showToast(result.error || '设置失败', 'error');
+            }
+        } catch (error) {
+            this.httpServerToggle.checked = !enabled;
+            Utils.showToast(`设置失败：${error.message}`, 'error');
+        } finally {
+            this.httpServerToggle.disabled = false;
+        }
+    }
+
+    // 切换 Token 可见性
+    toggleTokenVisibility() {
+        if (!this.apiTokenInput) return;
+        this.apiTokenInput.type = this.apiTokenInput.type === 'password' ? 'text' : 'password';
+        this.showTokenBtn.textContent = this.apiTokenInput.type === 'password' ? '👁' : '🔒';
+    }
+
+    // 复制 Token
+    async copyToken() {
+        if (!this.apiTokenInput || this.apiTokenInput.type === 'password') {
+            Utils.showToast('请先显示 Token', 'warning');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(this.apiTokenInput.value);
+            Utils.showToast('Token 已复制', 'success');
+        } catch (error) {
+            Utils.showToast('复制失败', 'error');
+        }
+    }
+
+    // 生成 Token
+    async generateToken() {
+        try {
+            const confirmed = await new Promise(resolve => {
+                Utils.confirmDialog('生成新 Token 将覆盖现有 Token，是否继续？', () => resolve(true), () => resolve(false));
+            });
+            if (!confirmed) return;
+
+            const result = await window.pywebview.api.generate_api_token(365);
+            if (result.success) {
+                this.apiTokenInput.type = 'text';
+                this.apiTokenInput.value = result.token;
+                this.apiTokenInput.disabled = false;
+                if (this.generateTokenBtn) this.generateTokenBtn.style.display = 'none';
+                if (this.revokeTokenBtn) this.revokeTokenBtn.style.display = 'inline-block';
+                Utils.showToast(result.message, 'success');
+                Utils.copyToClipboard(result.token);
+            } else {
+                Utils.showToast(result.error || '生成失败', 'error');
+            }
+        } catch (error) {
+            Utils.showToast(`生成失败：${error.message}`, 'error');
+        }
+    }
+
+    // 撤销 Token
+    async revokeToken() {
+        try {
+            const confirmed = await new Promise(resolve => {
+                Utils.confirmDialog('撤销后 Token 将立即失效，是否继续？', () => resolve(true), () => resolve(false));
+            });
+            if (!confirmed) return;
+
+            const result = await window.pywebview.api.revoke_api_token();
+            if (result.success) {
+                this.apiTokenInput.type = 'password';
+                this.apiTokenInput.value = '';
+                this.apiTokenInput.placeholder = '未生成 Token';
+                this.apiTokenInput.disabled = true;
+                if (this.generateTokenBtn) this.generateTokenBtn.style.display = 'inline-block';
+                if (this.revokeTokenBtn) this.revokeTokenBtn.style.display = 'none';
+                Utils.showToast(result.message, 'success');
+            } else {
+                Utils.showToast(result.error || '撤销失败', 'error');
+            }
+        } catch (error) {
+            Utils.showToast(`撤销失败：${error.message}`, 'error');
+        }
+    }
+
+    // 打开 API 文档
+    openApiDocs(e) {
+        e.preventDefault();
+        window.pywebview.api.get_http_server_status().then(result => {
+            if (result && result.success && result.status && result.status.running) {
+                window.pywebview.api.open_in_browser(`http://${result.status.host}:${result.status.port}/api/health`);
+            } else {
+                Utils.showToast('HTTP 服务器未启动', 'warning');
+            }
+        });
     }
 }
 

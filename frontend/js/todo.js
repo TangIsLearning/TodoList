@@ -1087,6 +1087,51 @@ class TodoManager {
         }
     }
     
+    // 检查任务是否匹配当前筛选条件
+    doesTaskMatchFilter(task) {
+        // 检查状态筛选
+        if (this.statusFilter === 'uncompleted' && task.completed) return false;
+        if (this.statusFilter === 'completed' && !task.completed) return false;
+        if (this.statusFilter === 'pending' && task.completed) return false;
+        if (this.statusFilter === 'overdue' && (task.completed || !task.dueDate || !Utils.isOverdue(task.dueDate))) return false;
+
+        // 检查优先级筛选
+        if (this.priorityFilter !== 'all' && task.priority !== this.priorityFilter) return false;
+
+        // 检查日期筛选
+        if (this.dueDateFilter !== 'all') {
+            const today = Utils.getStartOfDay(new Date());
+            const tomorrow = Utils.getEndOfDay(new Date(new Date().setDate(new Date().getDate() + 1)));
+            const endOfWeek = Utils.getEndOfDay(new Date(new Date().setDate(new Date().getDate() + (7 - new Date().getDay()))));
+            const endOfMonth = Utils.getEndOfDay(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+
+            const taskDueDate = task.dueDate ? Utils.getStartOfDay(new Date(task.dueDate)) : null;
+
+            if (this.dueDateFilter === 'today') {
+                if (!taskDueDate || taskDueDate.getTime() !== today.getTime()) return false;
+            } else if (this.dueDateFilter === 'tomorrow') {
+                if (!taskDueDate || taskDueDate.getTime() !== tomorrow.getTime()) return false;
+            } else if (this.dueDateFilter === 'week') {
+                if (!taskDueDate || taskDueDate > endOfWeek) return false;
+            } else if (this.dueDateFilter === 'month') {
+                if (!taskDueDate || taskDueDate > endOfMonth) return false;
+            } else if (this.dueDateFilter === 'no-due-date') {
+                if (task.dueDate) return false;
+            }
+        }
+
+        // 检查搜索关键词
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase();
+            const matchTitle = task.title.toLowerCase().includes(query);
+            const matchDescription = task.description && task.description.toLowerCase().includes(query);
+            const matchTag = task.tags && task.tags.some(tag => tag.name.toLowerCase().includes(query));
+            if (!matchTitle && !matchDescription && !matchTag) return false;
+        }
+
+        return true;
+    }
+
     // 切换任务状态
     async toggleTask(taskId) {
         try {
@@ -1095,12 +1140,25 @@ class TodoManager {
                 // 更新本地数据
                 const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
+                    const wasMatchingFilter = this.doesTaskMatchFilter(task);
+
                     task.completed = response.task.completed;
                     task.updatedAt = response.task.updatedAt;
-                    this.renderTasks();
+
+                    // 检查状态改变后是否仍然匹配当前筛选条件
+                    const isMatchingFilter = this.doesTaskMatchFilter(task);
+
+                    // 如果筛选状态发生变化，需要重新加载数据
+                    if (wasMatchingFilter !== isMatchingFilter) {
+                        await this.loadTasks();
+                    } else {
+                        // 否则只重新渲染
+                        this.renderTasks();
+                    }
+
                     await this.updateStats();
                     await this.updateCategoryCounts();
-                    
+
                     // 不需要调用 renderCategories()，updateCategoryCounts() 已经更新了分类统计
                     Utils.showToast(task.completed ?
                         window.languageManager.getText('taskCompleted', '任务已完成') :

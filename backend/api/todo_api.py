@@ -842,3 +842,160 @@ class TodoApi:
 
     def open_in_browser(self, url):
         webbrowser.open(url)
+
+    # ==================== API Token 管理相关 API ====================
+
+    def get_api_token_config(self):
+        """获取 API Token 配置"""
+        try:
+            from backend.auth.token_manager import get_token_manager
+            token_manager = get_token_manager()
+            status = token_manager.get_api_access_status()
+            return {
+                'success': True,
+                'config': status
+            }
+        except Exception as e:
+            backend_logger.error(f"获取 API Token 配置失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def generate_api_token(self, expires_days=365):
+        """生成 API Token"""
+        try:
+            from backend.auth.token_manager import get_token_manager
+            token_manager = get_token_manager()
+            token = token_manager.generate_token(expires_days)
+            return {
+                'success': True,
+                'token': token,
+                'message': '请妥善保管此 Token，这是唯一一次显示明文'
+            }
+        except Exception as e:
+            backend_logger.error(f"生成 API Token 失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def revoke_api_token(self):
+        """撤销 API Token"""
+        try:
+            from backend.auth.token_manager import get_token_manager
+            token_manager = get_token_manager()
+            result = token_manager.revoke_token()
+            return {
+                'success': result,
+                'message': 'Token 已撤销' if result else '撤销失败'
+            }
+        except Exception as e:
+            backend_logger.error(f"撤销 API Token 失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def enable_api_access(self):
+        """启用 API 访问"""
+        try:
+            from backend.auth.token_manager import get_token_manager
+            token_manager = get_token_manager()
+            result = token_manager.enable_api_access()
+            return {
+                'success': result,
+                'message': 'API 访问已启用' if result else '启用失败'
+            }
+        except Exception as e:
+            backend_logger.error(f"启用 API 访问失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def disable_api_access(self):
+        """禁用 API 访问"""
+        try:
+            from backend.auth.token_manager import get_token_manager
+            token_manager = get_token_manager()
+            result = token_manager.disable_api_access()
+            return {
+                'success': result,
+                'message': 'API 访问已禁用' if result else '禁用失败'
+            }
+        except Exception as e:
+            backend_logger.error(f"禁用 API 访问失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    # ==================== HTTP API 服务器控制 API ====================
+
+    def start_http_server(self, host='127.0.0.1', port=8765):
+        """启动 HTTP API 服务器"""
+        try:
+            from backend.api.http_server import get_http_server
+
+            if self._http_server is None:
+                self._http_server = get_http_server(host, port)
+
+            success, message = self._http_server.start()
+
+            return {
+                'success': success,
+                'message': message,
+                'status': self._http_server.get_status() if success else None
+            }
+        except Exception as e:
+            backend_logger.error(f"启动 HTTP 服务器失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def stop_http_server(self):
+        """停止 HTTP API 服务器"""
+        try:
+            from backend.api.http_server import stop_http_server
+
+            if self._http_server:
+                success, message = self._http_server.stop()
+                self._http_server = None
+            else:
+                success, message = stop_http_server()
+
+            return {
+                'success': success,
+                'message': message
+            }
+        except Exception as e:
+            backend_logger.error(f"停止 HTTP 服务器失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def get_http_server_status(self):
+        """获取 HTTP 服务器状态"""
+        try:
+            from backend.api.http_server import get_http_server_status
+
+            if self._http_server:
+                return {
+                    'success': True,
+                    'status': self._http_server.get_status()
+                }
+            else:
+                status = get_http_server_status()
+                return {
+                    'success': True,
+                    'status': status
+                }
+        except Exception as e:
+            backend_logger.error(f"获取 HTTP 服务器状态失败：{e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }

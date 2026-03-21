@@ -13,6 +13,7 @@ from backend.api.todo_api import TodoApi
 from backend.reminder.task_reminder import start_reminder, stop_reminder
 from backend.utils.logger import app_logger
 from backend.webdav.data_sync import get_data_sync_manager
+from backend.api.http_server import start_http_server, get_http_server_status
 
 # 获取当前目录
 current_dir = Path(__file__).parent
@@ -93,7 +94,23 @@ def start_app():
     
     # 启动自动同步
     sync_manager.start_auto_sync()
-    
+
+    # 启动 HTTP API 服务器（如果已配置）
+    app_logger.info("检查 HTTP API 服务器配置...")
+    try:
+        from backend.auth.token_manager import get_token_manager
+        token_manager = get_token_manager()
+        config = token_manager.get_api_access_status()
+
+        if config.get('enabled') and config.get('has_token') and config.get('is_valid'):
+            # 启动 HTTP 服务器
+            success, message = start_http_server('127.0.0.1', 8765)
+            app_logger.info(f"HTTP API 服务器：{message}")
+        else:
+            app_logger.info("HTTP API 服务器未启用或无有效 Token，跳过启动")
+    except Exception as e:
+        app_logger.warning(f"检查 HTTP API 服务器配置失败：{e}")
+
     # 获取前端文件路径
     frontend_path = get_resource_path('frontend/index.html')
     app_logger.info(f"前端文件路径: {frontend_path}")
