@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 from backend.api.todo_api import TodoApi
-from backend.reminder.task_reminder import start_reminder, stop_reminder
 from backend.utils.logger import app_logger
 from backend.webdav.data_sync import get_data_sync_manager
 
@@ -39,6 +38,13 @@ def get_resource_path(relative_path):
     
     return resource_path
 
+# 定义本地化字符串字典
+chinese_localization = {
+    'global.quitConfirmation': '温馨提示：\n关闭后，程序将最小化到系统托盘以保持消息后台提醒。\n如需彻底关闭，请在托盘右键退出~',
+    'global.ok': '确定',
+    'global.cancel': '取消'
+}
+
 def start_app():
     """启动TodoList桌面应用"""
 
@@ -61,10 +67,6 @@ def start_app():
     # 创建API实例
     api = TodoApi()
     app_logger.info("TodoApi 实例创建成功")
-    
-    # 启动任务提醒服务
-    app_logger.info("启动任务提醒服务...")
-    start_reminder()
     
     # 初始化数据同步管理器
     app_logger.info("初始化数据同步管理器...")
@@ -108,15 +110,13 @@ def start_app():
         width=1400,
         height=900,
         text_select=True,
-        resizable=True
+        resizable=True,
+        confirm_close=True
     )
 
     app_logger.info("启动webview...")
-    webview.start(bind, backend.globals.window, private_mode=False, ssl=True, debug=False)
-    
-    # 应用关闭时停止提醒服务
-    app_logger.info("停止任务提醒服务...")
-    stop_reminder()
+    webview.start(bind, backend.globals.window, private_mode=False, ssl=True, debug=False, localization= chinese_localization)
+
     app_logger.info("TodoList 应用已关闭")
     app_logger.info("=" * 60)
 

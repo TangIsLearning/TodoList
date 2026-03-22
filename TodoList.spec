@@ -32,7 +32,7 @@ a = Analysis(
     ['main.py'],
     pathex=[str(project_root), str(project_root / 'backend'), str(project_root / 'TodoList' / 'backend')],
     binaries=[],
-    datas=frontend_files + data_files,
+    datas=frontend_files + data_files + [('todo_icon.ico', '.')],
     hiddenimports=[
         'webview',
         'webview.platforms',
@@ -42,6 +42,8 @@ a = Analysis(
         'webview.platforms.gtk',
         'webview.platforms.cocoa',
         'webview.platforms.qt',
+        'Pillow',
+        'pystray',
         'sqlite3',
         'json',
         'threading',
@@ -84,7 +86,6 @@ a = Analysis(
         'numpy',
         'scipy',
         'pandas',
-        'PIL',
         'cv2',
         'PyQt6'
     ],
