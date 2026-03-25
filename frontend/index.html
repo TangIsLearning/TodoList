@@ -701,6 +701,54 @@
             </div>
 
             <div class="setting-section">
+                <h3>Agent API 访问</h3>
+                <!-- API 访问开关 -->
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span class="setting-icon">🔌</span>
+                        <span class="setting-text">启用 API 访问</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="api-access-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <!-- HTTP 服务器开关 -->
+                <div class="setting-item mobile-unshown-item">
+                    <div class="setting-label">
+                        <span class="setting-icon">🌐</span>
+                        <span class="setting-text">HTTP 服务器</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="http-server-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <!-- API Token 显示 -->
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span class="setting-icon">🔑</span>
+                        <span class="setting-text">API Token</span>
+                    </div>
+                    <div class="api-token-display">
+                        <input type="password" id="api-token-input" class="api-token-input" readonly placeholder="未生成 Token">
+                        <button id="show-token-btn" class="icon-btn" title="显示/隐藏">👁</button>
+                        <button id="copy-token-btn" class="icon-btn" title="复制">📋</button>
+                        <button id="generate-token-btn" class="action-btn primary-btn" style="margin-left: 8px;">生成</button>
+                        <button id="revoke-token-btn" class="action-btn danger-btn" style="display: none;">撤销</button>
+                    </div>
+                </div>
+                <!-- API 文档链接 -->
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span class="setting-icon">📖</span>
+                        <span class="setting-text">API 文档</span>
+                    </div>
+                    <a href="#" id="api-docs-link" class="external-link" style="text-decoration: none;">查看 API 文档</a>
+                </div>
+            </div>
+
+            <div class="setting-section">
                 <h3>关于</h3>
                 <!-- 仓库地址 -->
                 <div class="setting-item">
