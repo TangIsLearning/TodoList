@@ -37,7 +37,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0
+requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0,plyer
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes

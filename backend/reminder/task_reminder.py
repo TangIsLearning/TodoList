@@ -3,13 +3,12 @@
 任务到期提醒功能模块
 支持桌面端通知栏消息提醒
 """
-
+import queue
 import threading
 import time
 import sys
 import os
 import platform
-import backend.globals
 from datetime import datetime
 from queue import Queue
 from backend.utils import utils
@@ -37,7 +36,7 @@ class TaskReminder:
             import asyncio
             self.loop = asyncio.new_event_loop()
 
-    def start(self):
+    def start(self, click_event):
         """启动提醒服务"""
         if self.running:
             return
@@ -55,7 +54,7 @@ class TaskReminder:
         self.asyncio_thread.start()
 
         # 启动通知线程
-        self.notify_thread = threading.Thread(target=self._process_notifications, daemon=True)
+        self.notify_thread = threading.Thread(target=self._process_notifications, daemon=True, args=(click_event,))
         self.notify_thread.start()
         
         app_logger.info("任务到期提醒服务已启动")
@@ -148,76 +147,74 @@ class TaskReminder:
             self.notified_tasks.discard(task_id)
             self.scheduled_tasks.pop(task_id, None)
             
-    def _process_notifications(self):
+    def _process_notifications(self, click_event=None):
         """处理提醒通知"""
         while self.running:
             try:
-                notification = self.notification_queue.get(timeout=1)
+                notification_msg = self.notification_queue.get(timeout=1)
                 if not self.is_android:
                     import asyncio
-                    asyncio.run_coroutine_threadsafe(self._show_notification(notification), self.loop)
+                    asyncio.run_coroutine_threadsafe(self._show_notification(notification_msg, click_event), self.loop)
+                else:
+                    from jnius import autoclass
+                    # 手动获取 Context 并检查
+                    try:
+                        Context = autoclass('android.content.Context')
+                        # 如果 Plyer 报错找不到，手动把常量塞进去
+                        if not hasattr(Context, 'NOTIFICATION_SERVICE'):
+                            Context.NOTIFICATION_SERVICE = "notification"
+                    except Exception as e:
+                        print(f"Pyjnius error: {e}")
+
+                    from plyer import notification
+                    title, message, priority = self._build_notification(notification_msg)
+                    notification.notify(
+                        title=title,
+                        message=message,
+                        app_name="TodoList",
+                        # app_icon=utils.get_app_icon(),
+                        timeout=10,
+                    )
+            except queue.Empty:
+                pass
             except Exception as e:
+                print(f"处理通知时出错: {e}")
                 pass  # 队列为空或超时
 
-    async def _show_notification(self, notification):
+    def _build_notification(self, notification):
+        task_title = notification['title']
+        due_date = notification['due_date']
+        priority = notification['priority']
+
+        # 计算过期时长
+        now = datetime.now()
+        overdue_duration = now - due_date
+
+        if overdue_duration.days > 0:
+            time_str = f"{overdue_duration.days}天前"
+        elif overdue_duration.seconds >= 3600:
+            hours = overdue_duration.seconds // 3600
+            time_str = f"{hours}小时前"
+        else:
+            minutes = overdue_duration.seconds // 60
+            time_str = f"{minutes}分钟前"
+
+        # 构建通知消息
+        message = f"任务「{task_title}」已于{time_str}到期"
+
+        # 根据优先级设置提醒标题
+        if priority == 'high':
+            title = "⚠️ 高优先级任务到期提醒"
+        elif priority == 'medium':
+            title = "📋 任务到期提醒"
+        else:
+            title = "📝 任务到期提醒"
+        return title, message, priority
+
+    async def _show_notification(self, notification, click_event):
         """显示系统通知"""
-        def force_focus(window_title):
-            """强制聚焦屏幕"""
-            import win32gui
-            import win32con
-            hwnd = win32gui.FindWindow(None, window_title)
-            if hwnd:
-                # 恢复窗口（如果最小化）
-                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-                # 强制推至前台
-                win32gui.SetForegroundWindow(hwnd)
-
-        def on_click():
-            """定义点击通知时的回调函数"""
-            print("用户点击了通知，准备唤醒窗口...")
-            # 关键判断：确保窗口实例存在且未被销毁
-            if backend.globals.window:
-                try:
-                    # 1. 从最小化恢复
-                    backend.globals.window.restore
-                    # 2. 提到最前显示（如果之前是 hide 状态）
-                    backend.globals.window.show
-                    # 3. 某些平台下可能需要额外聚焦
-                    backend.globals.window.focus
-                    force_focus("TodoList")
-                except Exception as e:
-                    print(f"唤醒失败，窗口可能已关闭: {e}")
-            else:
-                print("错误：找不到窗口实例！")
-
         try:
-            task_title = notification['title']
-            due_date = notification['due_date']
-            priority = notification['priority']
-            
-            # 计算过期时长
-            now = datetime.now()
-            overdue_duration = now - due_date
-            
-            if overdue_duration.days > 0:
-                time_str = f"{overdue_duration.days}天前"
-            elif overdue_duration.seconds >= 3600:
-                hours = overdue_duration.seconds // 3600
-                time_str = f"{hours}小时前"
-            else:
-                minutes = overdue_duration.seconds // 60
-                time_str = f"{minutes}分钟前"
-            
-            # 构建通知消息
-            message = f"任务「{task_title}」已于{time_str}到期"
-            
-            # 根据优先级设置提醒标题
-            if priority == 'high':
-                title = "⚠️ 高优先级任务到期提醒"
-            elif priority == 'medium':
-                title = "📋 任务到期提醒"
-            else:
-                title = "📝 任务到期提醒"
+            title, message, priority = self._build_notification(notification)
 
             from desktop_notifier.common import Button
             from desktop_notifier import Urgency
@@ -225,7 +222,7 @@ class TaskReminder:
                 title=title,
                 message=message,
                 urgency=Urgency.Critical if priority == 'high' else Urgency.Normal,
-                on_clicked=lambda: on_click(),
+                on_clicked=click_event,
                 timeout=0  # 0表示通知常驻
             )
         except Exception as e:
@@ -251,10 +248,10 @@ def get_reminder():
         _reminder = TaskReminder()
     return _reminder
 
-def start_reminder():
+def start_reminder(click_event=None):
     """启动提醒服务"""
     reminder = get_reminder()
-    reminder.start()
+    reminder.start(click_event)
     return reminder
 
 def stop_reminder():
