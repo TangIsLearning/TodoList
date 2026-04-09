@@ -292,7 +292,7 @@ class TodoDatabase:
 
     def get_tasks_paginated(self, page=1, page_size=10, category_id=None, status=None, 
                             priority=None, due_date_filter=None, year=None, month=None,
-                            search_query=None, custom_date=None):
+                            search_query=None, custom_date=None, sync_start_time=None, sync_end_time=None):
         """分页查询任务，支持多种筛选条件
         
         参数:
@@ -306,7 +306,9 @@ class TodoDatabase:
             month: 月份筛选
             search_query: 搜索关键词
             custom_date: 自定义日期筛选（用于日历点击）
-            
+            sync_start_time: 自定义日期筛选（数据同步开始时间）
+            sync_end_time: 自定义日期筛选（数据同步结束时间）
+
         返回:
             包含 tasks, total, page, page_size, total_pages 的字典
         """
@@ -374,6 +376,13 @@ class TodoDatabase:
                 where_clauses.append('date(due_date) BETWEEN ? AND ?')
                 params.append(today.isoformat())
                 params.append(month_end.isoformat())
+            elif due_date_filter == 'sync': # 仅同步
+                where_clauses.append('due_date IS NOT NULL')
+                where_clauses.append('date(due_date) >= ?')
+                params.append(today.isoformat())
+                where_clauses.append('date(created_at) BETWEEN ? AND ?')
+                params.append(sync_start_time.isoformat())
+                params.append(sync_end_time.isoformat())
             elif due_date_filter == 'no-due-date':
                 where_clauses.append('(due_date IS NULL OR due_date = "")')
         

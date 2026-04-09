@@ -60,7 +60,14 @@ class TodoApi:
                 'valid': False,
                 'message': '截止时间格式无效'
             }
-    
+
+    # 日历写入权限校验
+    def check_calendar_permission(self):
+        """检查权限"""
+        from backend.reminder.calendar_manager import check_permission
+        if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
+            check_permission()
+
     # 任务相关API
     def add_todo(self, task_data):
         """添加新任务"""
@@ -70,6 +77,10 @@ class TodoApi:
             return {'success': False, 'error': validation_result['message']}
         
         try:
+            if task_data['dueDate'] and hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
+                target_time = datetime.fromisoformat(task_data['dueDate']).timestamp() * 1000
+                from backend.reminder.calendar_manager import add_task_reminder_to_calendar
+                add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
             result = self.db.add_task(task_data)
             return {'success': True, 'task': result}
         except Exception as e:
@@ -159,6 +170,11 @@ class TodoApi:
         
         try:
             result = self.db.create_recurring_tasks(task_data)
+            for task in result:
+                if task.get('dueDate') and hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
+                    target_time = datetime.fromisoformat(task['dueDate']).timestamp() * 1000
+                    from backend.reminder.calendar_manager import add_task_reminder_to_calendar
+                    add_task_reminder_to_calendar(task['title'], task['description'], target_time)
             return {'success': True, 'tasks': result}
         except Exception as e:
             return {'success': False, 'error': str(e)}

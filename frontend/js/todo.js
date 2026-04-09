@@ -437,11 +437,17 @@ class TodoManager {
         
         // 监听日期输入变化
         if (datePicker && clearDateBtn) {
-            const updateClearDateBtn = () => {
+            const updateClearDateBtn = async () => {
                 if (datePicker.value) {
                     clearDateBtn.classList.add('visible');
                 } else {
                     clearDateBtn.classList.remove('visible');
+                }
+                // 添加日历权限检查
+                const hasPermission = localStorage.getItem('calendar_permission') === 'true';
+                if (!hasPermission) {
+                    await window.pywebview.api.check_calendar_permission();
+                    localStorage.setItem('calendar_permission', 'true');
                 }
                 // 执行实时校验
                 validateDateTime();

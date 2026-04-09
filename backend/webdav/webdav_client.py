@@ -196,7 +196,8 @@ class WebDAVClient:
             # 加1秒容差：避免系统时间微小差异导致误判
             if remote_modified > local_modified.timestamp() + 1 or is_overwrite:
                 self.client.download_sync(remote_path=self.remote_path, local_path=local_file_path)
-                print("下载成功")
+                from backend.reminder.calendar_manager import sync_reminder_to_calendar
+                sync_reminder_to_calendar(local_modified.timestamp() + 1, remote_modified)
                 return {
                     "success": True,
                     "message": "文件下载成功",
