@@ -37,14 +37,14 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0,plyer
+requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0,plyer,Pillow,pystray,desktop-notifier,pyjnius,android,jinja2,six
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 #requirements.source.webview = webview
 
 # (str) Presplash of the application
-#presplash.filename = todo_icon.ico
+presplash.filename = todo_presplash.png
 
 # (str) Icon of the application
 icon.filename = todo_icon.ico
@@ -95,7 +95,7 @@ android.presplash_color = #FFFFFF
 
 # (list) Permissions
 # (See https://python-for-android.readthedocs.io/en/latest/buildoptions/#build-options-1 for all the supported syntaxes and properties)
-android.permissions = android.permission.INTERNET,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.READ_EXTERNAL_STORAGE,android.permission.MANAGE_EXTERNAL_STORAGE
+android.permissions = android.permission.INTERNET,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.READ_EXTERNAL_STORAGE,android.permission.MANAGE_EXTERNAL_STORAGE,android.permission.READ_CALENDAR,android.permission.WRITE_CALENDAR
 
 # (list) features (adds uses-feature -tags to manifest)
 #android.features = android.hardware.usb.host
@@ -201,17 +201,17 @@ android.add_jars = lib/pywebview-android.jar
 #android.add_resources =
 
 # (list) Gradle dependencies to add
-#android.gradle_dependencies =
+android.gradle_dependencies =androidx.core:core:1.9.0
 
 # (bool) Enable AndroidX support. Enable when 'android.gradle_dependencies'
 # contains an 'androidx' package, or any package from Kotlin source.
 # android.enable_androidx requires android.api >= 28
-#android.enable_androidx = True
+android.enable_androidx = True
 
 # (list) add java compile options
 # this can for example be necessary when importing certain java libraries using the 'android.gradle_dependencies' option
 # see https://developer.android.com/studio/write/java8-support for further information
-# android.add_compile_options = "sourceCompatibility = 1.8", "targetCompatibility = 1.8"
+android.add_compile_options = "sourceCompatibility = 1.8", "targetCompatibility = 1.8"
 
 # (list) Gradle repositories to add {can be necessary for some android.gradle_dependencies}
 # please enclose in double quotes
