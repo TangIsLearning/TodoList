@@ -84,6 +84,9 @@ class DataTransfer {
                 if (e.target === this.modal) {
                     this.closeModal();
                 }
+                if (window.App && document.querySelector('.sidebar')?.classList.contains('open')) {
+                    window.App.closeMobileSidebar();
+                }
             });
         }
 

@@ -1653,7 +1653,7 @@
     color: white;
     border: none;
     padding: var(--spacing-sm) var(--spacing-lg);
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--border-radius);
     cursor: pointer;
     transition: var(--transition-fast);
 }
