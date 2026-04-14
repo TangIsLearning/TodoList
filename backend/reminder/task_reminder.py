@@ -155,26 +155,6 @@ class TaskReminder:
                 if not self.is_android:
                     import asyncio
                     asyncio.run_coroutine_threadsafe(self._show_notification(notification_msg, click_event), self.loop)
-                else:
-                    from jnius import autoclass
-                    # 手动获取 Context 并检查
-                    try:
-                        Context = autoclass('android.content.Context')
-                        # 如果 Plyer 报错找不到，手动把常量塞进去
-                        if not hasattr(Context, 'NOTIFICATION_SERVICE'):
-                            Context.NOTIFICATION_SERVICE = "notification"
-                    except Exception as e:
-                        print(f"Pyjnius error: {e}")
-
-                    from plyer import notification
-                    title, message, priority = self._build_notification(notification_msg)
-                    notification.notify(
-                        title=title,
-                        message=message,
-                        app_name="TodoList",
-                        # app_icon=utils.get_app_icon(),
-                        timeout=10,
-                    )
             except queue.Empty:
                 pass
             except Exception as e:
