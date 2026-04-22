@@ -29,6 +29,19 @@ class SettingsUIManager {
         // 开机自启动相关元素
         this.autoStartToggle = null;
 
+        // 状态变量
+        this.currentButtonKey = null;  // 当前按钮设置的组合键
+        this.smartKeyShow = null;           // 快捷按键
+        this.smartKeyApply = null;           // 快捷按键应用
+
+        // 组合键记录（用于监听时记录完整的组合键）
+        this.currentModifiers = {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            meta: false
+        };
+
         // 延迟初始化
         setTimeout(() => this.init(), 100);
     }
@@ -77,6 +90,11 @@ class SettingsUIManager {
         
         // 开机自启动元素
         this.autoStartToggle = document.getElementById('auto-start-toggle');
+
+        // 快捷按键元素
+        this.smartKeyShow = document.getElementById('smart-key-show');
+        this.smartKeyApply = document.getElementById('smart-key-apply');
+        this.currentButtonKey = this.smartKeyShow.textContent;
     }
     
     bindEvents() {
@@ -165,6 +183,20 @@ class SettingsUIManager {
                 this.closeModal();
             }
         });
+
+        // 绑定快捷按键事件
+        if (this.smartKeyShow) {
+            this.smartKeyShow.addEventListener('click', (e) => this.handleKeyDown(e));
+            this.smartKeyShow.addEventListener('keydown', (e) => this.handleKeyDown(e));
+            this.smartKeyShow.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        }
+        if (this.smartKeyApply) {
+            this.smartKeyApply.addEventListener('click', () => {
+                this.currentButtonKey = this.smartKeyShow.textContent;
+                this.resetModifiers();
+                Utils.showToast(`${window.languageManager.getText('settingsShortcutAs', '快捷键已设置为')}: ${this.currentButtonKey}`, 'success');
+            });
+        }
     }
     
     openModal() {
@@ -184,6 +216,7 @@ class SettingsUIManager {
         if (this.modal) {
             this.modal.style.display = 'none';
             this.modal.classList.remove('show');
+            this.smartKeyShow.textContent = this.currentButtonKey;
         }
     }
     
@@ -407,15 +440,25 @@ class SettingsUIManager {
             autoStartLabel.textContent = window.languageManager.getText('settingsAutoStart', '开机启动');
         }
 
+        // 快捷键标签
+        const shortcutSettingConfig = document.querySelector('.shortcut');
+        const shortcutLabel = shortcutSettingConfig.querySelector('.data-label');
+        if (shortcutLabel) {
+            shortcutLabel.textContent = window.languageManager.getText('settingsShortcut', '快捷操作');
+        }
+
         // 更新数据存储标签
-        const dataStorageLabel = document.querySelector('.data-label');
+        const dataStorageSettingConfig = document.querySelector('.data-storage');
+        const dataStorageLabel = dataStorageSettingConfig.querySelector('.data-label');
         if (dataStorageLabel) {
             dataStorageLabel.textContent = window.languageManager.getText('dataStoragePath', '存储路径');
         }
-        const dataStorageApplyLabel = document.querySelector('.apply-dir-btn');
-        if (dataStorageApplyLabel) {
-            dataStorageApplyLabel.textContent = window.languageManager.getText('dataStorageApply', '应用');
-        }
+
+        // 更新应用标签
+        const applyLabels = document.querySelectorAll('.setting-config-btn');
+        applyLabels.forEach((element, index) => {
+            element.textContent = window.languageManager.getText('settingsApply', '应用');
+        });
 
         // 更新数据管理标签
         const dataShareSettingItem = document.getElementById('data-share-btn');
@@ -877,6 +920,97 @@ class SettingsUIManager {
             this.webdavStatusDiv.className = `webdav-status ${type}`;
             this.webdavStatusDiv.style.display = 'block';
         }
+    }
+
+    // ==================== 快捷按键相关方法 ====================
+    // 获取按键显示名称
+    getKeyDisplayName(key) {
+        const keyMap = {
+            ' ': 'Space',
+            'Space': 'Space',
+            'Enter': 'Enter',
+            'Backspace': 'Backspace',
+            'Tab': 'Tab',
+            'Escape': 'Esc',
+            'ArrowUp': '↑',
+            'ArrowDown': '↓',
+            'ArrowLeft': '←',
+            'ArrowRight': '→',
+            'Control': 'Ctrl',
+            'Alt': 'Alt',
+            'Shift': 'Shift',
+            'Meta': 'Win'
+        };
+        if (keyMap[key]) return keyMap[key];
+        if (key && key.length === 1) return key.toUpperCase();
+        return key || '-';
+    }
+
+    // 获取当前按下的所有修饰键
+    getActiveModifiers() {
+        const modifiers = [];
+        if (this.currentModifiers?.ctrl) modifiers.push('Ctrl');
+        if (this.currentModifiers?.alt) modifiers.push('Alt');
+        if (this.currentModifiers?.shift) modifiers.push('Shift');
+        if (this.currentModifiers?.meta) modifiers.push('Win');
+        return modifiers;
+    }
+
+    // 格式化组合键显示
+    formatComboKey(mainKey) {
+        const modifiers = this.getActiveModifiers();
+        const mainDisplay = this.getKeyDisplayName(mainKey);
+
+        if (modifiers.length === 0) {
+            return mainDisplay;
+        }
+        return [...modifiers, mainDisplay].join(' + ');
+    }
+
+    // 重置修饰键状态
+    resetModifiers() {
+        this.currentModifiers = {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            meta: false
+        };
+    }
+
+    // 处理按键按下
+    handleKeyDown(e) {
+        const key = e.key;
+
+        // 更新修饰键状态
+        if (key === 'Control') this.currentModifiers.ctrl = true;
+        if (key === 'Alt') this.currentModifiers.alt = true;
+        if (key === 'Shift') this.currentModifiers.shift = true;
+        if (key === 'Meta') this.currentModifiers.meta = true;
+
+        // 如果在普通监听模式
+        e.preventDefault();
+
+        // 如果是修饰键，不立即显示，等待组合
+        if (key === 'Control' || key === 'Alt' || key === 'Shift' || key === 'Meta') {
+            return;
+        }
+
+        // 获取组合键名称
+        let comboName = this.formatComboKey(key);
+
+        // 显示组合键
+        this.smartKeyShow.textContent = comboName;
+    }
+
+    // 处理按键释放
+    handleKeyUp(e) {
+        const key = e.key;
+
+        // 更新修饰键状态
+        if (key === 'Control') this.currentModifiers.ctrl = false;
+        if (key === 'Alt') this.currentModifiers.alt = false;
+        if (key === 'Shift') this.currentModifiers.shift = false;
+        if (key === 'Meta') this.currentModifiers.meta = false;
     }
 }
 

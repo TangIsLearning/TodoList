@@ -2033,7 +2033,7 @@ input:checked + .slider:before {
         display: flex;
     }
 
-    .mobile-unshown-item, .data-directory-config {
+    .mobile-unshown-item, .setting-item-config {
         display: none !important;
     }
 
@@ -2844,7 +2844,7 @@ input:checked + .slider:before {
 }
 
 /* 数据目录配置样式 */
-.data-directory-config {
+.setting-item-config {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -2857,7 +2857,7 @@ input:checked + .slider:before {
     align-items: center;
 }
 
-.data-dir-btn, .webdav-input {
+.setting-config-text, .webdav-input {
     flex: 1;
     padding: var(--spacing-md);
     border: 2px solid transparent;
@@ -2892,7 +2892,7 @@ input:checked + .slider:before {
     border-radius: var(--border-radius) 0 0 var(--border-radius);
 }
 
-.data-directory-config .config-item .data-label {
+.setting-item-config .config-item .data-label {
     text-align: center;
     border-right: solid 1px var(--border-color);
 }
@@ -2901,7 +2901,7 @@ input:checked + .slider:before {
     text-align: left;
 }
 
-.apply-dir-btn {
+.setting-config-btn {
     width: 80px;
     border-radius: 0 var(--border-radius) var(--border-radius) 0;
 }
@@ -2923,12 +2923,12 @@ input:checked + .slider:before {
 
 /* 数据目录配置响应式样式 */
 @media (max-width: 768px) {
-    .data-dir-btn, .webdav-input {
+    .setting-config-text, .webdav-input {
         border-left: 1px solid var(--border-color);
         font-size: var(--font-size-xs);
     }
 
-    .data-directory-config .config-item .data-label {
+    .setting-item-config .config-item .data-label {
         font-size: var(--font-size-xs);
     }
 }

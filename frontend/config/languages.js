@@ -202,6 +202,8 @@ const Languages = {
         settingsWindowTop: "窗口置顶",
         settingsDarkTheme: "深色模式",
         settingsAutoStart: "开机启动",
+        settingsShortcut: "快捷操作",
+        settingsApply: "应用",
         settingsData: "数据管理",
         settingsDataShare: "共享数据",
         settingsDataReceive: "接收数据",
@@ -209,6 +211,7 @@ const Languages = {
         settingsSuccess: "设置成功",
         settingsSaveSuccess: "保存成功",
         settingsFailed: "设置失败",
+        settingsShortcutAs: "快捷键已设置为",
         settingsAutoStartEnabled: "开机启动已启用",
         settingsAutoStartDisabled: "开机启动已禁用",
         settingsAutoStartWarning: "当前平台不支持开机启动功能",
@@ -229,7 +232,6 @@ const Languages = {
 
         // 数据存储路径
         dataStoragePath: "存储路径",
-        dataStorageApply: "应用",
 
         // 确认对话框
         confirmDeleteTask: "确定要删除任务",
@@ -479,6 +481,8 @@ const Languages = {
         settingsWindowTop: "Window Always On Top",
         settingsDarkTheme: "Dark Mode",
         settingsAutoStart: "Auto-start On Boot",
+        settingsShortcut: "Shortcut",
+        settingsApply: "Apply",
         settingsData: "Data Management",
         settingsDataShare: "Share Data",
         settingsDataReceive: "Receive Data",
@@ -486,6 +490,7 @@ const Languages = {
         settingsSuccess: "Setting successful",
         settingsSaveSuccess: "Save successful",
         settingsFailed: "Setting failed",
+        settingsShortcutAs: "Hotkey set to ",
         settingsAutoStartEnabled: "Auto-start on boot is enabled.",
         settingsAutoStartDisabled: "Auto-start on boot is disabled.",
         settingsAutoStartWarning: "The current platform does not support the auto-start on boot feature.",
@@ -506,7 +511,6 @@ const Languages = {
 
         // 数据存储路径
         dataStoragePath: "Storage Path",
-        dataStorageApply: "Apply",
 
         // 确认对话框
         confirmDeleteTask: "Are you sure you want to delete task",

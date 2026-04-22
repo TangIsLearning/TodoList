@@ -566,6 +566,11 @@ class LanguageManager {
         const autoStartLabel = autoStartSettingItem.querySelector('.setting-text');
         if (autoStartLabel) autoStartLabel.textContent = lang.settingsAutoStart;
 
+        // 快捷键设置
+        const shortcutSettingConfig = document.querySelector('.shortcut');
+        const shortcutLabel = shortcutSettingConfig.querySelector('.data-label');
+        if (shortcutLabel) shortcutLabel.textContent = lang.settingsShortcut;
+
         // 数据管理
         if (sectionTitles[1]) sectionTitles[1].textContent = lang.settingsData;
 
@@ -632,14 +637,17 @@ class LanguageManager {
         if (cancelImportBtn) cancelImportBtn.textContent = lang.cancelImport;
 
         // 数据存储
-        const dataStorageLabel = document.querySelector('.data-label');
+        const dataStorageSettingConfig = document.querySelector('.data-storage');
+        const dataStorageLabel = dataStorageSettingConfig.querySelector('.data-label');
         if (dataStorageLabel) {
             dataStorageLabel.textContent = lang.dataStoragePath;
         }
-        const dataStorageApplyLabel = document.querySelector('.apply-dir-btn');
-        if (dataStorageApplyLabel) {
-            dataStorageApplyLabel.textContent = lang.dataStorageApply;
-        }
+
+        // 更新应用标签
+        const applyLabels = document.querySelectorAll('.setting-config-btn');
+        applyLabels.forEach((element, index) => {
+            element.textContent = lang.settingsApply;
+        });
 
         // 数据同步
         const dataSyncTitle = document.querySelector('#data-sync-modal h2');
