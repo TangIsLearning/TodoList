@@ -202,7 +202,7 @@ class SettingsUIManager {
         // 更新语言状态
         this.updateLanguageSwitchState();
         
-        // 更新开机自启动状态
+        // 更新开机启动状态
         this.updateAutoStartState();
     }
 
@@ -312,7 +312,7 @@ class SettingsUIManager {
         }
     }
     
-    // 切换开机自启动状态
+    // 切换开机启动状态
     async toggleAutoStart() {
         if (!this.autoStartToggle) {
             return;
@@ -333,15 +333,15 @@ class SettingsUIManager {
             
             if (result.success) {
                 Utils.showToast(enabled ?
-                    window.languageManager.getText('settingsAutoStartEnabled','开机自启动已启用') :
-                    window.languageManager.getText('settingsAutoStartDisabled', '开机自启动已禁用'), 'success');
+                    window.languageManager.getText('settingsAutoStartEnabled','开机启动已启用') :
+                    window.languageManager.getText('settingsAutoStartDisabled', '开机启动已禁用'), 'success');
             } else {
                 // 恢复开关状态
                 this.autoStartToggle.checked = !enabled;
                 Utils.showToast(result.error || window.languageManager.getText('settingsFailed', '设置失败'), 'error');
             }
         } catch (error) {
-            console.error('设置开机自启动失败:', error);
+            console.error('设置开机启动失败:', error);
             // 恢复开关状态
             this.autoStartToggle.checked = !enabled;
             Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${error.message}`, 'error');
@@ -396,15 +396,15 @@ class SettingsUIManager {
         const languageSettingItem = languageCheckbox.closest('.setting-item');
         const languageLabel = languageSettingItem.querySelector('.setting-text');
         if (languageLabel) {
-            languageLabel.textContent = window.languageManager.getText('language', '中英文切换');
+            languageLabel.textContent = window.languageManager.getText('language', '语言切换');
         }
 
-        // 开机自启动标签
+        // 开机启动标签
         const autoStartCheckbox = document.getElementById('auto-start-toggle');
         const autoStartSettingItem = autoStartCheckbox.closest('.setting-item');
         const autoStartLabel = autoStartSettingItem.querySelector('.setting-text');
         if (autoStartLabel) {
-            autoStartLabel.textContent = window.languageManager.getText('settingsAutoStart', '开机自启动');
+            autoStartLabel.textContent = window.languageManager.getText('settingsAutoStart', '开机启动');
         }
 
         // 更新数据存储标签
@@ -431,7 +431,7 @@ class SettingsUIManager {
         }
     }
     
-    // 更新开机自启动状态
+    // 更新开机启动状态
     async updateAutoStartState() {
         if (!this.autoStartToggle) {
             return;
@@ -450,13 +450,13 @@ class SettingsUIManager {
                 // 如果平台不支持，禁用开关
                 if (!result.config.supported) {
                     this.autoStartToggle.disabled = true;
-                    Utils.showToast(window.languageManager.getText('settingsAutoStartWarning', '当前平台不支持开机自启动功能'), 'warning');
+                    Utils.showToast(window.languageManager.getText('settingsAutoStartWarning', '当前平台不支持开机启动功能'), 'warning');
                 } else {
                     this.autoStartToggle.disabled = false;
                 }
             }
         } catch (error) {
-            console.error('更新开机自启动状态失败:', error);
+            console.error('更新开机启动状态失败:', error);
         }
     }
 

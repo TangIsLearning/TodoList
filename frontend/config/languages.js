@@ -201,7 +201,7 @@ const Languages = {
         settingsWindow: "通用设置",
         settingsWindowTop: "窗口置顶",
         settingsDarkTheme: "深色模式",
-        settingsAutoStart: "开机自启动",
+        settingsAutoStart: "开机启动",
         settingsData: "数据管理",
         settingsDataShare: "共享数据",
         settingsDataReceive: "接收数据",
@@ -209,9 +209,9 @@ const Languages = {
         settingsSuccess: "设置成功",
         settingsSaveSuccess: "保存成功",
         settingsFailed: "设置失败",
-        settingsAutoStartEnabled: "开机自启动已启用",
-        settingsAutoStartDisabled: "开机自启动已禁用",
-        settingsAutoStartWarning: "当前平台不支持开机自启动功能",
+        settingsAutoStartEnabled: "开机启动已启用",
+        settingsAutoStartDisabled: "开机启动已禁用",
+        settingsAutoStartWarning: "当前平台不支持开机启动功能",
         settingsConnectSuccess: "连接成功！可以正常使用云端同步功能！",
         settingsConnectionFailed: "连接失败",
         settingsStorageWarning: "注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。建议先备份重要数据。是否继续？",
@@ -219,7 +219,7 @@ const Languages = {
         settingsSyncModeRemoteWarning: "注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？",
 
         // 语言设置
-        language: "中英文切换",
+        language: "语言切换",
 
         // 关于
         about: "关于",
