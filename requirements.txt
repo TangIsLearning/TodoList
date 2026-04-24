@@ -7,3 +7,4 @@ webdavclient3>=3.14.7  # WebDAV客户端
 pyjnius>=1.7.0 # 可选：仅用于移动端
 lxml>=6.0.2
 desktop-notifier>=6.2.0  # 用于跨平台桌面通知
+pynput>=1.8.1 # 用于桌面端快捷键

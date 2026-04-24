@@ -33,6 +33,11 @@ else:
 
 webview_process = None
 
+def run_tkinter_process():
+    from backend.keyboard.smart_task import SmartTaskInput
+    smart_task = SmartTaskInput()
+    smart_task.run()
+
 if __name__ == '__main__':
     def start_webview_process():
         global webview_process
@@ -72,6 +77,11 @@ if __name__ == '__main__':
             # 启动任务提醒服务
             app_logger.info("启动任务提醒服务...")
             start_reminder(click_event=on_open)
+
+            # 启动快捷键操作
+            app_logger.info("启动快捷键操作...")
+            tk_process = multiprocessing.Process(target=run_tkinter_process)
+            tk_process.start()
 
             webview_process = Process(target=start.start_app)
             webview_process.start()
