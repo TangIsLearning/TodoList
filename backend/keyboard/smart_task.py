@@ -343,7 +343,7 @@ class SmartTaskInput:
         def on_activate():
             self.window.after(0, self.toggle_window)
 
-        listener = keyboard.GlobalHotKeys({'<ctrl>+<space>': on_activate})
+        listener = keyboard.GlobalHotKeys({self.db.get_setting('shortcut' ,'<ctrl>+<space>'): on_activate})
         listener.start()
 
     def run(self):

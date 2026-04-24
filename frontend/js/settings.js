@@ -94,6 +94,7 @@ class SettingsUIManager {
         // 快捷按键元素
         this.smartKeyShow = document.getElementById('smart-key-show');
         this.smartKeyApply = document.getElementById('smart-key-apply');
+        this.smartKeyShow.textContent = localStorage.getItem('todolist_shortcut') || this.smartKeyShow.textContent;
         this.currentButtonKey = this.smartKeyShow.textContent;
     }
     
@@ -191,10 +192,15 @@ class SettingsUIManager {
             this.smartKeyShow.addEventListener('keyup', (e) => this.handleKeyUp(e));
         }
         if (this.smartKeyApply) {
-            this.smartKeyApply.addEventListener('click', () => {
+            this.smartKeyApply.addEventListener('click', async () => {
                 this.currentButtonKey = this.smartKeyShow.textContent;
                 this.resetModifiers();
-                Utils.showToast(`${window.languageManager.getText('settingsShortcutAs', '快捷键已设置为')}: ${this.currentButtonKey}`, 'success');
+                const result = await window.pywebview.api.set_setting('shortcut', this.currentButtonKey);
+                if (result) {
+                    localStorage.setItem('todolist_shortcut', this.currentButtonKey);
+                    Utils.showToast(`${window.languageManager.getText('settingsShortcutAs', '已设置为')}: ${this.currentButtonKey},
+                        ${window.languageManager.getText('settingsShortcutNeedRestart', '请重启应用后尝试')}`, 'success');
+                }
             });
         }
     }
@@ -926,33 +932,33 @@ class SettingsUIManager {
     // 获取按键显示名称
     getKeyDisplayName(key) {
         const keyMap = {
-            ' ': 'Space',
-            'Space': 'Space',
-            'Enter': 'Enter',
-            'Backspace': 'Backspace',
-            'Tab': 'Tab',
-            'Escape': 'Esc',
-            'ArrowUp': '↑',
-            'ArrowDown': '↓',
-            'ArrowLeft': '←',
-            'ArrowRight': '→',
-            'Control': 'Ctrl',
-            'Alt': 'Alt',
-            'Shift': 'Shift',
-            'Meta': 'Win'
+            ' ': '<space>',
+            'Space': '<space>',
+            'Enter': '<enter>',
+            'Backspace': '<backspace>',
+            'Tab': '<tab>',
+            'Escape': '<esc>',
+            'ArrowUp': '<↑>',
+            'ArrowDown': '<↓>',
+            'ArrowLeft': '<←>',
+            'ArrowRight': '<→>',
+            'Control': '<ctrl>',
+            'Alt': '<alt>',
+            'Shift': '<shift>',
+            'Meta': '<win>'
         };
         if (keyMap[key]) return keyMap[key];
-        if (key && key.length === 1) return key.toUpperCase();
+        if (key && key.length === 1) return key.toLowerCase();
         return key || '-';
     }
 
     // 获取当前按下的所有修饰键
     getActiveModifiers() {
         const modifiers = [];
-        if (this.currentModifiers?.ctrl) modifiers.push('Ctrl');
-        if (this.currentModifiers?.alt) modifiers.push('Alt');
-        if (this.currentModifiers?.shift) modifiers.push('Shift');
-        if (this.currentModifiers?.meta) modifiers.push('Win');
+        if (this.currentModifiers?.ctrl) modifiers.push('<ctrl>');
+        if (this.currentModifiers?.alt) modifiers.push('<alt>');
+        if (this.currentModifiers?.shift) modifiers.push('<shift>');
+        if (this.currentModifiers?.meta) modifiers.push('<win>');
         return modifiers;
     }
 
@@ -964,7 +970,7 @@ class SettingsUIManager {
         if (modifiers.length === 0) {
             return mainDisplay;
         }
-        return [...modifiers, mainDisplay].join(' + ');
+        return [...modifiers, mainDisplay].join('+');
     }
 
     // 重置修饰键状态

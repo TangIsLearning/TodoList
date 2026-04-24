@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
             # 启动快捷键操作
             app_logger.info("启动快捷键操作...")
-            tk_process = multiprocessing.Process(target=run_tkinter_process)
+            tk_process = multiprocessing.Process(target=run_tkinter_process, daemon=True)
             tk_process.start()
 
             webview_process = Process(target=start.start_app)
