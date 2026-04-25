@@ -60,6 +60,17 @@ def start_app():
         app_logger.info("TodoList 应用当前是否设置置顶：" + str(window_on_top))
         backend.globals.window.on_top = window_on_top
 
+    def on_closing():
+        """窗口关闭点击事件：仅首次关闭弹窗提醒"""
+        from backend.database.operations import TodoDatabase
+        settings_db = TodoDatabase()
+        confirm_close = settings_db.get_setting('confirm_close', True)
+        if confirm_close:
+            backend.globals.window.confirm_close = True
+            settings_db.set_setting('confirm_close', False)
+        else:
+            backend.globals.window.confirm_close = False
+
     app_logger.info("=" * 60)
     app_logger.info("TodoList 应用启动")
     app_logger.info("=" * 60)
@@ -110,9 +121,10 @@ def start_app():
         width=1400,
         height=900,
         text_select=True,
-        resizable=True,
-        confirm_close=True
+        resizable=True
     )
+
+    backend.globals.window.events.closing += on_closing
 
     app_logger.info("启动webview...")
     webview.start(bind, backend.globals.window, private_mode=False, ssl=True, debug=False, localization= chinese_localization)
