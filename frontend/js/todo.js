@@ -1654,9 +1654,12 @@ class TodoManager {
                 } else {
                     // 安全检查：确保任务列表存在
                     if (Array.isArray(this.tasks)) {
-                        console.log('删除前任务数量:', this.tasks.length);
                         await this.loadTasks();
-                        console.log('删除后任务数量:', this.tasks.length);
+                        // 如果删除任务后，页面任务数量为空且有前置页，渲染前置页数据
+                        if (this.tasks.length === 0 && this.currentPage > 1) {
+                            this.currentPage = this.currentPage - 1;
+                            await this.loadTasks();
+                        }
                     } else {
                         console.warn('任务列表状态异常，重新初始化');
                         this.tasks = [];
