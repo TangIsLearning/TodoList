@@ -442,6 +442,12 @@ class App {
             case 'filter-tag':
                 await this.filterTasks('all', 'all', '#', '已筛选含标签任务');
                 break;
+            case 'filter-prev-month':
+                if (window.calendarManager) window.calendarManager.previousMonth();
+                break;
+            case 'filter-next-month':
+                if (window.calendarManager) window.calendarManager.nextMonth();
+                break;
             default:
                 logger.warn(`Unknown action: ${action}`, 'App');
         }

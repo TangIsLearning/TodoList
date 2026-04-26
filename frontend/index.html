@@ -388,6 +388,12 @@
                     <option value="no-due-date">无截止日期</option>
                 </select>
 
+                <div id="calendar-filter" class="calendar-filter" style="display: none;">
+                    <button id="prev-month" class="calendar-nav-btn"><</button>
+                    <div id="current-month-year" class="calendar-title"></div>
+                    <button id="next-month" class="calendar-nav-btn">></button>
+                </div>
+
                 <button id="add-task-btn" class="add-task-btn desktop-only">+ 新建任务</button>
             </div>
         </header>
@@ -434,11 +440,6 @@
 
         <!-- 日历视图 -->
         <div class="calendar-container" id="calendar-view" style="display: none;">
-            <div class="calendar-header">
-                <button id="prev-month" class="calendar-nav-btn">◀</button>
-                <h2 id="current-month-year" class="calendar-title"></h2>
-                <button id="next-month" class="calendar-nav-btn">▶</button>
-            </div>
             <div class="calendar-weekdays">
                 <div class="calendar-weekday">日</div>
                 <div class="calendar-weekday">一</div>
@@ -927,6 +928,19 @@
                 <a href="#" class="more-menu-link" data-action="filter-tag">
                     <span class="more-menu-icon">🏷️</span>
                     <span class="more-menu-text">显示含标签任务</span>
+                </a>
+            </li>
+            <li class="group-divider" style="display: none;" id="filter-group-divider"></li> <!-- 分割线 -->
+            <li class="more-menu-item" style="display: none;" id="filter-prev-month">
+                <a href="#" class="more-menu-link" data-action="filter-prev-month">
+                    <span class="more-menu-icon">◀️</span>
+                    <span class="more-menu-text">上一个月任务</span>
+                </a>
+            </li>
+            <li class="more-menu-item" style="display: none;" id="filter-next-month">
+                <a href="#" class="more-menu-link" data-action="filter-next-month">
+                    <span class="more-menu-icon">▶️</span>
+                    <span class="more-menu-text">下一个月任务</span>
                 </a>
             </li>
         </ul>

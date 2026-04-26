@@ -36,6 +36,11 @@ class CalendarManager {
         const tasksView = document.getElementById('tasks-view');
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
+        const calendarFilter = document.getElementById('calendar-filter');
+        const dueDateFilter = document.getElementById('due-date-filter');
+        const prevMonthFilter = document.getElementById('filter-prev-month');
+        const nextMonthFilter = document.getElementById('filter-next-month');
+        const groupDividerFilter = document.getElementById('filter-group-divider');
         const viewToggleBtn = document.getElementById('view-toggle-btn');
         const moreMenuIcon = document.getElementById('more-menu-view-icon');
         const moreMenuText = document.getElementById('more-menu-view-text');
@@ -46,6 +51,11 @@ class CalendarManager {
             tasksView.style.display = 'none';
             pagination.style.display = 'none';
             calendarView.style.display = 'block';
+            calendarFilter.style.display = 'flex';
+            dueDateFilter.style.display = 'none';
+            prevMonthFilter.style.display = 'block';
+            nextMonthFilter.style.display = 'block';
+            groupDividerFilter.style.display = 'block';
             viewToggleBtn.textContent = '📋 列表视图';
             moreMenuIcon.textContent = '📋';
             moreMenuText.textContent = '切换列表视图';
@@ -57,6 +67,11 @@ class CalendarManager {
             tasksView.style.display = 'block';
             pagination.style.display = 'flex';
             calendarView.style.display = 'none';
+            calendarFilter.style.display = 'none';
+            dueDateFilter.style.display = 'block';
+            prevMonthFilter.style.display = 'none';
+            nextMonthFilter.style.display = 'none';
+            groupDividerFilter.style.display = 'none';
             viewToggleBtn.textContent = '📅 日历视图';
             moreMenuIcon.textContent = '📅';
             moreMenuText.textContent = '切换日历视图';
@@ -106,7 +121,7 @@ class CalendarManager {
         // 更新标题
         const monthYearEl = document.getElementById('current-month-year');
         if (monthYearEl) {
-            monthYearEl.textContent = `${year}年 ${month + 1}月`;
+            monthYearEl.textContent = ` ${year} / ${month + 1} `;
         }
 
         // 渲染日历天数
@@ -152,10 +167,10 @@ class CalendarManager {
             calendarDays.appendChild(dayEl);
         }
 
-        // 渲染下个月的开始天数（补足6周42天）
+        // 渲染下个月的开始天数
         const totalRenderedDays = firstDayOfWeek + daysInMonth;
         const remainingDays = 42 - totalRenderedDays;
-        for (let day = 1; day <= remainingDays; day++) {
+        for (let day = 1; day <= remainingDays % 7; day++) {
             const dayEl = this.createDayElement(day, year, month + 1, true);
             calendarDays.appendChild(dayEl);
         }
@@ -193,7 +208,7 @@ class CalendarManager {
         tasksContainer.className = 'calendar-day-tasks';
 
         // 显示最多3个任务
-        const displayTasks = dayTasks.slice(0, 3);
+        const displayTasks = dayTasks.slice(0, 2);
         displayTasks.forEach(task => {
             const taskIndicator = document.createElement('div');
             taskIndicator.className = 'calendar-task-indicator';
@@ -232,10 +247,7 @@ class CalendarManager {
             // 任务数量
             const taskCount = document.createElement('div');
             taskCount.className = 'calendar-task-count';
-            taskCount.textContent = `${completedCount}/${totalCount} 已完成`;
-            if (dayTasks.length > 3) {
-                taskCount.textContent += ` (还有${dayTasks.length - 3}个)`;
-            }
+            taskCount.textContent = `${completedCount}/${totalCount}`;
             dayEl.appendChild(taskCount);
         }
 

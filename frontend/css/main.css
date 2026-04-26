@@ -1591,33 +1591,30 @@ input:checked + .slider:before {
 .calendar-container {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-sm);
 }
 
-.calendar-header {
+.calendar-filter {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
-    padding: var(--spacing-md);
-    background-color: var(--bg-secondary);
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    line-height: 33px;
 }
 
 .calendar-title {
-    font-size: var(--font-size-xl);
-    font-weight: 600;
     color: var(--text-primary);
+    padding: 0 var(--spacing-sm);
 }
 
 .calendar-nav-btn {
     background: none;
-    border: 1px solid var(--border-color);
+    border: none;
     color: var(--text-primary);
     cursor: pointer;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm);
     border-radius: var(--border-radius-sm);
-    font-size: var(--font-size-lg);
     transition: var(--transition-fast);
 }
 
