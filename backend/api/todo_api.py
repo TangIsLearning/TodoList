@@ -77,7 +77,7 @@ class TodoApi:
             return {'success': False, 'error': validation_result['message']}
         
         try:
-            if task_data['dueDate'] and hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
+            if task_data['dueDate'] and (hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ):
                 target_time = datetime.fromisoformat(task_data['dueDate']).timestamp() * 1000
                 from backend.reminder.calendar_manager import add_task_reminder_to_calendar
                 add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
@@ -171,7 +171,7 @@ class TodoApi:
         try:
             result = self.db.create_recurring_tasks(task_data)
             for task in result:
-                if task.get('dueDate') and hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
+                if task.get('dueDate') and (hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ):
                     target_time = datetime.fromisoformat(task['dueDate']).timestamp() * 1000
                     from backend.reminder.calendar_manager import add_task_reminder_to_calendar
                     add_task_reminder_to_calendar(task['title'], task['description'], target_time)
