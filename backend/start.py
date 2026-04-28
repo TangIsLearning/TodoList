@@ -65,7 +65,8 @@ def start_app():
         from backend.database.operations import TodoDatabase
         settings_db = TodoDatabase()
         confirm_close = settings_db.get_setting('confirm_close', True)
-        if confirm_close:
+        is_android = hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ
+        if confirm_close or not is_android:
             backend.globals.window.confirm_close = True
             settings_db.set_setting('confirm_close', False)
         else:
