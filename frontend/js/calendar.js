@@ -44,6 +44,7 @@ class CalendarManager {
         const viewToggleBtn = document.getElementById('view-toggle-btn');
         const moreMenuIcon = document.getElementById('more-menu-view-icon');
         const moreMenuText = document.getElementById('more-menu-view-text');
+        const addTaskFab = document.getElementById('add-task-fab');
         let filterPageSize;
 
         if (this.currentView === 'list') {
@@ -60,6 +61,7 @@ class CalendarManager {
             moreMenuIcon.textContent = '📋';
             moreMenuText.textContent = '切换列表视图';
             viewToggleBtn.classList.add('active');
+            addTaskFab.style.display = 'none';
             this.currentView = 'calendar';
             filterPageSize = 9999; // 假定单月任务最多9999个任务
         } else {
@@ -76,6 +78,7 @@ class CalendarManager {
             moreMenuIcon.textContent = '📅';
             moreMenuText.textContent = '切换日历视图';
             viewToggleBtn.classList.remove('active');
+            addTaskFab.style.display = 'block';
             this.currentView = 'list';
             filterPageSize = 10;
         }
