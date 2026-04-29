@@ -549,12 +549,6 @@ class TodoManager {
                 } else {
                     // 小屏幕：使用无限下拉模式
                     await this.renderTasks();
-
-                    // 隐藏分页
-                    const pagination = document.getElementById('pagination');
-                    if (pagination) {
-                        pagination.style.display = 'none';
-                    }
                     this.initInfiniteScroll();
                 }
 
@@ -1528,13 +1522,8 @@ class TodoManager {
 
                 // 移动端调整：如果当前页不是第一页，重置到第一页
                 if (this.isMobileDevice()) {
-                    if (this.currentPage > 1) {
-                        this.currentPage = 1;
-                        this.loadTasks();
-                    } else {
-                        this.renderTasks();
-                        this.renderPagination();
-                    }
+                    this.resetInfiniteScroll(); // 重置无限下拉状态
+                    await this.loadTasks();
                 } else {
                     await this.loadTasks();
                 }
@@ -1644,13 +1633,8 @@ class TodoManager {
 
                 // 移动端调整：如果当前页不是第一页，重置到第一页
                 if (this.isMobileDevice()) {
-                    if (this.currentPage > 1) {
-                        this.currentPage = 1;
-                        this.loadTasks();
-                    } else {
-                        this.renderTasks();
-                        this.renderPagination();
-                    }
+                    this.resetInfiniteScroll(); // 重置无限下拉状态
+                    await this.loadTasks();
                 } else {
                     // 安全检查：确保任务列表存在
                     if (Array.isArray(this.tasks)) {
@@ -2225,7 +2209,6 @@ class TodoManager {
                 this.loadTasks();
             } else {
                 this.renderTasks();
-                this.renderPagination();
             }
 
             // 隐藏分页
