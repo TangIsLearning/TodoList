@@ -391,7 +391,7 @@ class LanguageManager {
                     label.textContent = `${lang.taskTitle}*`;
                     break;
                 case 'task-description':
-                    label.textContent = lang.taskDescription;
+                    label.innerHTML = `${lang.taskDescription} <span style="color: #999; font-size: 12px;">${lang.optional}</span>`;
                     break;
                 case 'task-priority':
                     label.textContent = lang.taskPriority;
