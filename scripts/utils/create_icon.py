@@ -3,6 +3,11 @@
 创建TodoList应用图标
 如果没有PIL库，可以跳过此步骤
 """
+import sys
+import os
+import subprocess
+import tempfile
+
 try:
     from PIL import Image, ImageDraw
 
@@ -39,13 +44,56 @@ try:
         x3, y3 = box_x + box_size - 30, box_y + 40
         draw_line_with_round_caps(draw, x2, y2, x3, y3, line_width, color)
 
-        img.save('todo_icon.ico', format='ICO', sizes=[(256 * 8, 256 * 8), (128 * 8, 128 * 8), (64 * 8, 64 * 8), (48 * 8, 48 * 8), (32 * 8, 32 * 8),
+        # --- 根据平台保存不同格式的图标 ---
+        if sys.platform == 'darwin':
+            # 在 macOS 上生成 .icns 文件
+            _save_macos_icns(img)
+        else:
+            # 其他系统保持原有的 .ico 生成方式
+            img.save('todo_icon.ico', format='ICO',
+                     sizes=[(256 * 8, 256 * 8), (128 * 8, 128 * 8), (64 * 8, 64 * 8), (48 * 8, 48 * 8), (32 * 8, 32 * 8),
                         (16 * 8, 16 * 8)])
         print("✅ 图标创建成功: todo_icon.ico")
 
         preview_size = (256, 256)
         preview_img = img.resize(preview_size, Image.Resampling.LANCZOS)
         preview_img.save('todo_icon_preview.png', format='PNG')
+
+    def _save_macos_icns(img):
+        """将图标保存为 macOS 的 .icns 文件"""
+        # 标准 macOS 图标所需尺寸（1x 与 2x）
+        sizes = {
+            'icon_16x16.png': 16,
+            'icon_16x16@2x.png': 32,
+            'icon_32x32.png': 32,
+            'icon_32x32@2x.png': 64,
+            'icon_128x128.png': 128,
+            'icon_128x128@2x.png': 256,
+            'icon_256x256.png': 256,
+            'icon_256x256@2x.png': 512,
+            'icon_512x512.png': 512,
+            'icon_512x512@2x.png': 1024,
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            iconset = os.path.join(tmpdir, 'todo_icon.iconset')
+            os.makedirs(iconset, exist_ok=True)
+
+            for filename, size_px in sizes.items():
+                resized = img.resize((size_px, size_px), Image.Resampling.LANCZOS)
+                resized.save(os.path.join(iconset, filename))
+
+            # 调用系统的 iconutil 生成 .icns
+            try:
+                subprocess.run(
+                    ['iconutil', '-c', 'icns', iconset, '-o', 'todo_icon.icns'],
+                    check=True, capture_output=True
+                )
+                print("✅ 图标创建成功: todo_icon.icns")
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                print("⚠️  iconutil 调用失败，回退为保存 1024x1024 的 PNG 图标: todo_icon.png")
+                fallback = img.resize((1024, 1024), Image.Resampling.LANCZOS)
+                fallback.save('todo_icon.png', format='PNG')
 
     def draw_line_with_round_caps(draw, x1, y1, x2, y2, width, color):
         """绘制带圆头的线段"""
