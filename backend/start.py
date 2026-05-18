@@ -130,7 +130,9 @@ def start_app():
     backend.globals.window.events.closing += on_closing
 
     app_logger.info("启动webview...")
-    webview.start(bind, backend.globals.window, private_mode=False, ssl=True, debug=False, localization= chinese_localization)
+    # 移动端是必须开启SSL，而桌面端如MacOS系统则不建议开启，避免warning
+    ssl_enable = sys.platform != 'darwin'
+    webview.start(bind, backend.globals.window, private_mode=False, ssl=ssl_enable, debug=False, localization= chinese_localization)
 
     app_logger.info("TodoList 应用已关闭")
     app_logger.info("=" * 60)
