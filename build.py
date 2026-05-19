@@ -121,16 +121,28 @@ def copy_additional_files():
     if readme_src.exists():
         shutil.copy2(readme_src, dist_dir)
         print(f"   复制: README.md")
-    
+
     # 创建启动脚本
-    start_script = dist_dir / 'start.bat'
-    with open(start_script, 'w', encoding='utf-8') as f:
-        f.write('''@echo off
+    if sys.platform == 'win32':
+        start_script = dist_dir / 'start.bat'
+        with open(start_script, 'w', encoding='utf-8') as f:
+            f.write('''@echo off
 echo 启动TodoList应用...
 TodoList.exe
 pause
 ''')
-    print(f"   创建: start.bat")
+        print(f"   创建: start.bat")
+    elif sys.platform == 'darwin':
+        # 可选：创建 .command 启动脚本（双击即可在终端运行）
+        start_script = dist_dir / 'start.command'
+        with open(start_script, 'w', encoding='utf-8') as f:
+            f.write('''#!/bin/bash
+cd "$(dirname "$0")"
+open TodoList.app
+''')
+        # 添加执行权限
+        start_script.chmod(0o755)
+        print(f"   创建: start.command")
 
 def create_installer():
     """创建简单的安装包"""
@@ -189,13 +201,16 @@ def main():
     print("\n" + "=" * 50)
     print("✅ 打包完成!")
     print("=" * 50)
-    print(f"📁 可执行文件位置: dist/TodoList.exe")
-    print(f"📦 安装包位置: TodoList_Setup.zip")
-    print("\n🎉 TodoList应用已成功打包为exe程序!")
-    print("📝 使用说明:")
-    print("   1. 将dist文件夹复制到目标电脑")
-    print("   2. 双击TodoList.exe运行应用")
-    print("   3. 或解压TodoList_Setup.zip后运行TodoList.exe")
+    if sys.platform == 'darwin':
+        print("🍎 macOS 应用已生成：dist/TodoList.app")
+    else:
+        print(f"📁 可执行文件位置: dist/TodoList.exe")
+        print(f"📦 安装包位置: TodoList_Setup.zip")
+        print("\n🎉 TodoList应用已成功打包为exe程序!")
+        print("📝 使用说明:")
+        print("   1. 将dist文件夹复制到目标电脑")
+        print("   2. 双击TodoList.exe运行应用")
+        print("   3. 或解压TodoList_Setup.zip后运行TodoList.exe")
 
 if __name__ == '__main__':
     main()
