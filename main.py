@@ -70,6 +70,7 @@ if __name__ == '__main__':
             from PIL import Image
             from pystray import Icon, Menu, MenuItem
             from multiprocessing import Process
+            from backend.utils import utils
 
             # 用于解决打包后的多进程问题
             multiprocessing.freeze_support()
@@ -86,7 +87,7 @@ if __name__ == '__main__':
             webview_process = Process(target=start.start_app)
             webview_process.start()
 
-            image = Image.open(Path(os.path.dirname(__file__), "todo_icon.ico"))
+            image = Image.open(utils.get_app_icon())
             menu = Menu(MenuItem('打开应用', on_open, default=True), MenuItem('彻底退出', on_exit))
             icon = Icon('TodoList', image, menu=menu, title='TodoList')
             icon.run()
