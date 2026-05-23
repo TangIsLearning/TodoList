@@ -53,7 +53,7 @@ a = Analysis(
     ['main.py'],
     pathex=[str(project_root), str(project_root / 'backend')],
     binaries=[],
-    datas=frontend_files + data_files + ([('todo_icon.ico', '.')] if sys.platform != 'darwin' else []),
+    datas=frontend_files + data_files + ([('todo_icon.ico', '.')] if sys.platform != 'darwin' else [('todo_icon.icns', '.')]),
     hiddenimports=[
         'webview', 'webview.platforms', 'webview.platforms.cocoa', # 显式补充 macOS 原生渲染器
         'Pillow', 'pystray', 'sqlite3', 'json', 'threading', 'datetime',
