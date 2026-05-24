@@ -2,6 +2,8 @@ import tkinter as tk
 from datetime import datetime, timedelta
 from pynput import keyboard
 import re
+import sys
+import os
 
 from backend.database.operations import TodoDatabase
 
@@ -20,7 +22,17 @@ class SmartTaskInput:
         """创建主窗口"""
         self.window = tk.Tk()
         self.window.title("Smart Task")
-        self.window.overrideredirect(True)  # 无边框
+
+        # 🛠️ 重新修正：Mac 安全移除标题栏的无边框写法
+        if sys.platform == 'darwin':
+            # 1. 告诉 Mac 这是一个工具类型的轻量窗口（不会显示标准的关闭、最小化按钮）
+            self.window.wm_attributes('-type', 'utility')
+            # 2. 将标题栏文本置空，使其在视觉上等同于无边框
+            self.window.title("")
+        else:
+            # Windows 依然保持完美的硬无边框
+            self.window.overrideredirect(True)
+
         self.window.attributes('-topmost', True)  # 置顶
         self.window.configure(bg='#1e1e1e')
 
@@ -328,7 +340,19 @@ class SmartTaskInput:
     def show_window(self):
         """显示窗口"""
         self.window.deiconify()
-        self.entry.focus()
+
+        # 🛠️ Mac 核心修复：系统层级焦点强行剥夺机制
+        if sys.platform == 'darwin':
+            self.window.lift()
+            self.window.attributes('-topmost', True)
+            # 强制令当前 Python 进程夺取 Mac 全局最前端键盘焦点
+            os.system(
+                '''/usr/bin/osascript -e 'tell app "System Events" to set frontmost of every process whose unix id is %d to true'''
+                 % os.getpid())
+
+            self.entry.focus_force()  # 强制输入框获得焦点
+        else:
+            self.entry.focus()
 
     def toggle_window(self):
         """切换窗口显示/隐藏"""
@@ -343,8 +367,32 @@ class SmartTaskInput:
         def on_activate():
             self.window.after(0, self.toggle_window)
 
-        listener = keyboard.GlobalHotKeys({self.db.get_setting('shortcut' ,'<ctrl>+<space>'): on_activate})
-        listener.start()
+        # 1. 拿取原始配置，清除空格
+        raw_shortcut = self.db.get_setting('shortcut', '<ctrl>+<space>').strip().lower()
+
+        # 2. 🛠️ Mac 核心加固：不仅改名字，还要确保修饰键带有规范的 < > 尖括号包裹
+        if sys.platform == 'darwin':
+            # 先统一把现有的尖括号去掉，防止重复包裹
+            raw_shortcut = raw_shortcut.replace('<', '').replace('>', '')
+            # 名字替换
+            raw_shortcut = raw_shortcut.replace('meta', 'cmd').replace('win', 'cmd').replace('control', 'ctrl')
+
+            # 将修饰键拆开重新打上标准的尖括号标签
+            parts = raw_shortcut.split('+')
+            formatted_parts = []
+            for part in parts:
+                if part in ['cmd', 'ctrl', 'alt', 'shift']:
+                    formatted_parts.append(f"<{part}>")
+                else:
+                    formatted_parts.append(part)  # 字母主键不加括号
+            raw_shortcut = "+".join(formatted_parts)  # 此时必然生成标准格式如: <cmd>+<shift>+k
+
+        try:
+            listener = keyboard.GlobalHotKeys({raw_shortcut: on_activate})
+            listener.start()
+            print(f"【系统日志】快捷键监听成功挂载！当前在 Mac 下的标准热键为: {raw_shortcut}")
+        except Exception as e:
+            print(f"【系统日志】快捷键挂载失败: {e}")
 
     def run(self):
         """运行应用"""

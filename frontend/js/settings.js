@@ -94,6 +94,13 @@ class SettingsUIManager {
         // 快捷按键元素
         this.smartKeyShow = document.getElementById('smart-key-show');
         this.smartKeyApply = document.getElementById('smart-key-apply');
+
+        // ⬇️ 【Mac 适配核心 】：允许该元素接收键盘焦点，并去掉点击时的蓝色外框
+        if (this.smartKeyShow) {
+            this.smartKeyShow.setAttribute('tabindex', '0');
+            this.smartKeyShow.style.outline = 'none';
+        }
+
         this.smartKeyShow.textContent = localStorage.getItem('todolist_shortcut') || this.smartKeyShow.textContent;
         this.currentButtonKey = this.smartKeyShow.textContent;
     }
@@ -187,7 +194,9 @@ class SettingsUIManager {
 
         // 绑定快捷按键事件
         if (this.smartKeyShow) {
-            this.smartKeyShow.addEventListener('click', (e) => this.handleKeyDown(e));
+            // ⬇️ 【Mac 适配核心 】：点击时必须强制呼叫 .focus() 夺取系统键盘流
+            this.smartKeyShow.addEventListener('click', (e) => this.smartKeyShow.focus());
+            // 绑定具体的按键监听（确保使用我们在第一轮修改过的、适配了 Mac 的最新逻辑）
             this.smartKeyShow.addEventListener('keydown', (e) => this.handleKeyDown(e));
             this.smartKeyShow.addEventListener('keyup', (e) => this.handleKeyUp(e));
         }
@@ -942,14 +951,11 @@ class SettingsUIManager {
             'ArrowDown': '<↓>',
             'ArrowLeft': '<←>',
             'ArrowRight': '<→>',
-            'Control': '<ctrl>',
-            'Alt': '<alt>',
-            'Shift': '<shift>',
-            'Meta': '<win>'
+            'Minus': '-',
+            'Equal': '='
         };
         if (keyMap[key]) return keyMap[key];
-        if (key && key.length === 1) return key.toLowerCase();
-        return key || '-';
+        return key.toLowerCase();
     }
 
     // 获取当前按下的所有修饰键
@@ -985,38 +991,42 @@ class SettingsUIManager {
 
     // 处理按键按下
     handleKeyDown(e) {
+        // 1. 同步修饰键状态
+        this.currentModifiers.ctrl = e.ctrlKey;
+        this.currentModifiers.alt = e.altKey;
+        this.currentModifiers.shift = e.shiftKey;
+        this.currentModifiers.meta = e.metaKey;
+
         const key = e.key;
-
-        // 更新修饰键状态
-        if (key === 'Control') this.currentModifiers.ctrl = true;
-        if (key === 'Alt') this.currentModifiers.alt = true;
-        if (key === 'Shift') this.currentModifiers.shift = true;
-        if (key === 'Meta') this.currentModifiers.meta = true;
-
-        // 如果在普通监听模式
         e.preventDefault();
 
-        // 如果是修饰键，不立即显示，等待组合
-        if (key === 'Control' || key === 'Alt' || key === 'Shift' || key === 'Meta') {
+        // 如果是单纯的修饰键本身，不作为主键录入
+        if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
             return;
         }
 
-        // 获取组合键名称
-        let comboName = this.formatComboKey(key);
+        // 2. 【Mac 修复核心】：如果是字母或数字键，使用 e.code 提取干净的物理键名
+        let mainKey = key;
+        if (e.code && e.code.startsWith('Key')) {
+            // 例如 "KeyA" 截取后变成 "a"
+            mainKey = e.code.replace('Key', '').toLowerCase();
+        } else if (e.code && e.code.startsWith('Digit')) {
+            // 例如 "Digit1" 截取后变成 "1"
+            mainKey = e.code.replace('Digit', '');
+        }
 
-        // 显示组合键
+        // 3. 获取组合键名称并显示
+        let comboName = this.formatComboKey(mainKey);
         this.smartKeyShow.textContent = comboName;
     }
 
     // 处理按键释放
     handleKeyUp(e) {
-        const key = e.key;
-
-        // 更新修饰键状态
-        if (key === 'Control') this.currentModifiers.ctrl = false;
-        if (key === 'Alt') this.currentModifiers.alt = false;
-        if (key === 'Shift') this.currentModifiers.shift = false;
-        if (key === 'Meta') this.currentModifiers.meta = false;
+    // 同步最新的修饰键状态
+        this.currentModifiers.ctrl = e.ctrlKey;
+        this.currentModifiers.alt = e.altKey;
+        this.currentModifiers.shift = e.shiftKey;
+        this.currentModifiers.meta = e.metaKey;
     }
 }
 
