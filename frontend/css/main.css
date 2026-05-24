@@ -1440,6 +1440,10 @@ input:checked + .slider:before {
     display: none;
 }
 
+.os-mac.only-windows {
+  display: none !important;
+}
+
 /* 小屏幕更多按钮 */
 .more-menu-btn {
     background: none;

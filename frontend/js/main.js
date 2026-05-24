@@ -94,7 +94,16 @@ class App {
                 this.closeMobileSidebar();
             });
         }
-        
+
+        // mac系统隐藏部分功能
+        const ua = navigator.userAgent;
+        const isMac = /Macintosh|MacIntel|MacPPC|Mac68K/.test(ua);
+        if (isMac) {
+            document.querySelectorAll('.only-windows').forEach(item => {
+                item.classList.add('os-mac');
+            });
+        }
+
         // 窗口大小变化
         window.addEventListener('resize', Utils.debounce(() => {
             this.handleResize();
