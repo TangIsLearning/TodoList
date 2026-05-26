@@ -5,6 +5,8 @@ TodoList桌面应用启动脚本
 
 import sys
 import os
+import logging
+import backend.globals
 from pathlib import Path
 from backend.reminder.task_reminder import start_reminder, stop_reminder
 
@@ -21,23 +23,59 @@ if str(backend_dir) not in sys.path:
 # 切换到backend目录作为工作目录
 os.chdir(str(backend_dir))
 
-if sys.platform == 'darwin':
-    import multiprocessing
-    ctx = multiprocessing.get_context('spawn')
-    Process = ctx.Process
-    Queue = ctx.Queue
-else:
-    import multiprocessing
-    Process = multiprocessing.Process
-    Queue = multiprocessing.Queue
-
-webview_process = None
-
 def run_tkinter_process():
     if sys.platform != 'darwin':
         from backend.keyboard.smart_task import SmartTaskInput
         smart_task = SmartTaskInput()
         smart_task.run()
+
+def force_kill_process_tree():
+    """
+    跨平台强制结束当前进程及其所有子进程。
+    优先尝试优雅终止，超时后强制结束。
+    """
+    import subprocess
+    import time
+    import signal
+
+    pid = os.getpid()
+    app_logger.info(f"准备结束当前进程树，主进程PID: {pid}")
+
+    try:
+        if sys.platform == 'win32':
+            # --- Windows ---
+            # 优雅终止 (SIGTERM)
+            subprocess.run(f'taskkill /PID {pid} /T', shell=True)
+            time.sleep(2)
+            # 强制终止 (SIGKILL)
+            subprocess.run(f'taskkill /F /T /PID {pid}', shell=True, capture_output=True)
+
+        elif sys.platform == 'darwin':
+            # --- macOS ---
+            # 优雅终止 (SIGTERM)
+            subprocess.run(['kill', '-TERM', str(pid)])
+            time.sleep(2)
+            # 强制终止 (SIGKILL)
+            subprocess.run(['kill', '-KILL', str(pid)])
+            # 强制终止所有子进程，使用 pgrep -P 查找并传递给 kill -9[reference:5]
+            subprocess.run(f'pgrep -P {pid} | xargs kill -9', shell=True)
+
+        else:
+            # --- Linux 或其他类Unix系统 ---
+            # 优雅终止 (SIGTERM)
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(2)
+            # 强制终止 (SIGKILL)
+            os.kill(pid, signal.SIGKILL)
+            # 强制终止所有子进程
+            subprocess.run(f'pgrep -P {pid} | xargs kill -9', shell=True)
+
+    except Exception as e:
+        app_logger.error(f"在尝试终止进程树时出错: {e}")
+
+    app_logger.info("退出程序。")
+    # 最后使用 os._exit 作为终极保障，确保程序退出
+    os._exit(0)
 
 if __name__ == '__main__':
     if sys.platform == 'darwin':
@@ -52,26 +90,38 @@ if __name__ == '__main__':
         except Exception:
             pass
 
-    def start_webview_process():
-        global webview_process
-        webview_process = Process(target=start.start_app)
-        webview_process.start()
-
     def on_open(icon=None, item=None):
-        global webview_process
-        import threading
-        with threading.Lock():
-            if webview_process is None or not webview_process.is_alive():
-                # 如果存在僵尸进程，先清理
-                if webview_process is not None:
-                    webview_process.terminate()
-                    webview_process.join()
-                start_webview_process()
+        """显示已隐藏的窗口"""
+        try:
+            if backend.globals.window:
+                backend.globals.window.show()
+        except Exception:
+            pass
 
     def on_exit(icon, item):
+        """彻底退出：销毁窗口并停止托盘"""
+        # 1. 停止任务提醒（释放 asyncio、WinRT 线程）
+        try:
+            stop_reminder()
+        except Exception:
+            pass
+
+        # 2. 销毁 webview 窗口
+        try:
+            if backend.globals.window:
+                backend.globals.window.destroy()
+        except Exception:
+            pass
+
+        # 3. 停止托盘图标
         icon.stop()
 
-    # 导入并启动应用
+        # 4. 关闭日志文件（防止占用）
+        logging.shutdown()
+
+        # 5. 强制退出进程（杀死所有残留线程）
+        force_kill_process_tree()
+
     try:
         from backend import start
         from backend.utils.logger import app_logger
@@ -88,38 +138,29 @@ if __name__ == '__main__':
         else:
             from PIL import Image
             from pystray import Icon, Menu, MenuItem
-            from multiprocessing import Process
             from backend.utils import utils
 
-            # 用于解决打包后的多进程问题
-            multiprocessing.freeze_support()
+            # 快捷键进程（仅 Windows/Linux）
+            if sys.platform != 'darwin':
+                import multiprocessing
+                multiprocessing.freeze_support()
+                tk_process = multiprocessing.Process(target=run_tkinter_process, daemon=True)
+                tk_process.start()
 
             # 启动任务提醒服务
             app_logger.info("启动任务提醒服务...")
             start_reminder(click_event=on_open)
 
-            # 由于进程问题，当前功能不完备，因而不在mac桌面端启用快捷键功能
-            if sys.platform != 'darwin':
-                # 启动快捷键操作
-                app_logger.info("启动快捷键操作...")
-                tk_process = multiprocessing.Process(target=run_tkinter_process, daemon=True)
-                tk_process.start()
-
-            webview_process = Process(target=start.start_app)
-            webview_process.start()
-
+            # 创建系统托盘，但不在主线程阻塞运行
             image = Image.open(utils.get_app_icon())
             menu = Menu(MenuItem('打开应用', on_open, default=True), MenuItem('彻底退出', on_exit))
             icon = Icon('TodoList', image, menu=menu, title='TodoList')
-            icon.run()
+            # 在后台线程启动托盘
+            icon.run_detached()
 
-            # 退出时清理
-            if webview_process and webview_process.is_alive():
-                webview_process.terminate()
+            # 主线程运行 WebView（阻塞直到窗口被 destroy）
+            start.start_app()
 
-        # 应用关闭时停止提醒服务
-        app_logger.info("停止任务提醒服务...")
-        stop_reminder()
     except ImportError as e:
         print(f"导入错误: {e}")
         print("请检查Python环境是否正确安装了依赖：pip install pywebview")

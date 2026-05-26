@@ -60,12 +60,28 @@ class TaskReminder:
         app_logger.info("任务到期提醒服务已启动")
         
     def stop(self):
-        """停止提醒服务"""
+        if not self.running:
+            return
         self.running = False
-        if self.check_thread:
-            self.check_thread.join(timeout=2)
-        if self.notify_thread:
-            self.notify_thread.join(timeout=2)
+
+        # 停止事件循环
+        if self.loop and self.loop.is_running():
+            self.loop.call_soon_threadsafe(self.loop.stop)
+
+        # 等待 asyncio 线程结束
+        if self.asyncio_thread and self.asyncio_thread.is_alive():
+            self.asyncio_thread.join(timeout=3)
+
+        # 关闭事件循环（释放 WinRT 相关资源）
+        if self.loop and not self.loop.is_closed():
+            self.loop.close()
+
+        # 等待其他线程
+        if self.check_thread and self.check_thread.is_alive():
+            self.check_thread.join(timeout=1)
+        if self.notify_thread and self.notify_thread.is_alive():
+            self.notify_thread.join(timeout=1)
+
         app_logger.info("任务到期提醒服务已停止")
         
     def _check_tasks(self):

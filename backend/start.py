@@ -73,6 +73,8 @@ def start_app():
             settings_db.set_setting('confirm_close', False)
         else:
             backend.globals.window.confirm_close = False
+        backend.globals.window.hide()
+        return False  # 阻止窗口被销毁，从而实现控制窗口显示和隐藏，而非开启和关闭
 
     app_logger.info("=" * 60)
     app_logger.info("TodoList 应用启动")
@@ -132,7 +134,13 @@ def start_app():
     app_logger.info("启动webview...")
     # 移动端是必须开启SSL，而桌面端如MacOS系统则不建议开启，避免warning
     ssl_enable = sys.platform != 'darwin'
-    webview.start(bind, backend.globals.window, private_mode=False, ssl=ssl_enable, debug=False, localization= chinese_localization)
+    try:
+        webview.start(bind, backend.globals.window, private_mode=False,
+                      ssl=ssl_enable, debug=False, localization= chinese_localization)
+    finally:
+        # 窗口关闭后，停止自动同步
+        sync_manager.stop_auto_sync()
+        app_logger.info("正在停止后台服务...")
 
     app_logger.info("TodoList 应用已关闭")
     app_logger.info("=" * 60)
