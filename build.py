@@ -75,8 +75,8 @@ def check_dependencies():
     
     return True
 
-def build_exe():
-    """构建exe文件"""
+def build_process():
+    """构建exe/app文件"""
     print("🔨 开始构建...")
     
     try:
@@ -144,28 +144,64 @@ open TodoList.app
         start_script.chmod(0o755)
         print(f"   创建: start.command")
 
-def create_installer():
-    """创建简单的安装包"""
-    print("📦 创建安装包...")
-    
-    dist_dir = Path('dist')
-    installer_name = 'TodoList_Setup.zip'
-    
+def create_dmg():
+    """将 macOS 的 .app 打包为 .dmg 映像档并输出到 dist 目录"""
+    print("🍏 开始制作 macOS DMG 安装包...")
+
+    app_path = Path('dist/TodoList.app')
+    # 修改此处：将输出路径指定到 dist 目录下
+    dmg_output = Path('dist/TodoList_Setup.dmg')
+    tmp_dmg_dir = Path('build/dmg_root')
+
+    if not app_path.exists():
+        print("   ❌ 未找到 TodoList.app，无法制作 DMG")
+        return False
+
     try:
-        import zipfile
-        
-        with zipfile.ZipFile(installer_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for file_path in dist_dir.rglob('*'):
-                if file_path.is_file():
-                    arcname = file_path.relative_to(dist_dir.parent)
-                    zipf.write(file_path, arcname)
-        
-        print(f"✅ 安装包创建成功: {installer_name}")
-        
-    except ImportError:
-        print("⚠️  无法创建zip安装包，需要zipfile支持")
+        # 1. 清理并创建临时的 DMG 根目录结构
+        if tmp_dmg_dir.exists():
+            shutil.rmtree(tmp_dmg_dir)
+        tmp_dmg_dir.mkdir(parents=True, exist_ok=True)
+
+        # 2. 复制 .app 到临时目录（使用 cp -R 保留 macOS 软链接与权限）
+        print("   -> 复制应用程序...")
+        subprocess.run(['cp', '-R', str(app_path), str(tmp_dmg_dir)], check=True)
+
+        # 3. 创建指向系统的 /Applications 快捷方式链接（实现拖拽安装效果）
+        print("   -> 创建 Applications 快捷方式...")
+        os.symlink('/Applications', tmp_dmg_dir / 'Applications')
+
+        # 4. 如果有 README，也一同放入 DMG
+        readme_src = Path('README.md')
+        if readme_src.exists():
+            shutil.copy2(readme_src, tmp_dmg_dir)
+
+        # 5. 如果旧的 DMG 存在则先删除
+        if dmg_output.exists():
+            dmg_output.unlink()
+
+        # 6. 使用 hdiutil 工具生成 DMG
+        print("   -> 正在使用 hdiutil 生成 DMG 映像...")
+        cmd = [
+            'hdiutil', 'create',
+            '-volname', 'TodoList 安装程序',
+            '-srcfolder', str(tmp_dmg_dir),
+            '-ov',
+            '-format', 'UDZO',  # 采用压缩格式
+            str(dmg_output)
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"✅ DMG 安装包创建成功: {dmg_output}")
+            return True
+        else:
+            print("   ❌ hdiutil 执行失败:")
+            print(result.stderr)
+            return False
     except Exception as e:
-        print(f"⚠️  创建安装包时出错: {e}")
+        print(f"⚠️ 制作 DMG 时出错: {e}")
+        return False
 
 def main():
     """主函数"""
@@ -187,30 +223,34 @@ def main():
     
     # 清理构建文件
     clean_build()
-    
-    # 构建exe
-    if not build_exe():
+
+    # 构建exe/app
+    if not build_process():
         sys.exit(1)
     
     # 复制额外文件
     copy_additional_files()
-    
-    # 创建安装包
-    create_installer()
-    
+
+    # 根据操作系统生成最终安装包
+    if sys.platform == 'darwin':
+        create_dmg()
+
     print("\n" + "=" * 50)
     print("✅ 打包完成!")
     print("=" * 50)
     if sys.platform == 'darwin':
         print("🍎 macOS 应用已生成：dist/TodoList.app")
+        print("📦 DMG 安装包位置：dist/TodoList_Setup.dmg")
+        print("\n🎉 TodoList应用已成功打包为 DMG 程序!")
+        print("📝 使用说明:")
+        print("   1. 双击打开 TodoList_Setup.dmg")
+        print("   2. 将 TodoList 图标拖拽至 Applications 文件夹即可完成安装")
     else:
         print(f"📁 可执行文件位置: dist/TodoList.exe")
-        print(f"📦 安装包位置: TodoList_Setup.zip")
         print("\n🎉 TodoList应用已成功打包为exe程序!")
         print("📝 使用说明:")
         print("   1. 将dist文件夹复制到目标电脑")
         print("   2. 双击TodoList.exe运行应用")
-        print("   3. 或解压TodoList_Setup.zip后运行TodoList.exe")
 
 if __name__ == '__main__':
     main()
