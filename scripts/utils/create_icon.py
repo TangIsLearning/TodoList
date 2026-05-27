@@ -71,7 +71,7 @@ try:
 
         preview_size = (256, 256)
         preview_img = img.resize(preview_size, Image.Resampling.LANCZOS)
-        preview_img.save('todo_icon_preview.png', format='PNG')
+        preview_img.save('todo_icon.png', format='PNG')
 
     def _save_macos_icns(img):
         """将图标保存为 macOS 的 .icns 文件"""

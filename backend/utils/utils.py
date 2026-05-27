@@ -17,5 +17,7 @@ def get_app_icon():
 
     if sys.platform == 'darwin':
         return base_path / 'todo_icon.icns'
-    else:
+    elif sys.platform == 'win32':
         return base_path / 'todo_icon.ico'
+    else:
+        return base_path / 'todo_icon.png'
