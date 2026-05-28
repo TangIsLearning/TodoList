@@ -203,6 +203,98 @@ def create_dmg():
         print(f"⚠️ 制作 DMG 时出错: {e}")
         return False
 
+def create_appimage():
+    print("🐧 创建 AppImage 包...")
+    appdir = Path('build/AppDir')
+    if appdir.exists():
+        shutil.rmtree(appdir)
+    appdir.mkdir(parents=True)
+
+    # 创建标准目录结构
+    (appdir / 'usr/bin').mkdir(parents=True)
+
+    # 复制可执行文件
+    shutil.copy('dist/TodoList', appdir / 'usr/bin/TodoList')
+
+    # 【修改点 1】严格确保 Name 字段、Icon 字段与文件名在大小写上完美统一
+    desktop_content = """[Desktop Entry]
+Name=TodoList
+Comment=A simple todo list app
+Exec=TodoList
+Icon=todolist
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupWMClass=TodoList
+"""
+
+    # 写入小写的桌面文件
+    (appdir / 'todolist.desktop').write_text(desktop_content)
+
+    (appdir / 'usr/share/applications').mkdir(parents=True, exist_ok=True)
+    (appdir / 'usr/share/applications/todolist.desktop').write_text(desktop_content)
+
+    # 处理图标
+    icon_src = Path('todo_icon.png')
+    if not icon_src.exists():
+        print(" ⚠️ 未找到 todo_icon.png，请先运行 create_icon.py 生成")
+        return False
+
+    # 复制到标准图标目录
+    icons_dir = appdir / 'usr/share/icons/hicolor/256x256/apps'
+    icons_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(icon_src, icons_dir / 'todolist.png')
+
+    # 复制到根目录，保持全小写
+    root_icon = appdir / 'todolist.png'
+    shutil.copy(icon_src, root_icon)
+    print(f" ✅ 图标已复制到标准目录: {icons_dir}/todolist.png")
+
+    # 【修改点 2】在根目录下显式创建符合 AppImage 规范的 .DirIcon 软链接
+    dir_icon = appdir / '.DirIcon'
+    if dir_icon.exists():
+        dir_icon.unlink()
+    # 创建软链接指向根目录下的图标文件
+    os.symlink('todolist.png', dir_icon)
+    print(" ✅ 已成功创建 .DirIcon 规范软链接")
+
+    # 创建 AppRun 脚本 (保持你原有的逻辑不变)
+    apprun_content = """#!/bin/bash
+SELF=$(readlink -f "$0")
+HERE=${SELF%/*}
+export PATH="$HERE/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+exec $HERE/usr/bin/TodoList "$@"
+"""
+    (appdir / 'AppRun').write_text(apprun_content)
+    (appdir / 'AppRun').chmod(0o755)
+
+    # 使用 appimagetool 生成 AppImage
+    appimagetool = shutil.which('appimagetool')
+    if not appimagetool:
+        print("   ⚠️ 未找到 appimagetool，跳过 AppImage 生成")
+        return False
+
+    # 指定 runtime 文件（如果存在）
+    runtime_file = Path('/home/ubuntu24/TodoList/runtime-x86_64')
+    cmd = [appimagetool, str(appdir), 'dist/TodoList-x86_64.AppImage']
+    if runtime_file.exists():
+        cmd.insert(1, '--runtime-file')
+        cmd.insert(2, str(runtime_file))
+        print(f"   ✅ 使用 runtime 文件: {runtime_file}")
+
+    output = Path('dist/TodoList-x86_64.AppImage')
+    if output.exists():
+        output.unlink()
+
+    try:
+        subprocess.run(cmd, check=True)
+        print(f"   ✅ AppImage 已生成: {output}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"   ❌ AppImage 生成失败: {e}")
+        return False
+
 def main():
     """主函数"""
     print("=" * 50)
@@ -234,6 +326,42 @@ def main():
     # 根据操作系统生成最终安装包
     if sys.platform == 'darwin':
         create_dmg()
+    elif sys.platform == 'linux':
+        if create_appimage():
+            # 【针对 Ubuntu 24.04 GNOME 的自动化集成】
+            print("💡 正在为当前系统注册桌面图标...")
+            try:
+                home_dir = Path.home()
+                apps_dir = home_dir / '.local/share/applications'
+                apps_dir.mkdir(parents=True, exist_ok=True)
+
+                # 1. 动态生成指向最终生成的 AppImage 绝对路径的桌面文件
+                appimage_path = Path('dist/TodoList-x86_64.AppImage').resolve()
+
+                # 图标可以复制到用户本地图标目录，让 GNOME 能够全局识别
+                user_icons_dir = home_dir / '.local/share/icons/hicolor/256x256/apps'
+                user_icons_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy('todo_icon.png', user_icons_dir / 'todolist.png')
+
+                integrated_desktop = f"""[Desktop Entry]
+        Name=TodoList
+        Comment=A simple todo list app
+        Exec={appimage_path}
+        Icon=todolist
+        Terminal=false
+        Type=Application
+        Categories=Utility;
+        StartupWMClass=TodoList
+        """
+                # 2. 写入到当前用户的应用程序目录中
+                (apps_dir / 'todolist.desktop').write_text(integrated_desktop, encoding='utf-8')
+                print(" ✅ 已成功将 TodoList 添加到系统的“应用程序”菜单中！")
+                print(" 📝 现在你可以直接在 Ubuntu 的应用中心搜索 'TodoList' 并看到图标了。")
+
+                # 3. 刷新 GNOME 桌面数据库缓存
+                subprocess.run(['update-desktop-database', str(apps_dir)], capture_output=True)
+            except Exception as e:
+                print(f" ⚠️ 自动注册系统图标失败（不影响AppImage生成）: {e}")
 
     print("\n" + "=" * 50)
     print("✅ 打包完成!")
@@ -245,12 +373,19 @@ def main():
         print("📝 使用说明:")
         print("   1. 双击打开 TodoList_Setup.dmg")
         print("   2. 将 TodoList 图标拖拽至 Applications 文件夹即可完成安装")
-    else:
+    elif sys.platform == 'win32':
         print(f"📁 可执行文件位置: dist/TodoList.exe")
         print("\n🎉 TodoList应用已成功打包为exe程序!")
         print("📝 使用说明:")
         print("   1. 将dist文件夹复制到目标电脑")
         print("   2. 双击TodoList.exe运行应用")
+    else:
+        print("🐧 Linux 可执行文件位置: dist/TodoList")
+        print("\n🎉 TodoList 应用已成功打包为AppImage程序!")
+        print("📝 使用说明:")
+        print("     1. 应用分发：将 TodoList-x86_64.AppImage 发送给用户")
+        print("     2. 本地使用：进入 dist 目录, 运行 ./TodoList（确保已具有可执行权限）")
+        print("\n💡 提示：如果提示权限不足，请执行 chmod +x TodoList")
 
 if __name__ == '__main__':
     main()
