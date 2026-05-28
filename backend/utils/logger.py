@@ -9,25 +9,45 @@ import os
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
-
 
 def get_log_directory():
-    """获取日志文件存储目录
-    
-    对于打包后的exe文件，日志文件放在exe所在目录的logs文件夹
-    对于开发环境，日志文件放在项目根目录的logs文件夹
-    """
-    if getattr(sys, 'frozen', False):
-        # 打包后的exe环境
+    """根据运行环境返回可写的日志目录"""
+    # 1. 开发环境（未打包）
+    if not getattr(sys, 'frozen', False):
+        # 项目根目录：当前文件 backend/utils/logger.py -> 向上3级
+        return Path(__file__).parent.parent.parent / 'logs'
+
+    # 2. 打包后环境
+    if sys.platform == 'win32':
+        # Windows: exe 同级目录（用户通常有写权限）
         exe_dir = Path(sys.executable).parent
-    else:
-        # 开发环境
-        exe_dir = Path(__file__).parent.parent.parent
-    
-    log_dir = exe_dir / 'logs'
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir
+        return exe_dir / 'logs'
+
+    elif sys.platform == 'darwin':
+        # macOS: 使用 ~/Library/Logs/TodoList
+        home = Path.home()
+        log_dir = home / 'Library' / 'Logs' / 'TodoList'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir
+
+    else:  # Linux (包括 AppImage)
+        # 检测是否为 AppImage 环境
+        is_appimage = os.environ.get('APPIMAGE') is not None
+        if is_appimage:
+            # AppImage 必须写入用户目录
+            xdg_data_home = os.environ.get('XDG_DATA_HOME')
+            if xdg_data_home:
+                base = Path(xdg_data_home)
+            else:
+                base = Path.home() / '.local' / 'share'
+            log_dir = base / 'TodoList' / 'logs'
+        else:
+            # 普通 Linux 可执行文件（如直接运行编译后的二进制）
+            # 也建议写入用户目录，避免权限问题
+            log_dir = Path.home() / '.local' / 'share' / 'TodoList' / 'logs'
+
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir
 
 
 def setup_logger(name='todolist', level=logging.INFO, max_bytes=10*1024*1024, backup_count=5):
