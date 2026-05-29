@@ -4,14 +4,17 @@ Todo List 桌面应用主程序
 使用 PyWebView 创建桌面应用窗口
 """
 
-import webview
 import os
 import sys
 from pathlib import Path
 
-from backend.api.todo_api import TodoApi
+# 【针对 Ubuntu 24.04 虚拟机的环境变量优化】
+# 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
+if sys.platform == 'linux':
+    os.environ["NO_AT_BRIDGE"] = "1"
+
+import webview
 from backend.utils.logger import app_logger
-from backend.webdav.data_sync import get_data_sync_manager
 
 # 获取当前目录
 current_dir = Path(__file__).parent
@@ -79,50 +82,36 @@ def start_app():
     app_logger.info("=" * 60)
     app_logger.info("TodoList 应用启动")
     app_logger.info("=" * 60)
-    
-    # 创建API实例
-    api = TodoApi()
-    app_logger.info("TodoApi 实例创建成功")
-    
-    # 初始化数据同步管理器
-    app_logger.info("初始化数据同步管理器...")
-    sync_manager = get_data_sync_manager()
-    
-    # 设置同步回调，当云端数据更新时刷新前端
-    def on_sync_complete():
-        try:
-            if backend.globals.window:
-                js_str = """
-                    // 重新加载任务列表
-                    if (window.todoManager) {
-                        window.todoManager.loadTasks();
-                    }
-                    if (window.categoryManager) {
-                        window.categoryManager.loadCategories();
-                        window.categoryManager.renderCategories(false);
-                    }
-                    """
-                backend.globals.window.evaluate_js(js_str)
-                app_logger.info("前端页面已刷新以反映云端数据变化")
-        except Exception as e:
-            app_logger.error(f"同步回调执行失败: {e}")
-    
-    sync_manager.set_sync_callback(on_sync_complete)
-    
-    # 启动自动同步
-    sync_manager.start_auto_sync()
-    
-    # 获取前端文件路径
-    frontend_path = get_resource_path('frontend/index.html')
-    app_logger.info(f"前端文件路径: {frontend_path}")
 
-    # 创建窗口
-    app_logger.info("创建应用窗口...")
+    # 创建一个极简的加载中 HTML 字符串，让窗口瞬间显示，避免白屏
+    loading_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { background-color: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; color: #666; margin: 0; }
+            .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            .container { text-align: center; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="loader"></div>
+            <div>应用正在加载中，请稍候...</div>
+        </div>
+    </body>
+    </html>
+    """
+
+    # 创建窗口：首先加载内存中的 loading 页面（零磁盘 I/O，瞬间弹出）
+    app_logger.info("创建应用窗口并展示加载动画...")
     import backend.globals
     backend.globals.window = webview.create_window(
         'TodoList',
-        frontend_path,
-        js_api=api,
+        html=loading_html,  # 【关键】改用 html= 启动，不传递文件路径
+        js_api=None,  # 此时先不绑定 API，等全加载完后再载入
         width=1400,
         height=900,
         text_select=True,
@@ -131,19 +120,70 @@ def start_app():
 
     backend.globals.window.events.closing += on_closing
 
+    # 将后端耗时初始化逻辑，放到初始化回调中异步执行
+    def lazy_initialize(window):
+        app_logger.info("异步后台：开始加载后端模块与初始化...")
+
+        # 在子线程中延时或直接导入耗时模块
+        from backend.api.todo_api import TodoApi
+        from backend.webdav.data_sync import get_data_sync_manager
+
+        # 创建API实例
+        api = TodoApi()
+        app_logger.info("TodoApi 实例创建成功")
+
+        # 初始化数据同步管理器
+        app_logger.info("初始化数据同步管理器...")
+        sync_manager = get_data_sync_manager()
+
+        # 设置同步回调，当云端数据更新时刷新前端
+        def on_sync_complete():
+            try:
+                if backend.globals.window:
+                    js_str = """
+                        // 重新加载任务列表
+                        if (window.todoManager) { window.todoManager.loadTasks(); }
+                        if (window.categoryManager) { window.categoryManager.loadCategories(); window.categoryManager.renderCategories(false); }
+                        """
+                    backend.globals.window.evaluate_js(js_str)
+                    app_logger.info("前端页面已刷新以反映云端数据变化")
+            except Exception as e:
+                app_logger.error(f"同步回调执行失败: {e}")
+
+        sync_manager.set_sync_callback(on_sync_complete)
+
+        # 启动自动同步
+        sync_manager.start_auto_sync()
+
+        # 获取前端文件路径
+        frontend_path = get_resource_path('frontend/index.html')
+        app_logger.info(f"前端文件路径: {frontend_path}")
+        # 重新绑定 API 并将窗口重定向到真正的业务前端文件
+        window.set_title('TodoList')
+        window.load_url(frontend_path)
+        # 动态绑定之前延迟初始化的后台 API
+        window._js_api = api
+        # 保存全局变量，以便在 finally 中能够正常关闭
+        window.user_data = {'sync_manager': sync_manager}
+
     app_logger.info("启动webview...")
     # 移动端是必须开启SSL，而桌面端如MacOS系统则不建议开启，避免warning
     ssl_enable = sys.platform != 'darwin'
     try:
-        webview.start(bind, backend.globals.window, private_mode=False,
-                      ssl=ssl_enable, debug=False, localization= chinese_localization)
+        # 将 lazy_initialize 函数作为第一个参数传入
+        # pywebview 启动窗口后会立即在后台启动一个线程执行此函数，解决Linux端窗口卡死问题
+        webview.start(lazy_initialize, backend.globals.window,
+                      private_mode=False, ssl=ssl_enable, debug=False, localization=chinese_localization)
     finally:
         # 窗口关闭后，停止自动同步
-        sync_manager.stop_auto_sync()
         app_logger.info("正在停止后台服务...")
-
-    app_logger.info("TodoList 应用已关闭")
-    app_logger.info("=" * 60)
+        try:
+            if hasattr(backend.globals.window, 'user_data') and 'sync_manager' in backend.globals.window.user_data:
+                backend.globals.window.user_data['sync_manager'].stop_auto_sync()
+        except Exception as e:
+            app_logger.error(f"停止自动同步服务失败: {e}")
+        app_logger.info("TodoList 应用已关闭")
+        app_logger.info("=" * 60)
 
 if __name__ == '__main__':
     start_app()

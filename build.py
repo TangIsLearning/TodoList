@@ -264,6 +264,13 @@ SELF=$(readlink -f "$0")
 HERE=${SELF%/*}
 export PATH="$HERE/usr/bin:$PATH"
 export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+export WEBKIT_DISABLE_DMABUF_RENDERER=1 # 针对 Ubuntu 24.04 虚拟机的最稳健软渲染管线
+export GDK_BACKEND=x11
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export WEBKIT_DISABLE_GPU_PROCESS=1
+export NO_AT_BRIDGE=1
+
 exec $HERE/usr/bin/TodoList "$@"
 """
     (appdir / 'AppRun').write_text(apprun_content)
