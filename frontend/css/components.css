@@ -1509,6 +1509,7 @@
     cursor: pointer;
     font-size: var(--font-size-sm);
     transition: var(--transition-fast);
+    line-height: 1.5;
 }
 
 .task-action-btn:hover {
