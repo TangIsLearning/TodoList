@@ -51,18 +51,6 @@ chinese_localization = {
 def start_app():
     """启动TodoList桌面应用"""
 
-    def bind(*args):
-        """绑定窗口置顶点击事件"""
-        button = backend.globals.window.dom.get_element('#window-top-toggle')
-        button.events.change += change_handler
-
-    def change_handler(e):
-        """窗口置顶点击事件"""
-        global window_on_top
-        window_on_top = not window_on_top
-        app_logger.info("TodoList 应用当前是否设置置顶：" + str(window_on_top))
-        backend.globals.window.on_top = window_on_top
-
     def on_closing():
         """窗口关闭点击事件：仅首次关闭弹窗提醒"""
         from backend.database.operations import TodoDatabase
@@ -127,6 +115,7 @@ def start_app():
         # 在子线程中延时或直接导入耗时模块
         from backend.api.todo_api import TodoApi
         from backend.webdav.data_sync import get_data_sync_manager
+        from backend.utils import utils
 
         # 创建API实例
         api = TodoApi()
@@ -163,6 +152,7 @@ def start_app():
         window.load_url(frontend_path)
         # 动态绑定之前延迟初始化的后台 API
         window._js_api = api
+        window.on_top = utils.str_to_bool(api.db.get_setting('window_on_top', False))
         # 保存全局变量，以便在 finally 中能够正常关闭
         window.user_data = {'sync_manager': sync_manager}
 

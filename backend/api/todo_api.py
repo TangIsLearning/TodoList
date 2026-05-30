@@ -856,5 +856,33 @@ class TodoApi:
                 'error': str(e)
             }
 
+    # ==================== 窗口置顶相关API ====================
+
+    def set_window_on_top_config(self, enabled):
+        """设置窗口置顶配置"""
+        try:
+            from backend.utils import utils
+            import backend.globals
+            self.set_setting('window_on_top', enabled)
+            backend.globals.window.on_top = utils.str_to_bool(self.db.get_setting('window_on_top', False))
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_window_on_top_config(self):
+        """获取窗口置顶配置"""
+        try:
+            from backend.utils import utils
+            enabled = utils.str_to_bool(self.db.get_setting('window_on_top', False))
+            return {
+                'success': True,
+                'enabled': enabled
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def open_in_browser(self, url):
         webbrowser.open(url)

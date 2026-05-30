@@ -237,9 +237,7 @@ class SettingsUIManager {
     
     updateCurrentState() {
         // 更新窗口置顶状态
-        if (this.windowTopToggle) {
-            this.windowTopToggle.checked = this.onTop;
-        }
+        this.updateWindowOnTopState();
         
         // 更新主题选择
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
@@ -518,6 +516,27 @@ class SettingsUIManager {
         }
     }
 
+    // 更新窗口置顶状态
+    async updateWindowOnTopState() {
+        if (!this.windowTopToggle) {
+            return;
+        }
+
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+
+            const result = await window.pywebview.api.get_window_on_top_config();
+
+            if (result.success) {
+                this.windowTopToggle.checked = result.enabled;
+            }
+        } catch (error) {
+            console.error('更新开机启动状态失败:', error);
+        }
+    }
+
     //  处理数据管理按钮点击: mode = 'share' | 'receive'
     openDataTransfer(mode) {
         // 关闭设置中心
@@ -751,10 +770,8 @@ class SettingsUIManager {
         try {
             // 保存窗口置顶状态
             localStorage.setItem('todolist_windowOnTop', this.onTop.toString());
-            
-            // 主题设置由主题管理器保存
-            
-            console.log('Settings saved successfully');
+            await window.pywebview.api.set_window_on_top_config(this.onTop.toString());
+            console.log('Settings saved successfully', this.onTop.toString());
         } catch (error) {
             console.error('Failed to save settings:', error);
         }

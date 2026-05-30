@@ -24,3 +24,11 @@ def get_app_icon():
         return base_path / 'todo_icon.ico'
     else:
         return base_path / 'todo_icon.png'
+
+def str_to_bool(value: str) -> bool:
+    """字符串(布尔值)转换"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() == "true"
+    return bool(value)  # 兜底转换
