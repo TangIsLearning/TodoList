@@ -95,12 +95,11 @@ class App {
             });
         }
 
-        // mac系统隐藏部分功能
-        const ua = navigator.userAgent;
-        const isMac = /Macintosh|MacIntel|MacPPC|Mac68K/.test(ua);
-        if (isMac) {
+        // 非Windows系统隐藏部分功能
+        const isWin = (Utils.detectOS() == 'Windows');
+        if (!isWin) {
             document.querySelectorAll('.only-windows').forEach(item => {
-                item.classList.add('os-mac');
+                item.style.setProperty('display', 'none', 'important');
             });
         }
 

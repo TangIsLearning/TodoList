@@ -162,8 +162,8 @@ if __name__ == '__main__':
             from pystray import Icon, Menu, MenuItem
             from backend.utils import utils
 
-            # 快捷键进程（仅 Windows/Linux）
-            if sys.platform != 'darwin':
+            # 快捷键进程（仅 Windows）
+            if sys.platform == 'win32':
                 import multiprocessing
                 multiprocessing.freeze_support()
                 tk_process = multiprocessing.Process(target=run_tkinter_process, daemon=True)
@@ -194,7 +194,7 @@ if __name__ == '__main__':
             except Exception:
                 pass
 
-            if sys.platform != 'win32' and sys.platform != 'darwin':
+            if sys.platform.startswith('linux'):
                 # 给 Ubuntu 24.04 底层 DBus 通信留出 200 毫秒处理图标注销消息
                 import time
                 import gi

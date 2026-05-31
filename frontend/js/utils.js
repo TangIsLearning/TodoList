@@ -293,6 +293,22 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     document.addEventListener('keydown', handleEscape);
 }
 
+// 检测设备系统
+function detectOS() {
+    const platform = navigator.platform || '';
+    if (platform.includes('Win')) return 'Windows';
+    if (platform.includes('Mac')) return 'macOS';
+    if (platform.includes('Linux')) return 'Linux';
+
+    // 降级方案：使用 userAgent
+    const ua = navigator.userAgent;
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('Win')) return 'Windows';
+    if (ua.includes('Mac')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    return 'Unknown';
+}
+
 // 加载pywebview的api
 async function loadPywebviewApi(maxRetries = 20, interval = 300) {
     for (let i = 0; i < maxRetries; i++) {
@@ -325,5 +341,6 @@ window.Utils = {
     isOverdue,
     ModalManager,
     confirmDialog,
+    detectOS,
     loadPywebviewApi
 };

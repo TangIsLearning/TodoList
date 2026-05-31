@@ -1440,8 +1440,8 @@ input:checked + .slider:before {
     display: none;
 }
 
-.os-mac.only-windows {
-  display: none !important;
+.only-windows {
+  display: block !important;
 }
 
 /* 小屏幕更多按钮 */
