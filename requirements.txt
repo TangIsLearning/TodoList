@@ -4,10 +4,9 @@ Pillow>=9.0.0  # 可选：用于创建图标
 pystray>=0.19.0  # 用于系统托盘功能
 python-dateutil>=2.8.0  # 用于日期计算
 webdavclient3>=3.14.7  # WebDAV客户端
-pyjnius>=1.7.0 # 可选：仅用于移动端
 lxml>=6.0.2
 desktop-notifier<=6.2.0  # 用于跨平台桌面通知
-pynput>=1.8.1 # 用于桌面端快捷键
-cryptography>=46.0.1 # 可选：仅开启SSL功能时需要
-pygobject<=3.42.2 # 可选：Linux环境系统托盘功能需要
-quickmachotkey>=2025.7.28
+cryptography>=46.0.1; sys_platform != 'darwin' # 仅开启SSL功能时需要，MacOS桌面端不支持
+pynput>=1.8.1; sys_platform != 'darwin' # 用于Windows和Linux桌面端快捷键
+quickmachotkey>=2025.7.28; sys_platform == 'darwin' # 用于MacOS桌面端快捷键
+pygobject<=3.42.2; sys_platform == 'linux' # Linux环境系统托盘功能需要
