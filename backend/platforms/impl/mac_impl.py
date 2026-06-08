@@ -171,5 +171,9 @@ class MacService(PlatformService):
         """获取是否隐藏快捷键窗口的统一接口"""
         return True
 
+    def icon_exit(self):
+        """图标注销消息的统一接口"""
+        pass
+
 # 用于给工厂注册的导出变量
 ExportService = MacService

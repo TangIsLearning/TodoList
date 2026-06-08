@@ -31,3 +31,8 @@ class PlatformService(ABC):
     def is_default_hide(self):
         """获取是否隐藏快捷键窗口的统一接口"""
         pass
+
+    @abstractmethod
+    def icon_exit(self):
+        """图标注销消息的统一接口"""
+        pass

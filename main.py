@@ -152,17 +152,9 @@ if __name__ == '__main__':
             except Exception:
                 pass
 
-            if sys.platform.startswith('linux'):
-                # 给 Ubuntu 24.04 底层 DBus 通信留出 200 毫秒处理图标注销消息
-                import time
-                import gi
-                gi.require_version('Gtk', '3.0')
-                from gi.repository import Gtk
-
-                for _ in range(10):
-                    while Gtk.events_pending():
-                        Gtk.main_iteration()
-                    time.sleep(0.02)
+            from backend.platforms.core.factory import get_platform_service
+            service = get_platform_service()
+            service.icon_exit()
 
             app_logger.info("8888: 进程收尾，彻底退出。")
             os._exit(0)

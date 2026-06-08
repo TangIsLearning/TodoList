@@ -61,5 +61,18 @@ class LinuxService(PlatformService):
         # 隐藏将导致快捷键窗口在Linux环境无法使用
         return False
 
+    def icon_exit(self):
+        """图标注销消息的统一接口"""
+        # 给 Ubuntu 24.04 底层 DBus 通信留出 200 毫秒处理图标注销消息
+        import time
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk
+
+        for _ in range(10):
+            while Gtk.events_pending():
+                Gtk.main_iteration()
+            time.sleep(0.02)
+
 # 用于给工厂注册的导出变量
 ExportService = LinuxService
