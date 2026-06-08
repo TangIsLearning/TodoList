@@ -36,3 +36,8 @@ class PlatformService(ABC):
     def icon_exit(self):
         """图标注销消息的统一接口"""
         pass
+
+    @abstractmethod
+    def start_prepare(self):
+        """应用启动前准备工作的统一接口"""
+        pass

@@ -50,5 +50,9 @@ class WindowsService(PlatformService):
         """图标注销消息的统一接口"""
         pass
 
+    def start_prepare(self):
+        """应用启动前准备工作的统一接口"""
+        pass
+
 # 用于给工厂注册的导出变量
 ExportService = WindowsService

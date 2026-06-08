@@ -175,5 +175,18 @@ class MacService(PlatformService):
         """图标注销消息的统一接口"""
         pass
 
+    def start_prepare(self):
+        """应用启动前准备工作的统一接口"""
+        # 强制在主线程预热 TIS API，防止后台线程后续并发调用导致崩溃
+        import ctypes
+        import ctypes.util
+
+        try:
+            # 加载 Carbon 框架并调用一次获取当前输入源
+            carbon = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/Carbon.framework/Carbon')
+            carbon.TISCopyCurrentKeyboardInputSource()
+        except Exception:
+            pass
+
 # 用于给工厂注册的导出变量
 ExportService = MacService

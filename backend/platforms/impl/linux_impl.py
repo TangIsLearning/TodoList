@@ -74,5 +74,12 @@ class LinuxService(PlatformService):
                 Gtk.main_iteration()
             time.sleep(0.02)
 
+    def start_prepare(self):
+        """应用启动前准备工作的统一接口"""
+        import os
+        # 【针对 Ubuntu 24.04 虚拟机的环境变量优化】
+        # 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
+        os.environ["NO_AT_BRIDGE"] = "1"
+
 # 用于给工厂注册的导出变量
 ExportService = LinuxService

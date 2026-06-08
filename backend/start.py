@@ -8,11 +8,6 @@ import os
 import sys
 from pathlib import Path
 
-# 【针对 Ubuntu 24.04 虚拟机的环境变量优化】
-# 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
-if sys.platform == 'linux':
-    os.environ["NO_AT_BRIDGE"] = "1"
-
 import webview
 from backend.utils.logger import app_logger
 

@@ -33,6 +33,10 @@ if str(code_backend_dir) not in sys.path:
 # 4. 切换到可写的工作目录
 os.chdir(str(data_dir))
 
+from backend.platforms.core.factory import get_platform_service
+service = get_platform_service()
+service.start_prepare()
+
 def force_kill_process_tree():
     """
     跨平台强制结束当前进程及其所有子进程。
@@ -42,8 +46,6 @@ def force_kill_process_tree():
     app_logger.info(f"准备结束当前进程树，主进程PID: {pid}")
 
     try:
-        from backend.platforms.core.factory import get_platform_service
-        service = get_platform_service()
         service.force_kill_process_tree(pid)
     except Exception as e:
         app_logger.error(f"在尝试终止进程树时出错: {e}")
@@ -53,18 +55,6 @@ def force_kill_process_tree():
     os._exit(0)
 
 if __name__ == '__main__':
-    if sys.platform == 'darwin':
-        # 强制在主线程预热 TIS API，防止后台线程后续并发调用导致崩溃
-        import ctypes
-        import ctypes.util
-
-        try:
-            # 加载 Carbon 框架并调用一次获取当前输入源
-            carbon = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/Carbon.framework/Carbon')
-            carbon.TISCopyCurrentKeyboardInputSource()
-        except Exception:
-            pass
-
     def on_open(icon=None, item=None):
         """显示已隐藏的窗口"""
         try:
@@ -152,8 +142,6 @@ if __name__ == '__main__':
             except Exception:
                 pass
 
-            from backend.platforms.core.factory import get_platform_service
-            service = get_platform_service()
             service.icon_exit()
 
             app_logger.info("8888: 进程收尾，彻底退出。")
