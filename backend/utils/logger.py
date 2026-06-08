@@ -5,7 +5,6 @@
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
@@ -18,38 +17,9 @@ def get_log_directory():
         return Path(__file__).parent.parent.parent / 'logs'
 
     # 2. 打包后环境
-    if sys.platform == 'win32':
-        # Windows: exe 同级目录（用户通常有写权限）
-        exe_dir = Path(sys.executable).parent
-        log_dir = exe_dir / 'logs'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
-
-    elif sys.platform == 'darwin':
-        # macOS: 使用 ~/Library/Logs/TodoList
-        home = Path.home()
-        log_dir = home / 'Library' / 'Logs' / 'TodoList'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
-
-    else:  # Linux (包括 AppImage)
-        # 检测是否为 AppImage 环境
-        is_appimage = os.environ.get('APPIMAGE') is not None
-        if is_appimage:
-            # AppImage 必须写入用户目录
-            xdg_data_home = os.environ.get('XDG_DATA_HOME')
-            if xdg_data_home:
-                base = Path(xdg_data_home)
-            else:
-                base = Path.home() / '.local' / 'share'
-            log_dir = base / 'TodoList' / 'logs'
-        else:
-            # 普通 Linux 可执行文件（如直接运行编译后的二进制）
-            # 也建议写入用户目录，避免权限问题
-            log_dir = Path.home() / '.local' / 'share' / 'TodoList' / 'logs'
-
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
+    from backend.platforms.core.factory import get_platform_service
+    service = get_platform_service()
+    return service.get_log_directory()
 
 
 def setup_logger(name='todolist', level=logging.INFO, max_bytes=10*1024*1024, backup_count=5):
@@ -73,7 +43,7 @@ def setup_logger(name='todolist', level=logging.INFO, max_bytes=10*1024*1024, ba
     
     log_dir = get_log_directory()
     log_file = log_dir / f'{name}.log'
-    
+    log_dir.mkdir(parents=True, exist_ok=True)
     # 创建文件handler
     file_handler = RotatingFileHandler(
         log_file,

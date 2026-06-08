@@ -24,5 +24,15 @@ class WindowsService(PlatformService):
         # 强制终止 (SIGKILL)
         subprocess.run(f'taskkill /F /T /PID {pid}', shell=True, capture_output=True)
 
+    def get_log_directory(self):
+        """返回可写的日志目录的统一接口"""
+        import sys
+        from pathlib import Path
+        # Windows: exe 同级目录（用户通常有写权限）
+        exe_dir = Path(sys.executable).parent
+        log_dir = exe_dir / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir
+
 # 用于给工厂注册的导出变量
 ExportService = WindowsService

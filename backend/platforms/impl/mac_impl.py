@@ -149,5 +149,14 @@ class MacService(PlatformService):
         # 强制终止所有子进程，使用 pgrep -P 查找并传递给 kill -9[reference:5]
         subprocess.run(f'pgrep -P {pid} | xargs kill -9', shell=True)
 
+    def get_log_directory(self):
+        """返回可写的日志目录的统一接口"""
+        from pathlib import Path
+        # macOS: 使用 ~/Library/Logs/TodoList
+        home = Path.home()
+        log_dir = home / 'Library' / 'Logs' / 'TodoList'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir
+
 # 用于给工厂注册的导出变量
 ExportService = MacService
