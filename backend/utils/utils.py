@@ -18,12 +18,9 @@ def get_app_icon():
         # 源码运行时，沿用你原来的相对路径查找逻辑（向上三级目录）
         base_path = Path(__file__).resolve().parent.parent.parent
 
-    if sys.platform == 'darwin':
-        return base_path / 'todo_icon.icns'
-    elif sys.platform == 'win32':
-        return base_path / 'todo_icon.ico'
-    else:
-        return base_path / 'todo_icon.png'
+    from backend.platforms.core.factory import get_platform_service
+    service = get_platform_service()
+    return service.get_app_icon(base_path)
 
 def str_to_bool(value: str) -> bool:
     """字符串(布尔值)转换"""

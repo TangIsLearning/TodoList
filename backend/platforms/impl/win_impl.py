@@ -34,5 +34,9 @@ class WindowsService(PlatformService):
         log_dir.mkdir(parents=True, exist_ok=True)
         return log_dir
 
+    def get_app_icon(self, base_path):
+        """获取应用图标的统一接口"""
+        return base_path / 'todo_icon.ico'
+
 # 用于给工厂注册的导出变量
 ExportService = WindowsService

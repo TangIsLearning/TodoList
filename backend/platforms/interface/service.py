@@ -16,3 +16,8 @@ class PlatformService(ABC):
     def get_log_directory(self):
         """返回可写的日志目录的统一接口"""
         pass
+
+    @abstractmethod
+    def get_app_icon(self, base_path):
+        """获取应用图标的统一接口"""
+        pass
