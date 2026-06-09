@@ -74,5 +74,17 @@ class WindowsService(PlatformService):
         reminder = get_reminder()
         reminder.reset_notified_tasks()
 
+    def check_calendar_permission(self):
+        """校验日历使用权限的统一接口"""
+        pass
+
+    def add_task_reminder_to_calendar(self, title, desc, start_time_ms):
+        """添加任务提醒到日历的统一接口"""
+        pass
+
+    def sync_reminder_to_calendar(self, sync_start_time, sync_end_time):
+        """同步任务提醒到日历的统一接口"""
+        pass
+
 # 用于给工厂注册的导出变量
 ExportService = WindowsService

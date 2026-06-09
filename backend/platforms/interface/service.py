@@ -56,3 +56,18 @@ class PlatformService(ABC):
     def add_new_desktop_task_reminder(self):
         """应用桌面端新任务添加消息提醒的统一接口"""
         pass
+
+    @abstractmethod
+    def check_calendar_permission(self):
+        """校验日历使用权限的统一接口"""
+        pass
+
+    @abstractmethod
+    def add_task_reminder_to_calendar(self, title, desc, start_time_ms):
+        """添加任务提醒到日历的统一接口"""
+        pass
+
+    @abstractmethod
+    def sync_reminder_to_calendar(self, sync_start_time, sync_end_time):
+        """同步任务提醒到日历的统一接口"""
+        pass

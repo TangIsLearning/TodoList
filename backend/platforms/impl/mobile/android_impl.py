@@ -48,5 +48,20 @@ class AndroidService(PlatformService):
     def add_new_desktop_task_reminder(self):
         pass
 
+    def check_calendar_permission(self):
+        """校验日历使用权限的统一接口"""
+        from backend.platforms.impl.mobile.common.calendar_manager import check_permission
+        check_permission()
+
+    def add_task_reminder_to_calendar(self, title, desc, start_time_ms):
+        """添加任务提醒到日历的统一接口"""
+        from backend.platforms.impl.mobile.common.calendar_manager import add_task_reminder_to_calendar
+        add_task_reminder_to_calendar(title, desc, start_time_ms)
+
+    def sync_reminder_to_calendar(self, sync_start_time, sync_end_time):
+        """同步任务提醒到日历的统一接口"""
+        from backend.platforms.impl.mobile.common.calendar_manager import sync_reminder_to_calendar
+        sync_reminder_to_calendar(sync_start_time, sync_end_time)
+
 # 用于给工厂注册的导出变量
 ExportService = AndroidService

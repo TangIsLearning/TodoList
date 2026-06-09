@@ -19,6 +19,9 @@ backend_dir = current_dir.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
+from backend.platforms.core.factory import get_platform_service
+service = get_platform_service()
+
 class TodoApi:
     """TodoList应用的API类，提供前后端通信接口"""
     
@@ -27,8 +30,6 @@ class TodoApi:
         self.db = TodoDatabase()
         backend_logger.info("数据库连接成功")
         try:
-            from backend.platforms.core.factory import get_platform_service
-            service = get_platform_service()
             service.add_new_desktop_task_reminder()
             backend_logger.info("任务提醒器已重置")
         except Exception as e:
@@ -63,9 +64,7 @@ class TodoApi:
     # 日历写入权限校验
     def check_calendar_permission(self):
         """检查权限"""
-        from backend.reminder.calendar_manager import check_permission
-        if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
-            check_permission()
+        service.check_calendar_permission()
 
     # 任务相关API
     def add_todo(self, task_data):
@@ -78,8 +77,7 @@ class TodoApi:
         try:
             if task_data['dueDate'] and (hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ):
                 target_time = datetime.fromisoformat(task_data['dueDate']).timestamp() * 1000
-                from backend.reminder.calendar_manager import add_task_reminder_to_calendar
-                add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
+                service.add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
             result = self.db.add_task(task_data)
             return {'success': True, 'task': result}
         except Exception as e:
@@ -172,8 +170,7 @@ class TodoApi:
             for task in result:
                 if task.get('dueDate') and (hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ):
                     target_time = datetime.fromisoformat(task['dueDate']).timestamp() * 1000
-                    from backend.reminder.calendar_manager import add_task_reminder_to_calendar
-                    add_task_reminder_to_calendar(task['title'], task['description'], target_time)
+                    service.add_task_reminder_to_calendar(task['title'], task['description'], target_time)
             return {'success': True, 'tasks': result}
         except Exception as e:
             return {'success': False, 'error': str(e)}
