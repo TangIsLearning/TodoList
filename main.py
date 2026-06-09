@@ -8,7 +8,6 @@ import os
 import logging
 import backend.globals
 from pathlib import Path
-from backend.reminder.task_reminder import start_reminder, stop_reminder
 
 # 1. 代码根目录（只读）与数据存储目录（可写）分离
 project_root = Path(__file__).parent
@@ -67,7 +66,7 @@ if __name__ == '__main__':
         """抽取出的公共清理逻辑，确保资源完全释放"""
         # 1. 停止任务提醒
         try:
-            stop_reminder()
+            service.start_desktop_task_reminder(False)
             app_logger.info("提醒服务已停止")
         except Exception as e:
             app_logger.info(f"停止提醒服务异常: {e}")
@@ -110,7 +109,6 @@ if __name__ == '__main__':
         if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
             # 启动任务提醒服务
             app_logger.info("启动任务提醒服务...")
-            start_reminder()
             start.start_app()
         else:
             from PIL import Image
@@ -119,7 +117,7 @@ if __name__ == '__main__':
 
             # 启动任务提醒服务
             app_logger.info("启动任务提醒服务...")
-            start_reminder(click_event=on_open)
+            service.start_desktop_task_reminder(True, on_open)
 
             # 创建系统托盘，但不在主线程阻塞运行
             image = Image.open(utils.get_app_icon())

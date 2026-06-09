@@ -86,5 +86,20 @@ class LinuxService(PlatformService):
         from backend.platforms.impl.desktop.common.smart_task import SmartTaskInput
         SmartTaskInput(webview)
 
+    def start_desktop_task_reminder(self, is_start, event=None):
+        """应用启用快捷键的统一接口"""
+        from backend.platforms.impl.desktop.common.task_reminder import start_reminder, stop_reminder
+        if is_start:
+            start_reminder(click_event=event)
+        else:
+            stop_reminder()
+
+    def add_new_desktop_task_reminder(self):
+        """应用桌面端新任务添加消息提醒的统一接口"""
+        from backend.platforms.impl.desktop.common.task_reminder import get_reminder
+        # 重置已提醒任务列表，确保新任务可以被提醒
+        reminder = get_reminder()
+        reminder.reset_notified_tasks()
+
 # 用于给工厂注册的导出变量
 ExportService = LinuxService

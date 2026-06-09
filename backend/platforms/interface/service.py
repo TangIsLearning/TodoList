@@ -46,3 +46,13 @@ class PlatformService(ABC):
     def start_keyboard(self, webview):
         """应用启用快捷键的统一接口"""
         pass
+
+    @abstractmethod
+    def start_desktop_task_reminder(self, is_start, event=None):
+        """应用桌面端消息提醒的统一接口"""
+        pass
+
+    @abstractmethod
+    def add_new_desktop_task_reminder(self):
+        """应用桌面端新任务添加消息提醒的统一接口"""
+        pass

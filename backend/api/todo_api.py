@@ -26,11 +26,10 @@ class TodoApi:
         backend_logger.info("初始化TodoApi")
         self.db = TodoDatabase()
         backend_logger.info("数据库连接成功")
-        # 重置已提醒任务列表，确保新任务可以被提醒
         try:
-            from backend.reminder.task_reminder import get_reminder
-            reminder = get_reminder()
-            reminder.reset_notified_tasks()
+            from backend.platforms.core.factory import get_platform_service
+            service = get_platform_service()
+            service.add_new_desktop_task_reminder()
             backend_logger.info("任务提醒器已重置")
         except Exception as e:
             backend_logger.warning(f"重置任务提醒器失败: {e}")

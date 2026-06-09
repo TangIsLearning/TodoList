@@ -42,5 +42,11 @@ class AndroidService(PlatformService):
     def start_keyboard(self, webview):
         pass
 
+    def start_desktop_task_reminder(self, is_start, event=None):
+        pass
+
+    def add_new_desktop_task_reminder(self):
+        pass
+
 # 用于给工厂注册的导出变量
 ExportService = AndroidService
