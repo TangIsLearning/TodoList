@@ -39,11 +39,11 @@ if sys.platform == 'darwin':
     extra_hiddenimports = [
         'desktop_notifier.platforms.darwin',
         'webview.platforms.cocoa',
-        'backend.platforms.impl.mac_impl',
+        'backend.platforms.impl.desktop.mac_impl',
     ]
     extra_exclude_modules = [
-        'backend.platforms.impl.win_impl',
-        'backend.platforms.impl.linux_impl',
+        'backend.platforms.impl.desktop.win_impl',
+        'backend.platforms.impl.desktop.linux_impl',
     ]
     icon_file = 'todo_icon.icns' if Path('todo_icon.icns').exists() else None
 elif sys.platform == 'win32':
@@ -52,21 +52,21 @@ elif sys.platform == 'win32':
         'desktop_notifier.platforms.windows',
         'winsdk.windows.ui.notifications',
         'winsdk.windows.foundation',
-        'backend.platforms.impl.win_impl',
+        'backend.platforms.impl.desktop.win_impl',
     ]
     extra_exclude_modules = [
-        'backend.platforms.impl.mac_impl',
-        'backend.platforms.impl.linux_impl',
+        'backend.platforms.impl.desktop.mac_impl',
+        'backend.platforms.impl.desktop.linux_impl',
     ]
     icon_file = 'todo_icon.ico' if Path('todo_icon.ico').exists() else None
 else:  # Linux
     extra_hiddenimports = [
         'desktop_notifier.platforms.linux',
-        'backend.platforms.impl.linux_impl',
+        'backend.platforms.impl.desktop.linux_impl',
     ]
     extra_exclude_modules = [
-        'backend.platforms.impl.mac_impl',
-        'backend.platforms.impl.win_impl',
+        'backend.platforms.impl.desktop.mac_impl',
+        'backend.platforms.impl.desktop.win_impl',
     ]
     icon_file = 'todo_icon.png' if Path('todo_icon.png').exists() else None
 

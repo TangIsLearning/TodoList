@@ -1,4 +1,4 @@
-# impl/linux_impl.py
+# impl/desktop/linux_impl.py
 from backend.platforms.interface.service import PlatformService
 
 class LinuxService(PlatformService):

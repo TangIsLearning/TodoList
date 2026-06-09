@@ -1,4 +1,4 @@
-# impl/mac_impl.py
+# impl/desktop/mac_impl.py
 
 import sys
 from backend.platforms.interface.service import PlatformService
