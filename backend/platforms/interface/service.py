@@ -71,3 +71,13 @@ class PlatformService(ABC):
     def sync_reminder_to_calendar(self, sync_start_time, sync_end_time):
         """同步任务提醒到日历的统一接口"""
         pass
+
+    @abstractmethod
+    def add_firewall_rule(self, port):
+        """添加防火墙策略规则的统一接口"""
+        pass
+
+    @abstractmethod
+    def remove_firewall_rule(self, port):
+        """移除防火墙策略规则的统一接口"""
+        pass

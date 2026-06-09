@@ -86,7 +86,6 @@ base_hiddenimports = [
     'backend.platforms.impl.desktop.common.task_reminder',
     'backend.reminder.impl.mobile.common.calendar_manager',
     'backend.p2p.data_manager',
-    'backend.p2p.firewall_manager',
     'backend.p2p.p2p_client',
     'backend.p2p.p2p_server',
     'backend.platforms.core_factory',

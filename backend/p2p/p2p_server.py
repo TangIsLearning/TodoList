@@ -7,28 +7,18 @@ import json
 import struct
 from typing import Callable, Optional, Tuple
 
+from backend.platforms.core.factory import get_platform_service
+service = get_platform_service()
 
 class P2PServer:
     """P2P服务器，用于在局域网内共享数据"""
 
-    def __init__(self, port: int = 5000, auto_manage_firewall: bool = True):
+    def __init__(self, port: int = 5000):
         self.port = port
         self.server_socket: Optional[socket.socket] = None
         self.is_running = False
         self.on_data_received_callback: Optional[Callable] = None
         self.on_data_request_callback: Optional[Callable] = None
-        self.auto_manage_firewall = auto_manage_firewall
-        self._firewall_manager = None
-
-        # 如果启用自动防火墙管理，初始化防火墙管理器
-        if self.auto_manage_firewall:
-            try:
-                from backend.p2p.firewall_manager import FirewallManager
-                self._firewall_manager = FirewallManager(port=port)
-                print(f"[P2P服务器] 防火墙自动管理已启用")
-            except Exception as e:
-                print(f"[P2P服务器] 警告：无法初始化防火墙管理器: {e}")
-                self._firewall_manager = None
 
     def start(self, callback: Optional[Callable] = None) -> Tuple[bool, str]:
         """启动服务器
@@ -45,16 +35,14 @@ class P2PServer:
         self.on_data_received_callback = callback
 
         # 自动添加防火墙规则
-        firewall_message = ""
-        if self._firewall_manager:
-            print(f"[P2P服务器] 正在配置防火墙规则...")
-            fw_success, fw_msg = self._firewall_manager.add_rule()
-            if not fw_success:
-                print(f"[P2P服务器] 警告：{fw_msg}")
-                firewall_message = f"（注意：{fw_msg}）"
-            else:
-                print(f"[P2P服务器] {fw_msg}")
-                firewall_message = f"（{fw_msg}）"
+        print(f"[P2P服务器] 正在配置防火墙规则...")
+        fw_success, fw_msg = service.add_firewall_rule(self.port)
+        if not fw_success:
+            print(f"[P2P服务器] 警告：{fw_msg}")
+            firewall_message = f"（注意：{fw_msg}）"
+        else:
+            print(f"[P2P服务器] {fw_msg}")
+            firewall_message = f"（{fw_msg}）"
 
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -75,8 +63,7 @@ class P2PServer:
             print(f"[P2P服务器] [FAIL] {error_msg}")
 
             # 启动失败时清理防火墙规则
-            if self._firewall_manager:
-                self._firewall_manager.remove_rule()
+            service.remove_firewall_rule(self.port)
 
             return False, error_msg
         except Exception as e:
@@ -84,8 +71,7 @@ class P2PServer:
             print(f"[P2P服务器] [FAIL] {error_msg}")
 
             # 启动失败时清理防火墙规则
-            if self._firewall_manager:
-                self._firewall_manager.remove_rule()
+            service.remove_firewall_rule(self.port)
 
             return False, error_msg
 
@@ -114,13 +100,12 @@ class P2PServer:
             self.server_socket = None
 
         # 自动删除防火墙规则
-        if self._firewall_manager:
-            print(f"[P2P服务器] 正在清理防火墙规则...")
-            fw_success, fw_msg = self._firewall_manager.remove_rule()
-            if not fw_success:
-                print(f"[P2P服务器] 警告：{fw_msg}")
-            else:
-                print(f"[P2P服务器] {fw_msg}")
+        print(f"[P2P服务器] 正在清理防火墙规则...")
+        fw_success, fw_msg = service.remove_firewall_rule(self.port)
+        if not fw_success:
+            print(f"[P2P服务器] 警告：{fw_msg}")
+        else:
+            print(f"[P2P服务器] {fw_msg}")
 
         print(f"[P2P服务器] [OK] 服务器已停止")
         return True, "服务器已停止"

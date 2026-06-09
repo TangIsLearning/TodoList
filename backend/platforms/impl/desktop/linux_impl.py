@@ -113,5 +113,13 @@ class LinuxService(PlatformService):
         """同步任务提醒到日历的统一接口"""
         pass
 
+    def add_firewall_rule(self, port):
+        """添加防火墙策略规则的统一接口"""
+        return True, "非Windows系统，无需配置防火墙"
+
+    def remove_firewall_rule(self, port):
+        """移除防火墙策略规则的统一接口"""
+        return True, "非Windows系统，无需操作防火墙"
+
 # 用于给工厂注册的导出变量
 ExportService = LinuxService
