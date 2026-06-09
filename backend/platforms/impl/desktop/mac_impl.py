@@ -188,5 +188,10 @@ class MacService(PlatformService):
         except Exception:
             pass
 
+    def start_keyboard(self, webview):
+        """应用启用快捷键的统一接口"""
+        from backend.platforms.impl.desktop.common.smart_task import SmartTaskInput
+        SmartTaskInput(webview)
+
 # 用于给工厂注册的导出变量
 ExportService = MacService

@@ -151,8 +151,8 @@ def start_app():
         # 保存全局变量，以便在 finally 中能够正常关闭
         window.user_data = {'sync_manager': sync_manager}
 
-        from backend.keyboard.smart_task import SmartTaskInput
-        SmartTaskInput(webview)
+        # 快捷键功能(仅在桌面端启用)
+        service.start_keyboard(webview)
 
     app_logger.info("启动webview...")
     try:

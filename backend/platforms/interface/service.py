@@ -41,3 +41,8 @@ class PlatformService(ABC):
     def start_prepare(self):
         """应用启动前准备工作的统一接口"""
         pass
+
+    @abstractmethod
+    def start_keyboard(self, webview):
+        """应用启用快捷键的统一接口"""
+        pass

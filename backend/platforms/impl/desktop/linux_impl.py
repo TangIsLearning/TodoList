@@ -81,5 +81,10 @@ class LinuxService(PlatformService):
         # 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
         os.environ["NO_AT_BRIDGE"] = "1"
 
+    def start_keyboard(self, webview):
+        """应用启用快捷键的统一接口"""
+        from backend.platforms.impl.desktop.common.smart_task import SmartTaskInput
+        SmartTaskInput(webview)
+
 # 用于给工厂注册的导出变量
 ExportService = LinuxService

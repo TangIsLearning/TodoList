@@ -39,5 +39,8 @@ class AndroidService(PlatformService):
     def start_prepare(self):
         pass
 
+    def start_keyboard(self, webview):
+        pass
+
 # 用于给工厂注册的导出变量
 ExportService = AndroidService

@@ -82,7 +82,7 @@ base_hiddenimports = [
     'backend.api.todo_api',
     'backend.utils.logger',
     'backend.utils.utils',
-    'backend.keyboard.smart_task',
+    'backend.platforms.impl.desktop.common.smart_task',
     'backend.p2p.data_manager',
     'backend.p2p.firewall_manager',
     'backend.p2p.p2p_client',
