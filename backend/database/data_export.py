@@ -14,7 +14,7 @@ backend_dir = current_dir.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-class DataManager:
+class DataExportManager:
     """数据管理器，负责数据的导出和导入"""
 
     def __init__(self, data_file=None):

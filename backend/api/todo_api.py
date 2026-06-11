@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.database.operations import TodoDatabase
+from backend.database.data_export import DataExportManager
+from backend.p2p.p2p_server import P2PServer
 from backend.utils.logger import backend_logger, log_frontend_message
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,11 @@ class TodoApi:
         self.db = TodoDatabase()
         self.is_android = is_android
         self.sync_manager = sync_manager
-        backend_logger.info("数据库连接成功")
+        self._received_data = None
+        self._exported_data = None
+        self._p2p_server = P2PServer()
+        self._data_manager = DataExportManager()
+        backend_logger.info("初始化TodoApi成功")
         try:
             service.add_new_desktop_task_reminder()
             backend_logger.info("任务提醒器已重置")
@@ -343,14 +349,6 @@ class TodoApi:
     def p2p_start_server(self):
         """启动P2P服务器"""
         try:
-            from backend.p2p.p2p_server import P2PServer
-            from backend.p2p.data_manager import DataManager
-
-            # 确保只启动一个服务器实例
-            if not hasattr(self, '_p2p_server'):
-                self._p2p_server = P2PServer()
-                self._data_manager = DataManager()
-
             def data_received_callback(data, address):
                 """数据接收回调"""
                 # 存储接收到的数据供前端获取
@@ -436,13 +434,10 @@ class TodoApi:
     def p2p_export_data(self):
         """导出当前数据"""
         try:
-            from backend.p2p.data_manager import DataManager
-            data_manager = DataManager()
-            data = data_manager.export_data()
-            if data:
+            self._exported_data  = self._data_manager.export_data()
+            if self._exported_data :
                 # 存储导出的数据供服务器使用
-                self._exported_data = data
-                return {'success': True, 'data': data}
+                return {'success': True, 'data': self._exported_data }
             else:
                 return {'success': False, 'error': '导出数据失败'}
         except Exception as e:
@@ -460,9 +455,7 @@ class TodoApi:
     def p2p_get_data_summary(self):
         """获取当前数据摘要"""
         try:
-            from backend.p2p.data_manager import DataManager
-            data_manager = DataManager()
-            summary = data_manager.get_data_summary()
+            summary = self._data_manager.get_data_summary()
             if summary:
                 return {'success': True, 'summary': summary}
             else:
@@ -473,20 +466,16 @@ class TodoApi:
     def p2p_has_data(self):
         """检查是否有数据"""
         try:
-            from backend.p2p.data_manager import DataManager
-            data_manager = DataManager()
-            has_data = data_manager.has_data()
+            has_data = self._data_manager.has_data()
             return {'success': True, 'has_data': has_data}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def p2p_import_data(self, data, backup=True):
+    def p2p_import_data(self, data):
         """导入数据"""
         try:
-            from backend.p2p.data_manager import DataManager
-            data_manager = DataManager()
             # 在安卓设备上由于可能存在权限问题，因而不做备份操作
-            success = data_manager.import_data(data, backup=(not self.is_android))
+            success = self._data_manager.import_data(data, backup=(not self.is_android))
             if success:
                 # 导入成功后刷新前端缓存
                 self._received_data = None
@@ -532,7 +521,6 @@ class TodoApi:
         """设置数据文件配置"""
         try:
             from backend.config import set_data_file
-            from backend.p2p.data_manager import DataManager
             
             # 验证并设置新文件
             if set_data_file(file_path):
@@ -543,7 +531,7 @@ class TodoApi:
                 if hasattr(self, '_data_manager'):
                     self._data_manager.switch_data_file(file_path)
                 else:
-                    self._data_manager = DataManager(file_path)
+                    self._data_manager = DataExportManager(file_path)
                 
                 backend_logger.info(f"数据文件已设置为: {file_path}")
                 return {
