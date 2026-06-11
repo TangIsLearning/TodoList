@@ -78,6 +78,7 @@ base_hiddenimports = [
     'desktop_notifier.resources',
     'desktop_notifier.main',
     'backend.database.operations',
+    'backend.database.data_sync',
     'backend.database.models',
     'backend.api.todo_api',
     'backend.utils.logger',
@@ -91,7 +92,6 @@ base_hiddenimports = [
     'backend.p2p.p2p_server',
     'backend.platforms.core_factory',
     'backend.platforms.interface.service',
-    'backend.webdav.data_sync',
     'backend.webdav.webdav_client',
 ]
 

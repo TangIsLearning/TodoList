@@ -25,10 +25,11 @@ service = get_platform_service()
 class TodoApi:
     """TodoList应用的API类，提供前后端通信接口"""
     
-    def __init__(self, is_android):
+    def __init__(self, is_android, sync_manager):
         backend_logger.info("初始化TodoApi")
         self.db = TodoDatabase()
         self.is_android = is_android
+        self.sync_manager = sync_manager
         backend_logger.info("数据库连接成功")
         try:
             service.add_new_desktop_task_reminder()
@@ -688,14 +689,10 @@ class TodoApi:
             if success:
                 # 如果启用了自动同步，重启同步管理器
                 if config.get('enabled') and config.get('auto_sync'):
-                    from backend.webdav.data_sync import get_data_sync_manager
-                    sync_manager = get_data_sync_manager()
-                    sync_manager.start_auto_sync()
+                    self.sync_manager.start_auto_sync()
                 elif not config.get('enabled') or not config.get('auto_sync'):
                     # 停止自动同步
-                    from backend.webdav.data_sync import get_data_sync_manager
-                    sync_manager = get_data_sync_manager()
-                    sync_manager.stop_auto_sync()
+                    self.sync_manager.stop_auto_sync()
                 
                 return {
                     'success': True,
@@ -738,10 +735,7 @@ class TodoApi:
     def sync_from_cloud(self, is_overwrite = False):
         """从云端同步数据到本地"""
         try:
-            from backend.webdav.data_sync import get_data_sync_manager
-            sync_manager = get_data_sync_manager()
-            result = sync_manager.sync_from_cloud(is_overwrite)
-            return result
+            return self.sync_manager.sync_from_cloud(is_overwrite)
         except Exception as e:
             return {
                 'success': False,
@@ -751,10 +745,7 @@ class TodoApi:
     def sync_to_cloud(self):
         """将本地数据同步到云端"""
         try:
-            from backend.webdav.data_sync import get_data_sync_manager
-            sync_manager = get_data_sync_manager()
-            result = sync_manager.sync_to_cloud()
-            return result
+            return self.sync_manager.sync_to_cloud()
         except Exception as e:
             return {
                 'success': False,
@@ -764,12 +755,9 @@ class TodoApi:
     def get_sync_status(self):
         """获取同步状态"""
         try:
-            from backend.webdav.data_sync import get_data_sync_manager
-            sync_manager = get_data_sync_manager()
-            status = sync_manager.get_sync_status()
             return {
                 'success': True,
-                'status': status
+                'status': self.sync_manager.get_sync_status()
             }
         except Exception as e:
             return {
@@ -780,9 +768,7 @@ class TodoApi:
     def trigger_upload_on_change(self):
         """在数据变更时触发上传"""
         try:
-            from backend.webdav.data_sync import get_data_sync_manager
-            sync_manager = get_data_sync_manager()
-            sync_manager.trigger_upload_on_change()
+            self.sync_manager.trigger_upload_on_change()
             logger.info(f"更新文件成功")
             return {
                 'success': True

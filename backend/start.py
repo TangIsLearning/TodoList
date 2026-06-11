@@ -108,16 +108,16 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
 
         # 在子线程中延时或直接导入耗时模块
         from backend.api.todo_api import TodoApi
-        from backend.webdav.data_sync import get_data_sync_manager
+        from backend.database.data_sync import get_data_sync_manager
         from backend.utils import utils
-
-        # 创建API实例
-        api = TodoApi(is_android)
-        app_logger.info("TodoApi 实例创建成功")
 
         # 初始化数据同步管理器
         app_logger.info("初始化数据同步管理器...")
         sync_manager = get_data_sync_manager()
+
+        # 创建API实例
+        api = TodoApi(is_android, sync_manager)
+        app_logger.info("TodoApi 实例创建成功")
 
         # 设置同步回调，当云端数据更新时刷新前端
         def on_sync_complete():
