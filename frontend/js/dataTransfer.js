@@ -325,28 +325,30 @@ class DataTransfer {
 
     async confirmImport() {
         try {
-            if (!confirm('确认要导入数据吗？\n\n注意：此操作将覆盖当前所有数据！')) {
-                return;
-            }
+            this.closeModal();
+            Utils.confirmDialog(
+                window.languageManager.getText('settingsImportWarning', '注意：当前操作将覆盖本地所有数据。建议先备份重要数据。是否继续？'),
+                async () => {
+                    this.confirmImportBtn.disabled = true;
+                    this.confirmImportBtn.textContent = '导入中...';
 
-            this.confirmImportBtn.disabled = true;
-            this.confirmImportBtn.textContent = '导入中...';
-
-            const result = await window.pywebview.api.p2p_get_received_data();
-            if (result.success && result.data) {
-                const importResult = await window.pywebview.api.p2p_import_data(result.data);
-                if (importResult.success) {
-                    Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
-                    this.closeModal();
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1000);
-                } else {
-                    Utils.showToast(`${window.languageManager.getText('dataImportedFailed', '数据导入失败')}: ${importResult.error}`, 'error');
+                    const result = await window.pywebview.api.p2p_get_received_data();
+                    if (result.success && result.data) {
+                        const importResult = await window.pywebview.api.p2p_import_data(result.data);
+                        if (importResult.success) {
+                            Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
+                            this.closeModal();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            Utils.showToast(`${window.languageManager.getText('dataImportedFailed', '数据导入失败')}: ${importResult.error}`, 'error');
+                        }
+                    } else {
+                        Utils.showToast(window.languageManager.getText('retrieveDataFailed', '无法获取接收到的数据'), 'error');
+                    }
                 }
-            } else {
-                Utils.showToast(window.languageManager.getText('retrieveDataFailed', '无法获取接收到的数据'), 'error');
-            }
+            );
         } catch (error) {
             console.error('导入数据失败:', error);
             Utils.showToast(`${window.languageManager.getText('dataImportedFailed', '数据导入失败')}: ${error.message}`, 'error');
