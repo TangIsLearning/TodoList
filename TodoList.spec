@@ -44,6 +44,11 @@ if sys.platform == 'darwin':
     extra_exclude_modules = [
         'backend.platforms.impl.desktop.win_impl',
         'backend.platforms.impl.desktop.linux_impl',
+        'backend.platforms.impl.mobile.android_impl',
+        'backend.platforms.impl.mobile.common.calendar_manager',
+        'backend.platforms.impl.mobile.common.webdav.webdav_client',
+        'backend.platforms.impl.mobile.common.webdav.webdav_config',
+        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.icns' if Path('todo_icon.icns').exists() else None
 elif sys.platform == 'win32':
@@ -57,6 +62,11 @@ elif sys.platform == 'win32':
     extra_exclude_modules = [
         'backend.platforms.impl.desktop.mac_impl',
         'backend.platforms.impl.desktop.linux_impl',
+        'backend.platforms.impl.mobile.android_impl',
+        'backend.platforms.impl.mobile.common.calendar_manager',
+        'backend.platforms.impl.mobile.common.webdav.webdav_client',
+        'backend.platforms.impl.mobile.common.webdav.webdav_config',
+        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.ico' if Path('todo_icon.ico').exists() else None
 else:  # Linux
@@ -67,6 +77,11 @@ else:  # Linux
     extra_exclude_modules = [
         'backend.platforms.impl.desktop.mac_impl',
         'backend.platforms.impl.desktop.win_impl',
+        'backend.platforms.impl.mobile.android_impl',
+        'backend.platforms.impl.mobile.common.calendar_manager',
+        'backend.platforms.impl.mobile.common.webdav.webdav_client',
+        'backend.platforms.impl.mobile.common.webdav.webdav_config',
+        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.png' if Path('todo_icon.png').exists() else None
 
@@ -78,7 +93,6 @@ base_hiddenimports = [
     'desktop_notifier.resources',
     'desktop_notifier.main',
     'backend.database.operations',
-    'backend.database.data_sync',
     'backend.database.data_export',
     'backend.database.models',
     'backend.api.todo_api',
@@ -87,8 +101,6 @@ base_hiddenimports = [
     'backend.platforms.impl.desktop.common.smart_task',
     'backend.platforms.impl.desktop.common.system_tray',
     'backend.platforms.impl.desktop.common.task_reminder',
-    'backend.reminder.impl.mobile.common.calendar_manager',
-    'backend.features.webdav_client',
     'backend.features.p2p.p2p_client',
     'backend.features.p2p.p2p_server',
     'backend.platforms.core_factory',

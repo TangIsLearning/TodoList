@@ -648,122 +648,44 @@ class TodoApi:
             return {'success': False, 'error': str(e)}
     
     # ==================== WebDAV同步相关API ====================
-    
+
+    def _call_manager_method(self, method_name, *args, **kwargs):
+        """通用调用 sync_manager 的方法，自动处理异常和不支持的情况"""
+        if self.sync_manager and hasattr(self.sync_manager, method_name):
+            try:
+                return getattr(self.sync_manager, method_name)(*args, **kwargs)
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+        else:
+            return {'success': False, 'error': '当前系统不支持'}
+
     def get_webdav_config(self):
         """获取WebDAV配置"""
-        try:
-            from backend.config_manager import get_webdav_config
-            config = get_webdav_config()
-            return {
-                'success': True,
-                'config': config
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('get_webdav_config')
     
     def set_webdav_config(self, config):
         """设置WebDAV配置"""
-        try:
-            from backend.config_manager import set_webdav_config
-            
-            # 保存配置
-            success = set_webdav_config(config)
-            
-            if success:
-                # 如果启用了自动同步，重启同步管理器
-                if config.get('enabled') and config.get('auto_sync'):
-                    self.sync_manager.start_auto_sync()
-                elif not config.get('enabled') or not config.get('auto_sync'):
-                    # 停止自动同步
-                    self.sync_manager.stop_auto_sync()
-                
-                return {
-                    'success': True,
-                    'message': 'WebDAV配置保存成功'
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': '配置保存失败'
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('set_webdav_config', config)
     
     def test_webdav_connection(self, username, password, remote_path):
         """测试WebDAV连接"""
-        try:
-            from backend.features.webdav_client import WebDAVClient
-            
-            # 创建临时客户端进行测试
-            client = WebDAVClient()
-            if client.configure(username, password, remote_path):
-                result = client.test_connection()
-                return result
-            else:
-                return {
-                    'success': False,
-                    'error': '客户端配置失败'
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('test_webdav_connection', username, password, remote_path)
     
     def sync_from_cloud(self, is_overwrite = False):
         """从云端同步数据到本地"""
-        try:
-            return self.sync_manager.sync_from_cloud(is_overwrite)
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('sync_from_cloud', is_overwrite)
     
     def sync_to_cloud(self):
         """将本地数据同步到云端"""
-        try:
-            return self.sync_manager.sync_to_cloud()
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('sync_to_cloud')
     
     def get_sync_status(self):
         """获取同步状态"""
-        try:
-            return {
-                'success': True,
-                'status': self.sync_manager.get_sync_status()
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('get_sync_status')
     
     def trigger_upload_on_change(self):
         """在数据变更时触发上传"""
-        try:
-            self.sync_manager.trigger_upload_on_change()
-            logger.info(f"更新文件成功")
-            return {
-                'success': True
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._call_manager_method('trigger_upload_on_change')
     
     # ==================== 开机自启动相关API ====================
     

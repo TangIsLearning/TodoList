@@ -43,7 +43,7 @@ chinese_localization = {
     'global.cancel': '取消'
 }
 
-def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
+def start_app(is_android = False, ssl_enable = True, start_keyboard = None, sync_manager = None):
     """启动TodoList桌面应用"""
 
     def on_closing():
@@ -108,12 +108,7 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
 
         # 在子线程中延时或直接导入耗时模块
         from backend.api.todo_api import TodoApi
-        from backend.database.data_sync import get_data_sync_manager
         from backend.utils import utils
-
-        # 初始化数据同步管理器
-        app_logger.info("初始化数据同步管理器...")
-        sync_manager = get_data_sync_manager()
 
         # 创建API实例
         api = TodoApi(is_android, sync_manager)
@@ -133,10 +128,12 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
             except Exception as e:
                 app_logger.error(f"同步回调执行失败: {e}")
 
-        sync_manager.set_sync_callback(on_sync_complete)
-
-        # 启动自动同步
-        sync_manager.start_auto_sync()
+        if sync_manager:
+            sync_manager.set_sync_callback(on_sync_complete)
+            # 启动自动同步
+            sync_manager.start_auto_sync()
+            # 保存全局变量，以便在 finally 中能够正常关闭
+            window.user_data = {'sync_manager': sync_manager}
 
         # 获取前端文件路径
         frontend_path = get_resource_path('frontend/index.html')
@@ -147,8 +144,6 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
         # 动态绑定之前延迟初始化的后台 API
         window._js_api = api
         window.on_top = utils.str_to_bool(api.db.get_setting('window_on_top', False))
-        # 保存全局变量，以便在 finally 中能够正常关闭
-        window.user_data = {'sync_manager': sync_manager}
 
         # 快捷键功能(仅在桌面端启用)
         start_keyboard()

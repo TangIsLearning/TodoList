@@ -86,7 +86,8 @@ class AndroidService(PlatformService):
     def start_app(self):
         """启动应用的统一接口"""
         from backend import start
-        start.start_app(True, True, None) # 安卓端需要开启SSL，否则功能无法使用
+        from backend.platforms.impl.mobile.common.webdav.webdav_data_sync import get_data_sync_manager
+        start.start_app(True, True, None, get_data_sync_manager()) # 安卓端需要开启SSL，否则功能无法使用
 
 # 用于给工厂注册的导出变量
 ExportService = AndroidService
