@@ -804,5 +804,27 @@ class TodoApi:
                 'error': str(e)
             }
 
+    def set_language_config(self, language):
+        """设置快捷键配置"""
+        try:
+            self.set_setting('language', language)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_language_config(self):
+        """获取快捷键配置"""
+        try:
+            language = self.db.get_setting('language', 'zh')
+            return {
+                'success': True,
+                'config': language
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def open_in_browser(self, url):
         webbrowser.open(url)

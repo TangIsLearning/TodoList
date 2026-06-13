@@ -5,7 +5,7 @@
 
 class LanguageManager {
     constructor() {
-        this.currentLanguage = 'zh'; // 默认中文
+        this.currentLanguage;
         this.isInitialized = false;
         this.observers = []; // 观察者列表，用于通知界面更新
         this.retryCount = 0;
@@ -18,8 +18,8 @@ class LanguageManager {
     async init() {
         try {
             // 从存储中恢复语言设置
-            await this.restoreLanguageSetting();
-            
+            await this.initLanguageSetting();
+
             // 应用当前语言设置
             await this.applyLanguage(this.currentLanguage);
             
@@ -33,11 +33,27 @@ class LanguageManager {
     }
     
     // 恢复语言设置
-    async restoreLanguageSetting() {
+    async initLanguageSetting() {
+        let language = localStorage.getItem('todolist_language');
+        if (language) {
+            this.currentLanguage = language;
+            return;
+        }
+
         try {
-            const savedLanguage = localStorage.getItem('todolist_language') || 'zh';
-            this.currentLanguage = savedLanguage;
-            console.log('Language setting restored:', savedLanguage);
+            // 先等待 pywebview 加载完成
+            const isLoaded = await Utils.loadPywebviewApi();
+
+            if (!isLoaded) {
+               throw new Error('pywebview加载失败！');
+            }
+
+            const result = await window.pywebview.api.get_language_config();
+            if (result.success) {
+                const savedLanguage = result.config;
+                localStorage.setItem('todolist_language', savedLanguage);
+                this.currentLanguage = savedLanguage;
+            }
         } catch (error) {
             console.error('Failed to restore language setting:', error);
             this.currentLanguage = 'zh';
@@ -47,10 +63,18 @@ class LanguageManager {
     // 保存语言设置
     async saveLanguageSetting(language) {
         try {
-            localStorage.setItem('todolist_language', language);
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+
+            const result = await window.pywebview.api.set_language_config(language);
+            if (result.success) {
+                localStorage.setItem('todolist_language', language);
+            }
             console.log('Language setting saved:', language);
         } catch (error) {
             console.error('Failed to save language setting:', error);
+            this.currentLanguage = 'zh';
         }
     }
     
