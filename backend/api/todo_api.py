@@ -756,5 +756,29 @@ class TodoApi:
                 'error': str(e)
             }
 
+    # ==================== 快捷键相关API ====================
+
+    def set_shortcut_config(self, shortcut):
+        """设置快捷键配置"""
+        try:
+            self.set_setting('shortcut', shortcut)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_shortcut_config(self):
+        """获取快捷键配置"""
+        try:
+            shortcut = self.db.get_setting('shortcut', '<ctrl>+<space>')
+            return {
+                'success': True,
+                'config': shortcut
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def open_in_browser(self, url):
         webbrowser.open(url)

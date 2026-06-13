@@ -204,7 +204,7 @@ class SettingsUIManager {
             this.smartKeyApply.addEventListener('click', async () => {
                 this.currentButtonKey = this.smartKeyShow.textContent;
                 this.resetModifiers();
-                const result = await window.pywebview.api.set_setting('shortcut', this.currentButtonKey);
+                const result = await window.pywebview.api.set_shortcut_config(this.currentButtonKey);
                 if (result) {
                     localStorage.setItem('todolist_shortcut', this.currentButtonKey);
                     Utils.showToast(`${window.languageManager.getText('settingsShortcutAs', '已设置为')}: ${this.currentButtonKey},
@@ -250,6 +250,9 @@ class SettingsUIManager {
         
         // 更新开机启动状态
         this.updateAutoStartState();
+
+        // 更新快捷键配置
+        this.updateShortcutConfig();
     }
 
     // 更新语言状态
@@ -531,6 +534,34 @@ class SettingsUIManager {
 
             if (result.success) {
                 this.windowTopToggle.checked = result.enabled;
+            }
+        } catch (error) {
+            console.error('更新开机启动状态失败:', error);
+        }
+    }
+
+    // 更新快捷键配置
+    async updateShortcutConfig() {
+        if (!this.smartKeyShow) {
+            return;
+        }
+
+        let shortcut = localStorage.getItem('todolist_shortcut');
+        if (shortcut) {
+            this.smartKeyShow.textContent = shortcut;
+            return;
+        }
+
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
+
+            const result = await window.pywebview.api.get_shortcut_config();
+
+            if (result.success) {
+                localStorage.setItem('todolist_shortcut', result.config);
+                this.smartKeyShow.textContent = result.config;
             }
         } catch (error) {
             console.error('更新开机启动状态失败:', error);
