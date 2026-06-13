@@ -214,13 +214,13 @@ class SettingsUIManager {
         }
     }
     
-    openModal() {
+    async openModal() {
         if (this.modal) {
             this.modal.style.display = 'flex';
             this.modal.classList.add('show');
             
             // 更新当前状态
-            this.updateCurrentState();
+            await this.updateCurrentState();
             
             // 更新数据文件配置
             this.updateDataFileConfig();
@@ -235,15 +235,12 @@ class SettingsUIManager {
         }
     }
     
-    updateCurrentState() {
+    async updateCurrentState() {
         // 更新窗口置顶状态
         this.updateWindowOnTopState();
         
         // 更新主题选择
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        if (this.themeDarkToggle) {
-            this.themeDarkToggle.checked = currentTheme === 'dark';
-        }
+        await BusinessUtils.ThemeManager.init();
         
         // 更新语言状态
         this.updateLanguageSwitchState();
@@ -290,14 +287,14 @@ class SettingsUIManager {
         if (this.themeDarkToggle) {
             theme = this.themeDarkToggle.checked ? 'dark' : 'light';
         }
-        document.documentElement.setAttribute('data-theme', theme);
-        
+
         // 更新主题切换按钮
         BusinessUtils.ThemeManager.updateToggleButton(theme);
-        
-        // 异步保存到 localStorage
+
+        // 保存到数据库
         try {
             localStorage.setItem('todolist_theme', theme);
+            await window.pywebview.api.set_theme_config(theme);
             Utils.showToast(`${theme === 'dark' ?
                 window.languageManager.getText('darkModeSwitched', '已切换到深色主题') :
                 window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
@@ -650,10 +647,8 @@ class SettingsUIManager {
             // 恢复窗口置顶状态
             this.onTop = localStorage.getItem('todolist_windowOnTop') === 'true';
             
-            // 恢复主题设置（由主题管理器处理）
-            const savedTheme = localStorage.getItem('todolist_theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            BusinessUtils.ThemeManager.updateToggleButton(savedTheme);
+            // 恢复主题设置
+            await BusinessUtils.ThemeManager.init();
             
             console.log('Settings restored successfully');
         } catch (error) {

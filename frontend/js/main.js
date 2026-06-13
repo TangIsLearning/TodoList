@@ -17,7 +17,7 @@ class App {
             }
             
             // 初始化主题
-            BusinessUtils.ThemeManager.init();
+            await BusinessUtils.ThemeManager.init();
             
             // 绑定全局事件
             this.bindGlobalEvents();
@@ -25,8 +25,11 @@ class App {
             // 初始化模块
             await this.initModules();
             
-            // 设置初始状态
-            this.setupInitialState();
+            // 设置初始焦点
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                setTimeout(() => searchInput.focus(), 100);
+            }
             
             this.isInitialized = true;
             logger.info('TodoList App initialized successfully', 'App');
@@ -240,36 +243,6 @@ class App {
                 console.error(`Failed to initialize ${module.name}:`, error);
                 Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
             }
-        }
-    }
-    
-    // 设置初始状态
-    setupInitialState() {
-        // 恢复用户设置
-        this.restoreUserSettings();
-        
-        // 设置初始焦点
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            setTimeout(() => searchInput.focus(), 100);
-        }
-    }
-    
-    // 恢复用户设置
-    async restoreUserSettings() {
-        try {
-            // 从 localStorage 恢复主题设置
-            const theme = localStorage.getItem('todolist_theme') || 'light';
-
-            // 应用主题设置
-            if (theme) {
-                document.documentElement.setAttribute('data-theme', theme);
-                BusinessUtils.ThemeManager.updateToggleButton(theme);
-            }
-
-            console.log('User settings restored');
-        } catch (error) {
-            console.error('Failed to restore user settings:', error);
         }
     }
     

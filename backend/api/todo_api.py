@@ -780,5 +780,29 @@ class TodoApi:
                 'error': str(e)
             }
 
+    # ==================== 快捷键相关API ====================
+
+    def set_theme_config(self, theme):
+        """设置快捷键配置"""
+        try:
+            self.set_setting('theme', theme)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_theme_config(self):
+        """获取快捷键配置"""
+        try:
+            theme = self.db.get_setting('theme', 'light')
+            return {
+                'success': True,
+                'config': theme
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def open_in_browser(self, url):
         webbrowser.open(url)

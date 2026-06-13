@@ -51,32 +51,40 @@ const DateTimeValidator = {
 
 // 主题管理
 const ThemeManager = {
-    init() {
-        // 从 localStorage 加载主题设置
-        const savedTheme = localStorage.getItem('todolist_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateToggleButton(savedTheme);
-    },
+    async init() {
+        let theme = localStorage.getItem('todolist_theme');
+        if (theme) {
+            this.updateToggleButton(theme);
+            return;
+        }
 
-    toggle() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        try {
+            if (!window.pywebview || !window.pywebview.api) {
+                return;
+            }
 
-        // 立即更新 UI
-        document.documentElement.setAttribute('data-theme', newTheme);
-        this.updateToggleButton(newTheme);
+            const result = await window.pywebview.api.get_theme_config();
 
-        // 保存到 localStorage
-        localStorage.setItem('todolist_theme', newTheme);
-        showToast(`${newTheme === 'dark' ?
-            window.languageManager.getText('darkModeSwitched', '已切换到深色主题') :
-            window.languageManager.getText('LightModeSwitched', '已切换到浅色主题')}`, 'success');
+            if (result.success) {
+                theme = result.config;
+                localStorage.setItem('todolist_theme', theme);
+                this.updateToggleButton(theme);
+            }
+        } catch (error) {
+            console.error('获取主题信息失败:', error);
+            this.updateToggleButton('light');
+        }
     },
 
     updateToggleButton(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
         const toggleBtn = document.getElementById('theme-toggle');
         if (toggleBtn) {
             toggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+        const themeDarkToggle = document.getElementById('theme-dark-toggle');
+        if (themeDarkToggle) {
+            themeDarkToggle.checked = theme === 'dark';
         }
     }
 };
