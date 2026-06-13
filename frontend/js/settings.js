@@ -379,6 +379,7 @@ class SettingsUIManager {
             this.autoStartToggle.disabled = true;
             
             const result = await window.pywebview.api.set_auto_start_config(enabled);
+            localStorage.setItem('todolist_auto_start', enabled.toString());
             
             if (result.success) {
                 Utils.showToast(enabled ?
@@ -495,6 +496,12 @@ class SettingsUIManager {
         if (!this.autoStartToggle) {
             return;
         }
+
+        let autoStart = localStorage.getItem('todolist_auto_start');
+        if (autoStart) {
+            this.autoStartToggle.checked = autoStart === 'true';
+            return;
+        }
         
         try {
             if (!window.pywebview || !window.pywebview.api) {
@@ -505,6 +512,7 @@ class SettingsUIManager {
             
             if (result.success) {
                 this.autoStartToggle.checked = result.config.enabled;
+                localStorage.setItem('todolist_auto_start', result.config.enabled.toString());
                 
                 // 如果平台不支持，禁用开关
                 if (!result.config.supported) {
