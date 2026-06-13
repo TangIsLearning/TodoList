@@ -525,6 +525,12 @@ class SettingsUIManager {
             return;
         }
 
+        let onTop = localStorage.getItem('todolist_windowOnTop');
+        if (onTop) {
+            this.onTop = onTop === 'true';
+            return;
+        }
+
         try {
             if (!window.pywebview || !window.pywebview.api) {
                 return;
