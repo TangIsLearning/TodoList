@@ -691,8 +691,10 @@ class WindowsService(PlatformService):
 
     def get_auto_start_status(self):
         """获取自动重启开关状态的统一接口"""
+        from backend.database.operations import TodoDatabase
+        auto_start_enabled = TodoDatabase().get_setting('auto_start_enabled', False)
         return {
-            'enabled': get_config_manager().get('auto_start_enabled', False),
+            'enabled': auto_start_enabled,
             'platform': 'windows',
             'supported': True
         }
@@ -702,10 +704,8 @@ class WindowsService(PlatformService):
         print(f"设置开机自启动状态: {enabled}")
         try:
             # 保存配置
-            success = get_config_manager().set('auto_start_enabled', enabled)
-            if not success:
-                print("保存自启动配置失败")
-                return False
+            from backend.database.operations import TodoDatabase
+            TodoDatabase().set_setting('auto_start_enabled', enabled)
 
             app_name = "TodoList"
 

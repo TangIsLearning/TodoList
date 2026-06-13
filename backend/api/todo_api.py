@@ -691,12 +691,13 @@ class TodoApi:
     
     def get_auto_start_config(self):
         """获取开机自启动配置"""
+        from backend.utils import utils
         try:
             status = service.get_auto_start_status()
             return {
                 'success': True,
                 'config': {
-                    'enabled': status['enabled'],
+                    'enabled': utils.str_to_bool(status['enabled']),
                     'platform': status['platform'],
                     'supported': status['supported']
                 }

@@ -180,8 +180,10 @@ class LinuxService(PlatformService):
 
     def get_auto_start_status(self) -> Dict[str, Any]:
         """获取自启动状态信息"""
+        from backend.database.operations import TodoDatabase
+        auto_start_enabled = TodoDatabase().get_setting('auto_start_enabled', False)
         return {
-            'enabled': get_config_manager().get('auto_start_enabled', False),
+            'enabled': auto_start_enabled,
             'platform': 'linux',
             'supported': True
         }
@@ -190,10 +192,8 @@ class LinuxService(PlatformService):
         print(f"设置开机自启动状态: {enabled}")
         try:
             # 保存配置
-            success = get_config_manager().set('auto_start_enabled', enabled)
-            if not success:
-                print("保存自启动配置失败")
-                return False
+            from backend.database.operations import TodoDatabase
+            TodoDatabase().set_setting('auto_start_enabled', enabled)
 
             app_name = "TodoList"
 
