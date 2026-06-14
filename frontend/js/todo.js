@@ -91,6 +91,9 @@ class TodoManager {
         
         // 初始化无限下拉功能
         this.initInfiniteScroll();
+
+        // 初始化标签管理模块
+        await this.loadTagsModule();
     }
     
     // 触发云端同步上传
@@ -1533,6 +1536,7 @@ class TodoManager {
                 
                 // 触发云端同步上传
                 await this.triggerCloudUpload();
+                await this.loadTagsModule();
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }
@@ -1655,6 +1659,7 @@ class TodoManager {
                 
                 // 触发云端同步上传
                 await this.triggerCloudUpload();
+                await this.loadTagsModule();
             } else {
                 Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
             }
@@ -2344,6 +2349,7 @@ class TodoManager {
                         }
                         // 重新加载标签
                         await this.loadTagsSelector();
+                        await this.loadTagsModule();
                     } else {
                         Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')} : ${response.error}`, 'error');
                     }
@@ -2433,6 +2439,74 @@ class TodoManager {
         return this.availableTags
             .filter(tag => this.selectedTags.includes(tag.id))
             .map(tag => tag.name);
+    }
+
+    // 加载标签管理模块数据
+    async loadTagsModule() {
+        try {
+            const response = await window.pywebview.api.get_all_tags();
+            if (response.success) {
+                const allTags = response.tags;
+                this.renderTagsModule(allTags, []);
+            }
+        } catch (error) {
+            console.error('加载标签失败:', error);
+        }
+    }
+
+    // 渲染标签管理模块
+    renderTagsModule(allTags, selectedTagIds) {
+        const tagsList = document.getElementById('tags-list');
+        if (!tagsList) return;
+
+        let html = '';
+
+        let selectedTags = [];
+
+        // 渲染现有标签
+        allTags.forEach(tag => {
+            const isSelected = selectedTagIds.includes(tag.id);
+            const count = tag.taskCount || 0;
+
+            html += `
+                <span class="tag-module-item ${isSelected ? 'selected' : ''}"
+                      data-tag-id="${tag.id}"
+                      style="background-color: ${tag.color};">
+                    #${Utils.escapeHtml(tag.name)}
+                    <span class="tag-count">${count}</span>
+                </span>
+            `;
+
+            if (isSelected) {
+                selectedTags.push('#'+tag.name);
+            }
+        });
+
+        tagsList.innerHTML = html;
+
+        if (selectedTags) {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = selectedTags.join(';');
+            this.searchQuery = selectedTags.join(';');
+            this.loadTasks();
+        }
+        this.bindTagModuleEvents(tagsList, allTags, selectedTagIds);
+    }
+
+    // 标签管理模块绑定事件
+    bindTagModuleEvents(tagsList, allTags, selectedTagIds) {
+        tagsList.querySelectorAll('.tag-module-item').forEach(item => {
+            item.onclick = (e) => {
+                const tagId = item.dataset.tagId;
+                const index = selectedTagIds.indexOf(tagId);
+                if (index === -1) {
+                    selectedTagIds.push(tagId);
+                } else {
+                    selectedTagIds.splice(index, 1);
+                }
+                this.renderTagsModule(allTags, selectedTagIds);
+            };
+        });
     }
 }
 

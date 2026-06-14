@@ -246,7 +246,7 @@ class TodoDatabase:
             due_date_filter: 日期筛选
             year: 年份筛选
             month: 月份筛选
-            search_query: 搜索关键词
+            search_query: 搜索关键词，多关键词请用分号分隔（如 "工作;紧急"）
             custom_date: 自定义日期筛选（用于日历点击）
             sync_start_time: 自定义日期筛选（数据同步开始时间）
             sync_end_time: 自定义日期筛选（数据同步结束时间）
@@ -339,27 +339,37 @@ class TodoDatabase:
         
         # 搜索关键词
         if search_query:
-            # 检查是否为标签搜索（以 # 开头）
-            if search_query.startswith('#'):
-                # 标签搜索
-                tag_name = search_query[1:]  # 移除 #
-                where_clauses.append('''
-                    id IN (SELECT task_id FROM task_tags WHERE tag_id IN (
-                        SELECT id FROM tags WHERE name LIKE ?
-                    ))
-                ''')
-                params.append(f'%{tag_name}%')
-            else:
-                # 普通文本搜索（同时搜索标题、描述和标签）
-                where_clauses.append('''
-                    (title LIKE ? OR description LIKE ? OR id IN (
-                        SELECT task_id FROM task_tags WHERE tag_id IN (
-                            SELECT id FROM tags WHERE name LIKE ?
-                        )
-                    ))
-                ''')
-                params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
-        
+            search_query = search_query.strip(';')
+            if search_query:
+                # 检查是否包含分号，支持多关键词
+                keywords = [kw.strip() for kw in search_query.split(';') if kw.strip()]
+                keyword_conditions = []
+                for kw in keywords:
+                    if kw.startswith('#'):
+                        # 标签搜索
+                        tag_name = kw[1:]
+                        condition = '''
+                                            id IN (SELECT task_id FROM task_tags WHERE tag_id IN (
+                                                SELECT id FROM tags WHERE name LIKE ?
+                                            ))
+                                        '''
+                        keyword_conditions.append(condition)
+                        params.append(f'%{tag_name}%')
+                    else:
+                        # 普通文本搜索（标题、描述、标签）
+                        condition = '''
+                                            (title LIKE ? OR description LIKE ? OR id IN (
+                                                SELECT task_id FROM task_tags WHERE tag_id IN (
+                                                    SELECT id FROM tags WHERE name LIKE ?
+                                                )
+                                            ))
+                                        '''
+                        keyword_conditions.append(condition)
+                        params.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%'])
+                # 将所有关键词条件用 OR 连接，并作为一个整体条件
+                combined_condition = '(' + ' OR '.join(keyword_conditions) + ')'
+                where_clauses.append(combined_condition)
+
         # 构建完整的WHERE子句
         where_sql = ' AND '.join(where_clauses) if where_clauses else '1=1'
         
