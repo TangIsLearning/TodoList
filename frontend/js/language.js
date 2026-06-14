@@ -214,7 +214,7 @@ class LanguageManager {
         }
         
         // 分类标题
-        const categoriesTitle = document.querySelector('.categories-section h3');
+        const categoriesTitle = document.querySelector('.categories-section .categories-section-title');
         if (categoriesTitle) categoriesTitle.textContent = lang.categories;
 
         // 全部分类选项

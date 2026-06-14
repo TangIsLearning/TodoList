@@ -4,12 +4,13 @@ class CategoryManager {
     constructor() {
         this.categories = [];
         this.currentCategory = 'all';
+        this.defaultShowCategories = 3; // 默认只展示4个分类项，超出则隐藏
     }
     
     // 初始化
     async init() {
-        this.bindEvents();
         await this.loadCategories();
+        this.bindEvents();
         this.renderCategories();
         
         // 设置初始筛选状态为"全部"
@@ -18,6 +19,21 @@ class CategoryManager {
     
     // 绑定事件
     bindEvents() {
+        // 添加分类按钮
+        const showMoreCategories = document.getElementById('categories-more');
+        if (showMoreCategories) {
+            showMoreCategories.addEventListener('click', () => {
+                if (this.categories.length <= this.defaultShowCategories) return;
+                let isShowMore = showMoreCategories.classList.contains('selected');
+                if (isShowMore) {
+                    showMoreCategories.classList.remove('selected');
+                } else {
+                    showMoreCategories.classList.add('selected');
+                }
+                this.renderCategories(false, !isShowMore);
+            });
+        }
+
         // 添加分类按钮
         const addCategoryBtn = document.getElementById('add-category-btn');
         if (addCategoryBtn) {
@@ -124,7 +140,7 @@ class CategoryManager {
     }
     
     // 渲染分类列表
-    async renderCategories(defaultFiltered = true) {
+    async renderCategories(defaultFiltered = true, isShowMore=false) {
         const categoryList = document.getElementById('category-list');
         if (!categoryList) return;
         
@@ -132,7 +148,7 @@ class CategoryManager {
         const taskCounts = await this.getTaskCounts(defaultFiltered);
         
         // 生成HTML
-        const categoriesHtml = this.generateCategoriesHtml(taskCounts);
+        const categoriesHtml = this.generateCategoriesHtml(taskCounts, isShowMore);
         categoryList.innerHTML = categoriesHtml;
         
         // 设置当前分类的激活状态
@@ -140,7 +156,7 @@ class CategoryManager {
     }
     
     // 生成分类HTML
-    generateCategoriesHtml(taskCounts) {
+    generateCategoriesHtml(taskCounts, isShowMore=false) {
         let html = `
             <button class="category-item" data-category="all">
                 <span class="category-item-with-color">
@@ -151,7 +167,8 @@ class CategoryManager {
             </button>
         `;
         
-        this.categories.forEach(category => {
+        this.categories.forEach((category, index) => {
+            if (!isShowMore && index >= this.defaultShowCategories) return;
             const count = taskCounts[category.id] || 0;
             html += `
                 <div class="category-item-wrapper" data-category-id="${category.id}">

@@ -484,10 +484,16 @@ input:checked + .slider:before {
     border-top: 1px solid var(--border-color);
 }
 
-.categories-section h3 {
+.categories-section .categories-section-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.categories-section .categories-section-title {
     margin-bottom: var(--spacing-md);
     color: var(--text-primary);
     font-size: var(--font-size-lg);
+    font-weight: bold;
+    unicode-bidi: isolate;
 }
 
 .category-list {

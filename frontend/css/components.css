@@ -1392,7 +1392,7 @@
     min-height: 40px;
 }
 
-.tag-selector-item, .tag-module-item {
+.tag-selector-item, .tag-module-item, .categories-more {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
@@ -1406,11 +1406,11 @@
     background-color: var(--bg-tertiary) !important;
 }
 
-.tag-selector-item:hover, .tag-module-item:hover {
+.tag-selector-item:hover, .tag-module-item:hover, .categories-more:hover {
     opacity: 0.85;
 }
 
-.tag-selector-item.selected, .tag-module-item.selected {
+.tag-selector-item.selected, .tag-module-item.selected, .categories-more.selected {
     background-color: white !important;
     border: 1px solid var(--primary-color);
     color: var(--primary-color);
