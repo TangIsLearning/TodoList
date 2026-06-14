@@ -2456,6 +2456,13 @@ class TodoManager {
 
     // 渲染标签管理模块
     renderTagsModule(allTags, selectedTagIds) {
+        const tagsSection = document.getElementById('tags-section');
+        if (allTags.length <= 0) {
+            tagsSection.style.display = 'none';
+            return;
+        }
+        tagsSection.style.display = 'block';
+
         const tagsList = document.getElementById('tags-list');
         if (!tagsList) return;
 
