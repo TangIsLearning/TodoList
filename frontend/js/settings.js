@@ -764,7 +764,9 @@ class SettingsUIManager {
                             // 更新显示
                             await this.updateDataFileConfig();
 
-                            this.refreshData();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
                         } else {
                             Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${response.error}`, 'error');
                         }
@@ -780,20 +782,6 @@ class SettingsUIManager {
         } finally {
             this.setDirectoryButtonsDisabled(false);
         }
-    }
-
-    async refreshData() {
-        // 重新加载任务列表
-        if (window.todoManager) {
-            await window.todoManager.loadTasks();
-        }
-        if (window.categoryManager) {
-            await window.categoryManager.loadCategories();
-            await window.categoryManager.renderCategories(false);
-        }
-
-        // 显示成功提示
-        Utils.showToast(window.languageManager.getText('refreshDataSuccess', '刷新数据成功'), 'success');
     }
     
     setDirectoryButtonsDisabled(disabled) {
@@ -972,7 +960,9 @@ class SettingsUIManager {
 
                             this.showWebDAVStatus(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
 
-                            this.refreshData();
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
                         } else {
                             Utils.showToast(`${window.languageManager.getText('settingsFailed', '设置失败')}: ${response.error}`, 'error');
                             this.showWebDAVStatus(`${window.languageManager.getText('settingsFailed', '设置失败')}：${result.error}`, 'error');
