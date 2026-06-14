@@ -26,7 +26,7 @@ class TodoManager {
         this.availableTags = [];
         this.selectedTags = [];
         this.showMoreTags = false;
-        this.defaultShowTags = 6;
+        this.defaultShowTags = 5;
         // 统计维度
         this.statsDimension = 'all'; // all, year, month, week, day
         // 日期范围缓存
