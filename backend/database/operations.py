@@ -234,7 +234,8 @@ class TodoDatabase:
 
     def get_tasks_paginated(self, page=1, page_size=10, category_id=None, status=None, 
                             priority=None, due_date_filter=None, year=None, month=None,
-                            search_query=None, custom_date=None, sync_start_time=None, sync_end_time=None):
+                            search_query=None, custom_date=None, sync_start_time=None, sync_end_time=None,
+                            custom_start_date=None, custom_end_date=None):
         """分页查询任务，支持多种筛选条件
         
         参数:
@@ -250,6 +251,8 @@ class TodoDatabase:
             custom_date: 自定义日期筛选（用于日历点击）
             sync_start_time: 自定义日期筛选（数据同步开始时间）
             sync_end_time: 自定义日期筛选（数据同步结束时间）
+            custom_start_date: 自定义日期筛选（数据同步开始时间）
+            custom_end_date: 自定义日期筛选（数据同步结束时间）
 
         返回:
             包含 tasks, total, page, page_size, total_pages 的字典
@@ -265,7 +268,11 @@ class TodoDatabase:
         if custom_date:
             where_clauses.append('date(due_date) = ?')
             params.append(custom_date)
-        
+        if custom_start_date and custom_end_date:
+            where_clauses.append('date(due_date) BETWEEN ? AND ?')
+            params.append(custom_start_date)
+            params.append(custom_end_date)
+
         # 分类筛选
         if not custom_date:  # 如果有自定义日期筛选，则忽略其他日期筛选
             if category_id == 'uncategorized':

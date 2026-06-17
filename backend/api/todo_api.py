@@ -95,7 +95,7 @@ class TodoApi:
     
     def get_todos(self, page=1, page_size=10, category_id=None, status=None, 
                    priority=None, due_date_filter=None, year=None, month=None, 
-                   search_query=None, custom_date=None):
+                   search_query=None, custom_date=None, custom_start_date=None, custom_end_date=None):
         """分页获取任务，支持多种筛选条件
         
         参数:
@@ -108,7 +108,9 @@ class TodoApi:
             year: 年份筛选
             month: 月份筛选
             search_query: 搜索关键词
-            custom_date: 自定义日期筛选，格式YYYY-MM-DD
+            custom_date: 自定义具体日期筛选，格式YYYY-MM-DD
+            custom_start_date: 自定义开始日期筛选，格式YYYY-MM-DD
+            custom_end_date: 自定义结束日期筛选，格式YYYY-MM-DD
         """
         try:
             result = self.db.get_tasks_paginated(
@@ -121,7 +123,9 @@ class TodoApi:
                 year=year,
                 month=month,
                 search_query=search_query,
-                custom_date=custom_date
+                custom_date=custom_date,
+                custom_start_date=custom_start_date,
+                custom_end_date=custom_end_date
             )
             return {'success': True, **result}
         except Exception as e:
