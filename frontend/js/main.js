@@ -146,7 +146,7 @@ class App {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const action = link.dataset.action;
-                this.handleMoreMenuAction(action);
+                this.handleMoreMenuAction(e, action);
                 this.hideMoreMenu();
             });
         });
@@ -222,7 +222,8 @@ class App {
         const modules = [
             { name: 'CategoryManager', instance: window.categoryManager },
             { name: 'TodoManager', instance: window.todoManager },
-            { name: 'CalendarManager', instance: window.calendarManager }
+            { name: 'CalendarManager', instance: window.calendarManager },
+            { name: 'TimelineManager', instance: window.timelineManager }
         ];
 
         // 先等待 pywebview 加载完成
@@ -397,12 +398,12 @@ class App {
     }
     
     // 处理更多菜单动作
-    async handleMoreMenuAction(action) {
+    async handleMoreMenuAction(event, action) {
         logger.info(`Handling more menu action: ${action}`, 'App');
 
         switch (action) {
             case 'calendar-view':
-                await this.toggleView();
+                await this.toggleView(event);
                 break;
             case 'filter-uncompleted':
                 await this.filterTasks('uncompleted', 'all', '', '已筛选未完成任务');
@@ -431,9 +432,9 @@ class App {
     }
     
     // 切换视图
-    async toggleView() {
+    async toggleView(event) {
         if (window.calendarManager) {
-            await window.calendarManager.toggleView();
+            await window.calendarManager.toggleView(event);
             Utils.showToast('视图已切换', 'success');
         } else {
             Utils.showToast('切换视图不可用', 'error');

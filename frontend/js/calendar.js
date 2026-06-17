@@ -14,12 +14,12 @@ class CalendarManager {
 
     // 绑定事件
     bindEvents() {
-        const viewToggleBtn = document.getElementById('view-toggle-btn');
+        const viewToggleSelect = document.getElementById('view-toggle-select');
         const prevMonthBtn = document.getElementById('prev-month');
         const nextMonthBtn = document.getElementById('next-month');
 
-        if (viewToggleBtn) {
-            viewToggleBtn.addEventListener('click', () => this.toggleView());
+        if (viewToggleSelect) {
+            viewToggleSelect.addEventListener('change', (e) => this.toggleView(e));
         }
 
         if (prevMonthBtn) {
@@ -32,7 +32,8 @@ class CalendarManager {
     }
 
     // 切换视图
-    async toggleView() {
+    async toggleView(event) {
+        const viewToggleSelect = event.target.value;
         const tasksView = document.getElementById('tasks-view');
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
@@ -41,46 +42,64 @@ class CalendarManager {
         const prevMonthFilter = document.getElementById('filter-prev-month');
         const nextMonthFilter = document.getElementById('filter-next-month');
         const groupDividerFilter = document.getElementById('filter-group-divider');
-        const viewToggleBtn = document.getElementById('view-toggle-btn');
+        const timelineView = document.getElementById('timeline-view');
         const moreMenuIcon = document.getElementById('more-menu-view-icon');
         const moreMenuText = document.getElementById('more-menu-view-text');
         const addTaskFab = document.getElementById('add-task-fab');
         let filterPageSize;
 
-        if (this.currentView === 'list') {
+        switch (viewToggleSelect) {
             // 切换到日历视图
-            tasksView.style.display = 'none';
-            pagination.style.display = 'none';
-            calendarView.style.display = 'block';
-            calendarFilter.style.display = 'flex';
-            dueDateFilter.style.display = 'none';
-            prevMonthFilter.style.display = 'block';
-            nextMonthFilter.style.display = 'block';
-            groupDividerFilter.style.display = 'block';
-            viewToggleBtn.textContent = '📋 列表视图';
-            moreMenuIcon.textContent = '📋';
-            moreMenuText.textContent = '切换列表视图';
-            viewToggleBtn.classList.add('active');
-            addTaskFab.style.display = 'none';
-            this.currentView = 'calendar';
-            filterPageSize = 9999; // 假定单月任务最多9999个任务
-        } else {
-            // 切换到列表视图
-            tasksView.style.display = 'block';
-            pagination.style.display = 'flex';
-            calendarView.style.display = 'none';
-            calendarFilter.style.display = 'none';
-            dueDateFilter.style.display = 'block';
-            prevMonthFilter.style.display = 'none';
-            nextMonthFilter.style.display = 'none';
-            groupDividerFilter.style.display = 'none';
-            viewToggleBtn.textContent = '📅 日历视图';
-            moreMenuIcon.textContent = '📅';
-            moreMenuText.textContent = '切换日历视图';
-            viewToggleBtn.classList.remove('active');
-            addTaskFab.style.display = 'block';
-            this.currentView = 'list';
-            filterPageSize = 10;
+            case 'calendar':
+                timelineView.style.display = 'none';
+                tasksView.style.display = 'none';
+                pagination.style.display = 'none';
+                calendarView.style.display = 'block';
+                calendarFilter.style.display = 'flex';
+                dueDateFilter.style.display = 'none';
+                prevMonthFilter.style.display = 'block';
+                nextMonthFilter.style.display = 'block';
+                groupDividerFilter.style.display = 'block';
+                moreMenuIcon.textContent = '📋';
+                moreMenuText.textContent = '切换列表视图';
+                addTaskFab.style.display = 'none';
+                this.currentView = 'calendar';
+                filterPageSize = 9999; // 假定单月任务最多9999个任务
+                break;
+            case 'timeline':
+                // 切换到时间轴视图
+                timelineView.style.display = 'block';
+                tasksView.style.display = 'none';
+                pagination.style.display = 'none';
+                calendarView.style.display = 'none';
+                calendarFilter.style.display = 'none';
+                dueDateFilter.style.display = 'block';
+                prevMonthFilter.style.display = 'none';
+                nextMonthFilter.style.display = 'none';
+                groupDividerFilter.style.display = 'block';
+                moreMenuIcon.textContent = '📋';
+                moreMenuText.textContent = '切换列表视图';
+                addTaskFab.style.display = 'none';
+                this.currentView = 'calendar';
+                filterPageSize = 9999; // 假定单月任务最多9999个任务
+                break;
+            case 'list':
+            default:
+                // 切换到列表视图
+                timelineView.style.display = 'none';
+                tasksView.style.display = 'block';
+                pagination.style.display = 'flex';
+                calendarView.style.display = 'none';
+                calendarFilter.style.display = 'none';
+                dueDateFilter.style.display = 'block';
+                prevMonthFilter.style.display = 'none';
+                nextMonthFilter.style.display = 'none';
+                groupDividerFilter.style.display = 'none';
+                moreMenuIcon.textContent = '📅';
+                moreMenuText.textContent = '切换日历视图';
+                addTaskFab.style.display = 'none';
+                this.currentView = 'list';
+                filterPageSize = 10;
         }
 
         // 通知TodoManager进行筛选
@@ -256,7 +275,7 @@ class CalendarManager {
 
         // 点击日期跳转到任务列表
         if (!isOtherMonth) {
-            dayEl.addEventListener('click', () => this.handleDayClick(dateStr));
+            dayEl.addEventListener('click', (e) => this.handleDayClick(dateStr, e));
         }
 
         return dayEl;
@@ -281,9 +300,9 @@ class CalendarManager {
     }
 
     // 处理日期点击
-    async handleDayClick(dateStr) {
+    async handleDayClick(dateStr, event) {
         // 切换回列表视图
-        await this.toggleView();
+        await this.toggleView(event);
 
         // 设置截止日期筛选为指定日期
         const dueDateFilter = document.getElementById('due-date-filter');

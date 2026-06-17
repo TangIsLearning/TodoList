@@ -1338,31 +1338,6 @@ svg {
     background-color: var(--primary-hover);
 }
 
-.view-toggle-btn {
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    font-weight: 500;
-    transition: var(--transition-fast);
-    white-space: nowrap;
-    min-width: fit-content;
-}
-
-.view-toggle-btn:hover {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
-.view-toggle-btn.active {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-
 .action-buttons {
     display: flex;
     gap: var(--spacing-sm);
@@ -2209,11 +2184,6 @@ svg {
         font-size: var(--font-size-xs) !important;
     }
 
-    .view-toggle-btn {
-        padding: var(--spacing-xs);
-        font-size: 10px !important
-    }
-
     .sidebar {
         position: fixed;
         left: -280px;
@@ -2979,5 +2949,276 @@ svg {
     .setting-item-config .config-item .data-label {
         font-size: var(--font-size-xs);
     }
+}
+
+/* 时间轴视图 */
+/* 时间轴视图主应用容器 - 占满全屏并弹性列 */
+.task-scheduler {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    background: white;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+/* 时间轴视图工具栏紧凑 */
+.toolbar {
+    flex-shrink: 0;
+    background: white;
+    padding: 8px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    backdrop-filter: blur(2px);
+}
+
+.date-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 40px;
+}
+
+.date-controls button {
+    background: white;
+    border: none;
+    font-size: 18px;
+    font-weight: bold;
+    width: 30px;
+    height: 30px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: 0.1s;
+    color: #2c5f8a;
+    border: 1px solid #cbd5e1;
+}
+
+.date-range-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    background: #fff;
+    padding: 4px 12px;
+    border-radius: 32px;
+    white-space: nowrap;
+}
+
+.week-indicator {
+    font-size: 0.7rem;
+    background: #e9f2f5;
+    border-radius: 24px;
+    padding: 4px 10px;
+}
+
+/* 核心时间轴区域 - 占据全部剩余空间，且内部没有滚动条（但允许内容自适应缩放） */
+.timeline-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;  /* 无滚动条，全部内容通过缩放适应 */
+    background: #ffffff;
+    width: 100%;
+    height: 90%;
+}
+
+.timeline-grid {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: all 0.1s ease;
+}
+
+/* 左侧时间轴固定宽度 100px，为了适配缩小整体比例，宽度随整体字体略微缩放但不影响太大 */
+.time-axis-col {
+    flex-shrink: 0;
+    width: 100px;
+    background: #f9fafb;
+    border-right: 2px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.time-header-placeholder {
+    height: 48px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* 时间行容器 - 高度动态调整（由JS控制，适应视口） */
+.time-slot-row {
+    flex-shrink: 0;
+    border-bottom: 1px solid #e9edf2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    background: inherit;
+}
+
+/* 右侧日期网格 - 使用flex布局，所有列平分宽度，不换行，无滚动条 */
+.dates-grid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0; /* 允许收缩 */
+}
+
+.dates-header {
+    display: flex;
+    background: #f8fafc;
+    border-bottom: 2px solid #cbd5e1;
+    flex-shrink: 0;
+}
+
+.date-cell {
+    flex: 1;
+    text-align: center;
+    padding: 8px 2px;
+    font-weight: 700;
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.date-cell span.weekday {
+    font-size: 0.6rem;
+    display: block;
+    color: #5b6e8c;
+}
+
+.body-rows {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* 每个时间行 */
+.timeline-row {
+    display: flex;
+    flex: 1;
+    border-bottom: 1px solid #f0f2f5;
+    min-height: 0;
+}
+
+.grid-cell {
+    flex: 1;
+    border-right: 1px solid #ecf3f9;
+    background: #ffffff;
+    padding: 4px 3px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background 0.1s;
+}
+/* 隐藏滚动条保持美观，但内容可滚动（由于单元格内容过多可滚动，但不影响全局滚动条） */
+.grid-cell::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+
+.grid-cell.drag-over {
+    background: #e0f2fe;
+    box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+/* 任务卡片 - 完全自适应尺寸，字体、内边距都会随列宽动态缩放 */
+.task-card {
+    background: linear-gradient(135deg, #ffffff 0%, #fef7e0 100%);
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    padding: 4px 6px;
+    font-size: clamp(0.6rem, 2vw, 0.75rem);
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    cursor: grab;
+    transition: 0.05s linear;
+    word-break: break-word;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+.task-card:active {
+    cursor: grabbing;
+}
+.task-card.dragging {
+    opacity: 0.3;
+}
+.task-name {
+    flex: 1;
+    font-size: inherit;
+    font-weight: 600;
+    color: #2c3e4e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 当卡片极窄时，允许换行 */
+@media (max-width: 600px) {
+    .task-name {
+        white-space: normal;
+        line-height: 1.2;
+    }
+}
+.delete-task {
+    background: none;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    color: #94a3b8;
+    border-radius: 20px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.delete-task:hover {
+    color: #ef4444;
+}
+
+.empty-cell-message {
+    font-size: 0.6rem;
+    color: #cbd5e6;
+    text-align: center;
+}
+
+.task-scheduler button {
+    font-size: 0.7rem;
+}
+/* 周数调节按钮额外样式 */
+.week-adjust {
+    display: flex;
+    gap: 6px;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 40px;
+}
+.week-adjust button {
+    background: white;
+    border: 1px solid #cbd5e1;
+    padding: 2px 8px;
+    font-size: 0.7rem;
 }
 

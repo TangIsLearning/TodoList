@@ -105,7 +105,8 @@ const Languages = {
         // 视图切换
         listView: "列表视图",
         calendarView: "日历视图",
-        
+        timelineView: "时间轴视图",
+
         // 日历相关
         calendarMonth: "月",
         calendarWeekdays: ["日", "一", "二", "三", "四", "五", "六"],
@@ -386,6 +387,7 @@ const Languages = {
         // 视图切换
         listView: "List View",
         calendarView: "Calendar View",
+        timelineView: "Timeline View",
         
         // 日历相关
         calendarMonth: "Month",

@@ -237,14 +237,6 @@ class LanguageManager {
         const searchClearBtn = document.getElementById('search-clear-btn');
         if (searchClearBtn) searchClearBtn.title = lang.searchClear;
         
-        // 视图切换按钮
-        const viewToggleBtn = document.getElementById('view-toggle-btn');
-        if (viewToggleBtn) {
-            const isCalendarView = viewToggleBtn.textContent.includes('列表');
-            viewToggleBtn.textContent = isCalendarView ? 
-                `📅 ${lang.calendarView}` : `📋 ${lang.listView}`;
-        }
-        
         // 筛选器选项
         this.updateFilterOptions(lang);
         
@@ -321,6 +313,17 @@ class LanguageManager {
     
     // 更新筛选器选项
     updateFilterOptions(lang) {
+        // 视图
+        const viewSelect = document.getElementById('view-toggle-select');
+        if (viewSelect) {
+            const options = viewSelect.querySelectorAll('option');
+            if (options.length >= 3) {
+                options[0].textContent = `📋 ${lang.listView}`;
+                options[1].textContent = `📅 ${lang.calendarView}`;
+                options[2].textContent = `⌛ ${lang.timelineView}`;
+            }
+        }
+
         // 优先级筛选器
         const priorityFilter = document.getElementById('priority-filter');
         if (priorityFilter) {
