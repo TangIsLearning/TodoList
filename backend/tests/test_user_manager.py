@@ -203,3 +203,95 @@ def test_user_manager_list_orders_by_recent_activity():
         assert names.index('新') < names.index('旧')
     finally:
         Path(path).unlink(missing_ok=True)
+
+
+# ===== Task 6: Session 管理 =====
+
+def test_session_create_and_get():
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        u = um.create_user(display_name='会话测试')
+        token = um.create_session(u.id)
+        assert token is not None
+        assert len(token) >= 32
+        loaded = um.get_user_by_token(token)
+        assert loaded is not None
+        assert loaded.id == u.id
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_invalid_token_returns_none():
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        assert um.get_user_by_token('invalid-token-xyz') is None
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_heartbeat_updates_last_active():
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        u = um.create_user(display_name='心跳测试')
+        token = um.create_session(u.id)
+        initial = um.get_user(u.id).last_active_at
+        # 强制等待
+        import time
+        time.sleep(0.05)
+        um.heartbeat(token)
+        updated = um.get_user(u.id).last_active_at
+        assert updated is not None
+        assert updated >= initial
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_heartbeat_invalid_token_is_noop():
+    """对无效 token 调用 heartbeat 不应抛错"""
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        um.heartbeat('bogus-token')  # 不应抛错
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_logout_removes_session():
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        u = um.create_user(display_name='退出测试')
+        token = um.create_session(u.id)
+        um.logout(token)
+        assert um.get_user_by_token(token) is None
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_get_current_token():
+    """多 session 时应返回最近活跃的那个"""
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        u1 = um.create_user(display_name='用户1')
+        u2 = um.create_user(display_name='用户2')
+        t1 = um.create_session(u1.id)
+        import time
+        time.sleep(0.05)
+        t2 = um.create_session(u2.id)
+        # 当前应是最新的 t2
+        assert um.get_current_token() == t2
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_session_get_current_token_empty():
+    db, path = _fresh_db()
+    try:
+        um = UserManager(db)
+        assert um.get_current_token() is None
+    finally:
+        Path(path).unlink(missing_ok=True)

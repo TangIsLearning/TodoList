@@ -1128,3 +1128,65 @@ class UserManager:
             ''')
             rows = cur.fetchall()
         return [self.get_user(row['id']) for row in rows]
+
+    # ===== Session 管理 =====
+
+    def create_session(self, user_id) -> str:
+        """创建 session，返回 token。"""
+        import secrets
+        token = secrets.token_urlsafe(48)  # 64 字符左右
+        now = datetime.now().isoformat()
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO user_sessions (token, user_id, created_at, last_used_at)
+                VALUES (?, ?, ?, ?)
+            ''', (token, user_id, now, now))
+            cur.execute(
+                'UPDATE users SET last_active_at = ? WHERE id = ?',
+                (now, user_id)
+            )
+            conn.commit()
+        return token
+
+    def get_user_by_token(self, token) -> 'User | None':
+        """根据 token 获取当前用户（session 不存在或用户已软删除时返回 None）"""
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT user_id FROM user_sessions WHERE token = ?', (token,))
+            row = cur.fetchone()
+        if not row:
+            return None
+        return self.get_user(row['user_id'])
+
+    def heartbeat(self, token):
+        """更新 session 和对应用户的 last_active_at。无效 token 静默忽略。"""
+        now = datetime.now().isoformat()
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                'UPDATE user_sessions SET last_used_at = ? WHERE token = ?',
+                (now, token)
+            )
+            cur.execute('''
+                UPDATE users SET last_active_at = ?
+                WHERE id = (SELECT user_id FROM user_sessions WHERE token = ?)
+            ''', (now, token))
+            conn.commit()
+
+    def logout(self, token):
+        """清除 session。"""
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM user_sessions WHERE token = ?', (token,))
+            conn.commit()
+
+    def get_current_token(self) -> str | None:
+        """获取本机最近的活跃 session token（单活跃 session 约定）"""
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                'SELECT token FROM user_sessions ORDER BY last_used_at DESC LIMIT 1'
+            )
+            row = cur.fetchone()
+        return row['token'] if row else None
