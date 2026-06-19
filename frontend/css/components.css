@@ -2649,6 +2649,54 @@
 #sync-status-text {
     flex: 1;
 }
+
+/* D 阶段：对端节点 chip 列表（横向 + 滚动） */
+.network-peers-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 1 auto;
+    max-width: 50%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding: 0 4px;
+}
+.network-peers-list[data-empty="1"] {
+    display: none;
+}
+.network-peer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg-tertiary, #f1f3f5);
+    font-size: 11px;
+    color: var(--text-primary, #212529);
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+.network-peer-chip:hover {
+    background: var(--bg-hover, #e9ecef);
+    border-color: var(--border-color, #dee2e6);
+}
+.network-peer-chip[data-status="online"] {
+    border-color: rgba(40, 167, 69, 0.35);
+}
+.network-peer-chip[data-status="syncing"] {
+    border-color: rgba(255, 193, 7, 0.5);
+    background: rgba(255, 193, 7, 0.08);
+}
+.network-peer-chip[data-status="offline"] {
+    opacity: 0.55;
+}
+.network-peer-last {
+    color: var(--text-secondary, #6c757d);
+    font-size: 10px;
+    margin-left: 2px;
+}
 .link-btn {
     background: none;
     border: none;

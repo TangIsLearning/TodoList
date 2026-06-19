@@ -603,6 +603,7 @@
             </button>
             <div class="nav-links">
                 <a href="#features">功能概览</a>
+                <a href="#sync">局域网同步</a>
                 <a href="#scenarios">应用场景</a>
                 <a href="#tips">效率秘籍</a>
                 <a href="#oss">代码开源</a>
@@ -752,6 +753,48 @@
                     <h3>☁️ 巧用存储路径上云</h3>
                     <p>
                         将存储路径设为坚果云等网盘的本地同步文件夹，无需额外操作，即可实现数据在多设备间的自动云同步，兼顾本地安全与云端便利。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== 局域网同步（D 阶段） ==================== -->
+    <section class="section section-alt" id="sync">
+        <div class="section-inner">
+            <div class="section-title">
+                <h2>局域网同步：把数据留在你的设备之间</h2>
+                <p>不依赖云端服务器，多台设备在同一个局域网里直接对话 —— 握手、同步、冲突解决，全部本地完成。</p>
+            </div>
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-icon"><i class="ri-router-line"></i></div>
+                    <h3>零服务器 P2P</h3>
+                    <p>UDP beacon 发现同网节点 + TCP 长连接直连；握手成功后才进入同步通道，不向公网暴露任何端口。</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="ri-time-line"></i></div>
+                    <h3>时钟偏移容忍</h3>
+                    <p>不同设备的本地时间可能差几秒。冲突解决时 1 秒内视为同时，按节点 ID 字典序裁决，避免抖动来回覆盖。</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="ri-pulse-line"></i></div>
+                    <h3>节点状态可见</h3>
+                    <p>在线 / 同步中 / 离线 三态徽章实时显示，断网 30s 内自动标记离线，重连后自动增量同步差异数据。</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="ri-shield-check-line"></i></div>
+                    <h3>协议版本校验</h3>
+                    <p>每条消息携带协议版本号 v1.0.0；旧版本节点握手会被拒绝并写入事件日志，不会导致误解析。</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="ri-file-shield-2-line"></i></div>
+                    <h3>网络事件可追溯</h3>
+                    <p>握手成功 / 失败、协议错误、冲突解决 —— 6 类事件全量落库，按类型过滤，定位问题不靠猜。</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="ri-restart-line"></i></div>
+                    <h3>断网重连不丢数据</h3>
+                    <p>记录 last_sync_at，重连后只拉取增量；本地变更也会在重连瞬间广播给对端，最终一致性收敛。</p>
                 </div>
             </div>
         </div>
