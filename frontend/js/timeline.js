@@ -353,8 +353,7 @@ class TimelineManager {
         e.stopPropagation();
         const taskId = e.currentTarget.getAttribute('data-task-id');
         if (taskId) {
-            this.tasks = this.tasks.filter(t => t.id !== taskId);
-            await this.renderTimeline();
+            await window.todoManager.deleteTask(taskId);
         }
     }
 

@@ -1663,6 +1663,7 @@ class TodoManager {
                         await this.loadTasks();
                     }
                 }
+                await window.timelineManager.renderTimeline();
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
                 
