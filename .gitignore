@@ -47,3 +47,9 @@ data/*.db
 *.exe
 *.app
 *.dmg
+
+# Brainstorm临时草稿（spec/plan 已保留在 docs/superpowers/）
+.superpowers/brainstorm/
+
+# Git worktrees（隔离工作区）
+.worktrees/
