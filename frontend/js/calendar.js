@@ -65,6 +65,12 @@ class CalendarManager {
                 addTaskFab.style.display = 'none';
                 this.currentView = 'calendar';
                 filterPageSize = 9999; // 假定单月任务最多9999个任务
+                // 通知TodoManager进行筛选
+                window.todoManager.currentPage = 1; // 重置到第一页
+                window.todoManager.pageSize = filterPageSize; // 设置分页数量
+                window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+                window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+                await window.todoManager.loadTasks();
                 break;
             case 'timeline':
                 // 切换到时间轴视图
@@ -82,6 +88,8 @@ class CalendarManager {
                 addTaskFab.style.display = 'none';
                 this.currentView = 'calendar';
                 filterPageSize = 9999; // 假定单月任务最多9999个任务
+                // 通知TimelineManager进行筛选
+                await window.timelineManager.renderTimeline();
                 break;
             case 'list':
             default:
@@ -100,18 +108,12 @@ class CalendarManager {
                 addTaskFab.style.display = 'none';
                 this.currentView = 'list';
                 filterPageSize = 10;
-        }
-
-        // 通知TodoManager进行筛选
-        if (window.todoManager) {
-            window.todoManager.currentPage = 1; // 重置到第一页
-            window.todoManager.pageSize = filterPageSize; // 设置分页数量
-            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-            await window.todoManager.loadTasks();
-            console.log('Filter completed'); // 调试日志
-        } else {
-            console.log('TodoManager not available'); // 调试日志
+                // 通知TodoManager进行筛选
+                window.todoManager.currentPage = 1; // 重置到第一页
+                window.todoManager.pageSize = filterPageSize; // 设置分页数量
+                window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+                window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+                await window.todoManager.loadTasks();
         }
     }
 

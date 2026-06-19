@@ -1538,6 +1538,7 @@ class TodoManager {
                 } else {
                     await this.loadTasks();
                 }
+                await window.timelineManager.renderTimeline();
 
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
