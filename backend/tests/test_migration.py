@@ -56,3 +56,27 @@ def test_migrate_adds_task_extension_columns():
     finally:
         conn.close()
         Path(path).unlink()
+
+def test_migrate_adds_c_phase_tables():
+    """C 阶段：6 张新表（groups/group_members/messages/attachments/sync_log/file_storage）"""
+    import sqlite3
+    from backend.database.operations import _migrate_database
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        path = f.name
+    conn = None
+    try:
+        conn = sqlite3.connect(path)
+        conn.execute('CREATE TABLE tasks (id TEXT PRIMARY KEY)')
+        _migrate_database(conn.cursor())
+        conn.commit()
+
+        for tbl in ('groups', 'group_members', 'messages',
+                    'attachments', 'sync_log', 'file_storage'):
+            cur = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,)
+            )
+            assert cur.fetchone() is not None, f'缺少表 {tbl}'
+    finally:
+        if conn is not None:
+            conn.close()
+        Path(path).unlink(missing_ok=True)

@@ -3,6 +3,8 @@ TodoList应用的数据库操作
 """
 
 import json
+import random
+import string
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -133,6 +135,140 @@ def _migrate_database(cursor):
     for col_name, col_def in task_new_cols:
         if col_name not in columns_latest:
             cursor.execute(f'ALTER TABLE tasks ADD COLUMN {col_name} {col_def}')
+
+    # ===== B 子系统：多级分类迁移 =====
+    # 扩展 categories 表：增加 parent_id / depth / owner_type / owner_id / icon / sort_order / is_deleted / updated_at
+    # 若 categories 表尚未创建（如 _migrate_database 单独被调用），则跳过字段扩展
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(categories)")
+        cat_columns = [c[1] for c in cursor.fetchall()]
+        cat_new_cols = [
+            ('parent_id', 'TEXT'),
+            ('depth', 'INTEGER DEFAULT 0'),
+            ('owner_type', "TEXT DEFAULT 'user'"),
+            ('owner_id', 'TEXT'),
+            ('icon', "TEXT DEFAULT '📁'"),
+            ('sort_order', 'INTEGER DEFAULT 0'),
+            ('is_deleted', 'INTEGER DEFAULT 0'),
+            ('updated_at', 'TEXT'),
+        ]
+        for col_name, col_def in cat_new_cols:
+            if col_name not in cat_columns:
+                cursor.execute(f'ALTER TABLE categories ADD COLUMN {col_name} {col_def}')
+
+        # 索引：常用查询路径
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_cat_owner ON categories(owner_type, owner_id, is_deleted)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_cat_parent ON categories(parent_id, sort_order)')
+
+        # 老数据回填：若 owner_id 为空但存在历史行（迁移前创建），默认归属到占位 owner_id='legacy'
+        cursor.execute("UPDATE categories SET owner_id = 'legacy' WHERE owner_id IS NULL")
+
+    # tasks 扩展：category_ids JSON 数组（多分类）
+    cursor.execute("PRAGMA table_info(tasks)")
+    tasks_latest = [c[1] for c in cursor.fetchall()]
+    if 'category_ids' not in tasks_latest:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN category_ids TEXT DEFAULT '[]'")
+        # 数据迁移：旧 category_id 字段（单值外键）→ category_ids
+        if 'category_id' in tasks_latest:
+            cursor.execute("SELECT id, category_id FROM tasks WHERE category_id IS NOT NULL AND category_id != ''")
+            for row in cursor.fetchall():
+                try:
+                    cursor.execute(
+                        "UPDATE tasks SET category_ids = ? WHERE id = ?",
+                        (json.dumps([row[1]]), row[0])
+                    )
+                except Exception:
+                    pass
+
+    # C 阶段：协作组 / 消息 / 文件 / 同步
+    c_tables = [
+        '''CREATE TABLE IF NOT EXISTS groups (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            icon TEXT DEFAULT '👥',
+            color TEXT DEFAULT '#4f46e5',
+            description TEXT,
+            join_code TEXT NOT NULL UNIQUE,
+            created_by TEXT NOT NULL,
+            is_hidden INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            is_deleted INTEGER DEFAULT 0
+        )''',
+        '''CREATE TABLE IF NOT EXISTS group_members (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            share_tasks INTEGER DEFAULT 0,
+            share_categories INTEGER DEFAULT 0,
+            share_group_tasks INTEGER DEFAULT 1,
+            share_history INTEGER DEFAULT 0,
+            joined_at TEXT NOT NULL,
+            last_seen_at TEXT,
+            UNIQUE(group_id, user_id)
+        )''',
+        '''CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            content TEXT,
+            msg_type TEXT NOT NULL,
+            attachment_ids TEXT,
+            reply_to_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            is_deleted INTEGER DEFAULT 0,
+            read_by TEXT
+        )''',
+        '''CREATE TABLE IF NOT EXISTS attachments (
+            id TEXT PRIMARY KEY,
+            message_id TEXT,
+            file_hash TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            mime_type TEXT,
+            storage_path TEXT NOT NULL,
+            uploaded_by TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )''',
+        '''CREATE TABLE IF NOT EXISTS sync_log (
+            id TEXT PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            peer_id TEXT,
+            user_id TEXT,
+            has_conflict INTEGER DEFAULT 0,
+            detail TEXT,
+            created_at TEXT NOT NULL
+        )''',
+        '''CREATE TABLE IF NOT EXISTS file_storage (
+            file_hash TEXT PRIMARY KEY,
+            storage_path TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            ref_count INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL
+        )''',
+    ]
+    for ddl in c_tables:
+        cursor.execute(ddl)
+
+    # 索引
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_groups_join_code ON groups(join_code)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_group_created ON messages(group_id, created_at)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attachments_hash ON attachments(file_hash)')
+
+    # tasks 扩展字段
+    cursor.execute("PRAGMA table_info(tasks)")
+    cols = {r[1] for r in cursor.fetchall()}
+    if 'group_id' not in cols:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN group_id TEXT')
+    if 'synced_at' not in cols:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN synced_at TEXT')
+    if 'version' not in cols:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN version INTEGER DEFAULT 1')
 
 
 class TodoDatabase:
@@ -271,8 +407,11 @@ class TodoDatabase:
         - ownerUserId (str) — 默认回退到 currentUserId
         - cooperatorUserIds (list[str] | str)
         - currentUserId (str) — 用于审计日志关联用户
+        - createdAt / created_at (str) — 可选，sync 场景下保留远端时间戳
+        - updatedAt / updated_at (str) — 可选，同上
         """
         task = Task(
+            id=task_data.get('id'),
             title=task_data.get('title', ''),
             description=task_data.get('description', ''),
             completed=task_data.get('completed', False),
@@ -285,12 +424,39 @@ class TodoDatabase:
             recurrence_count=task_data.get('recurrenceCount'),
             parent_task_id=task_data.get('parentTaskId')
         )
+        # created_at / updated_at：调用方显式传入时尊重调用方（sync 场景下保留远端时间戳）。
+        # 兼容 snake_case 与 camelCase 两种命名。
+        custom_created = task_data.get('created_at') or task_data.get('createdAt')
+        custom_updated = task_data.get('updated_at') or task_data.get('updatedAt')
+        if custom_created:
+            try:
+                task.created_at = datetime.fromisoformat(str(custom_created).replace('Z', '+00:00'))
+            except (TypeError, ValueError):
+                pass
+        if custom_updated:
+            try:
+                task.updated_at = datetime.fromisoformat(str(custom_updated).replace('Z', '+00:00'))
+            except (TypeError, ValueError):
+                pass
 
         audit_enabled = 1 if task_data.get('auditEnabled', True) else 0
         owning_dept_id = task_data.get('owningDeptId')
         cooperating_dept_ids = json.dumps(task_data.get('cooperatingDeptIds') or [])
         owner_user_id = task_data.get('ownerUserId') or task_data.get('currentUserId')
         cooperator_user_ids = json.dumps(task_data.get('cooperatorUserIds') or [])
+        # B 阶段：category_ids 多分类
+        category_ids = task_data.get('categoryIds') or task_data.get('category_ids')
+        if isinstance(category_ids, str):
+            try:
+                category_ids = json.loads(category_ids) if category_ids.strip() else []
+            except (json.JSONDecodeError, TypeError):
+                category_ids = []
+        if not isinstance(category_ids, list):
+            category_ids = []
+        # 兼容旧 category 字段：当 categoryIds 缺省而 category 存在时，回退到单值数组
+        if not category_ids and task_data.get('category'):
+            category_ids = [task_data['category']]
+        category_ids_json = json.dumps(category_ids)
 
         # 本次操作关联用户（优先 currentUserId，否则 owner_user_id）
         operator_id = task_data.get('currentUserId') or self._current_user_id
@@ -317,10 +483,11 @@ class TodoDatabase:
             cursor.execute('''
                 UPDATE tasks SET audit_enabled = ?, owning_dept_id = ?,
                                  cooperating_dept_ids = ?, owner_user_id = ?,
-                                 cooperator_user_ids = ?
+                                 cooperator_user_ids = ?,
+                                 category_ids = ?
                 WHERE id = ?
             ''', (audit_enabled, owning_dept_id, cooperating_dept_ids,
-                  owner_user_id, cooperator_user_ids, task.id))
+                  owner_user_id, cooperator_user_ids, category_ids_json, task.id))
 
             # 写 create 审计
             self._write_audit(conn, task.id, 'create')
@@ -346,7 +513,7 @@ class TodoDatabase:
             SELECT id, title, description, completed, priority, category_id, due_date,
                    is_recurring, recurrence_type, recurrence_interval, recurrence_count,
                    parent_task_id, created_at, updated_at,
-                   owner_user_id, cooperator_user_ids
+                   owner_user_id, cooperator_user_ids, category_ids
             FROM tasks
             ORDER BY
                 CASE
@@ -372,6 +539,10 @@ class TodoDatabase:
                 coop_ids = json.loads(row[15] or '[]')
             except (json.JSONDecodeError, TypeError):
                 coop_ids = []
+            try:
+                cat_ids = json.loads(row[16] or '[]')
+            except (json.JSONDecodeError, TypeError):
+                cat_ids = []
             task_dict = {
                 'id': row[0],
                 'title': row[1],
@@ -389,6 +560,7 @@ class TodoDatabase:
                 'updatedAt': row[13],
                 'ownerUserId': row[14],
                 'cooperatorUserIds': coop_ids,
+                'categoryIds': cat_ids,
                 'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
@@ -563,7 +735,7 @@ class TodoDatabase:
             SELECT id, title, description, completed, priority, category_id, due_date,
                    is_recurring, recurrence_type, recurrence_interval, recurrence_count,
                    parent_task_id, created_at, updated_at,
-                   owner_user_id, cooperator_user_ids
+                   owner_user_id, cooperator_user_ids, category_ids
             FROM tasks
             WHERE {where_sql}
             ORDER BY
@@ -591,6 +763,10 @@ class TodoDatabase:
                 coop_ids = json.loads(row[15] or '[]')
             except (json.JSONDecodeError, TypeError):
                 coop_ids = []
+            try:
+                cat_ids = json.loads(row[16] or '[]')
+            except (json.JSONDecodeError, TypeError):
+                cat_ids = []
             task_dict = {
                 'id': row[0],
                 'title': row[1],
@@ -608,6 +784,7 @@ class TodoDatabase:
                 'updatedAt': row[13],
                 'ownerUserId': row[14],
                 'cooperatorUserIds': coop_ids,
+                'categoryIds': cat_ids,
                 'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
@@ -632,7 +809,7 @@ class TodoDatabase:
             SELECT id, title, description, completed, priority, category_id, due_date,
                    is_recurring, recurrence_type, recurrence_interval, recurrence_count,
                    parent_task_id, created_at, updated_at,
-                   owner_user_id, cooperator_user_ids
+                   owner_user_id, cooperator_user_ids, category_ids
             FROM tasks WHERE id = ?
         ''', (task_id,))
         row = cursor.fetchone()
@@ -645,6 +822,10 @@ class TodoDatabase:
             coop_ids = json.loads(row[15] or '[]')
         except (json.JSONDecodeError, TypeError):
             coop_ids = []
+        try:
+            cat_ids = json.loads(row[16] or '[]')
+        except (json.JSONDecodeError, TypeError):
+            cat_ids = []
         task_dict = {
             'id': row[0],
             'title': row[1],
@@ -662,6 +843,7 @@ class TodoDatabase:
             'updatedAt': row[13],
             'ownerUserId': row[14],
             'cooperatorUserIds': coop_ids,
+            'categoryIds': cat_ids,
             'tags': self.get_task_tags(task_id)  # 添加标签信息
         }
 
@@ -708,8 +890,16 @@ class TodoDatabase:
 
             # 构建 UPDATE
             set_clauses = [f'{col} = ?' for _, col, _ in provided]
+            # updated_at：调用方显式传入时尊重调用方（sync 场景下需要保留远端时间戳），
+            # 否则用 datetime.now()。兼容 snake_case 与 camelCase 两种命名。
+            if 'updated_at' in task_data:
+                custom_updated_at = task_data['updated_at']
+            elif 'updatedAt' in task_data:
+                custom_updated_at = task_data['updatedAt']
+            else:
+                custom_updated_at = datetime.now().isoformat()
             set_clauses.append('updated_at = ?')
-            update_values = [val for _, _, val in provided] + [datetime.now().isoformat()]
+            update_values = [val for _, _, val in provided] + [custom_updated_at]
 
             # A 阶段扩展字段
             ext_updates = []
@@ -729,6 +919,18 @@ class TodoDatabase:
             if 'cooperatorUserIds' in task_data:
                 ext_updates.append('cooperator_user_ids = ?')
                 ext_values.append(json.dumps(task_data['cooperatorUserIds'] or []))
+            # B 阶段：category_ids 多分类
+            if 'categoryIds' in task_data or 'category_ids' in task_data:
+                raw = task_data.get('categoryIds') or task_data.get('category_ids')
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw) if raw.strip() else []
+                    except (json.JSONDecodeError, TypeError):
+                        raw = []
+                if not isinstance(raw, list):
+                    raw = []
+                ext_updates.append('category_ids = ?')
+                ext_values.append(json.dumps(raw))
 
             all_set = set_clauses + ext_updates
             cursor.execute(
@@ -1348,3 +1550,631 @@ class UserManager:
             )
             row = cur.fetchone()
         return row['token'] if row else None
+
+
+# ============================================
+# B 子系统：多级分类管理
+# ============================================
+
+class CategoryManager:
+    """多级分类 CRUD + 树操作 + 拖拽原子事务
+    - 树深度硬限制：3 级 (depth 0, 1, 2)
+    - 同 owner_id / parent_id 下 name 唯一
+    - 删除策略：有子级阻止；被引用任务自动清理
+    - 拖拽：原子事务 + 深度同步 + 环检测
+    """
+
+    MAX_DEPTH = 2  # 0=根, 1=二级, 2=叶子
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    # ---------- 基础查询 ----------
+
+    def _row_to_dict(self, row):
+        if row is None:
+            return None
+        return {
+            'id': row['id'],
+            'name': row['name'],
+            'parentId': row['parent_id'],
+            'depth': row['depth'],
+            'ownerType': row['owner_type'],
+            'ownerId': row['owner_id'],
+            'icon': row['icon'] or '📁',
+            'color': row['color'] or '#4f46e5',
+            'sortOrder': row['sort_order'] or 0,
+            'isDeleted': bool(row['is_deleted']),
+            'createdAt': row['created_at'],
+            'updatedAt': row['updated_at'],
+        }
+
+    def list_categories(self, owner_type='user', owner_id=''):
+        """列出某 owner 的全部分类（按 sort_order 升序，深度升序）"""
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''
+                SELECT * FROM categories
+                WHERE owner_type = ? AND owner_id = ? AND is_deleted = 0
+                ORDER BY depth ASC, sort_order ASC, created_at ASC
+            ''', (owner_type, owner_id))
+            return [self._row_to_dict(r) for r in cur.fetchall()]
+
+    def get_category(self, category_id):
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM categories WHERE id = ?', (category_id,))
+            return self._row_to_dict(cur.fetchone())
+
+    def get_descendant_ids(self, category_id):
+        """返回该节点及所有后代 id 列表（不含环）"""
+        result = [category_id]
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''
+                SELECT id FROM categories
+                WHERE parent_id = ? AND is_deleted = 0
+            ''', (category_id,))
+            for r in cur.fetchall():
+                result.extend(self.get_descendant_ids(r['id']))
+        return result
+
+    def is_descendant(self, ancestor_id, candidate_id):
+        """candidate_id 是否为 ancestor_id 的后代（含自己）"""
+        cur_id = candidate_id
+        visited = set()
+        with self.db.get_connection() as conn:
+            c = conn.cursor()
+            while cur_id and cur_id not in visited:
+                visited.add(cur_id)
+                if cur_id == ancestor_id:
+                    return True
+                c.execute('SELECT parent_id FROM categories WHERE id = ?', (cur_id,))
+                row = c.fetchone()
+                if not row:
+                    return False
+                cur_id = row['parent_id']
+        return False
+
+    def get_category_path(self, category_id):
+        """返回"父 / 子 / 孙"形式的路径字符串"""
+        parts = []
+        cur_id = category_id
+        visited = set()
+        with self.db.get_connection() as conn:
+            c = conn.cursor()
+            while cur_id and cur_id not in visited:
+                visited.add(cur_id)
+                c.execute('SELECT name, parent_id FROM categories WHERE id = ?', (cur_id,))
+                row = c.fetchone()
+                if not row:
+                    break
+                parts.append(row['name'])
+                cur_id = row['parent_id']
+        return ' / '.join(reversed(parts))
+
+    def get_task_count(self, category_id):
+        """统计某分类（含所有后代）的任务数（去重）"""
+        all_ids = set(self.get_descendant_ids(category_id))
+        all_ids = [x for x in all_ids if x]
+        if not all_ids:
+            return 0
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            # SQLite JSON 解析使用 json_each
+            placeholders = ','.join('?' for _ in all_ids)
+            cur.execute(f'''
+                SELECT COUNT(DISTINCT t.id) AS cnt
+                FROM tasks t, json_each(t.category_ids) AS j
+                WHERE j.value IN ({placeholders})
+            ''', all_ids)
+            row = cur.fetchone()
+            return row['cnt'] if row else 0
+
+    # ---------- 写操作 ----------
+
+    def _validate_depth(self, parent_id):
+        """返回新节点 depth；若 parent 已为叶子则抛 DEPTH_EXCEEDED"""
+        if parent_id is None or parent_id == '':
+            return 0
+        p = self.get_category(parent_id)
+        if not p or p['isDeleted']:
+            raise ValueError('PARENT_NOT_FOUND')
+        if p['depth'] >= self.MAX_DEPTH:
+            raise ValueError('DEPTH_EXCEEDED')
+        return p['depth'] + 1
+
+    def _check_duplicate(self, owner_type, owner_id, parent_id, name, exclude_id=None):
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            sql = '''
+                SELECT id FROM categories
+                WHERE owner_type = ? AND owner_id = ? AND is_deleted = 0
+                AND ((? IS NULL AND parent_id IS NULL) OR parent_id = ?)
+                AND name = ?
+            '''
+            params = [owner_type, owner_id, parent_id, parent_id, name]
+            if exclude_id:
+                sql += ' AND id != ?'
+                params.append(exclude_id)
+            cur.execute(sql, params)
+            if cur.fetchone():
+                raise ValueError('DUPLICATE_NAME')
+
+    def create_category(self, name, owner_type='user', owner_id='',
+                        parent_id=None, icon='📁', color='#4f46e5',
+                        sort_order=None):
+        """创建分类。name 在同 owner+parent 下唯一。"""
+        if not name or not name.strip():
+            raise ValueError('NAME_EMPTY')
+        name = name.strip()
+        depth = self._validate_depth(parent_id)
+        self._check_duplicate(owner_type, owner_id, parent_id, name)
+        new_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        if sort_order is None:
+            with self.db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute('''
+                    SELECT COALESCE(MAX(sort_order), 0) + 1 AS next
+                    FROM categories
+                    WHERE owner_type = ? AND owner_id = ?
+                    AND ((? IS NULL AND parent_id IS NULL) OR parent_id = ?)
+                ''', (owner_type, owner_id, parent_id, parent_id))
+                sort_order = cur.fetchone()['next']
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO categories
+                    (id, name, parent_id, depth, owner_type, owner_id,
+                     icon, color, sort_order, is_deleted, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            ''', (new_id, name, parent_id, depth, owner_type, owner_id,
+                  icon, color, sort_order, now, now))
+            conn.commit()
+        return self.get_category(new_id)
+
+    def update_category(self, category_id, name=None, icon=None, color=None,
+                        sort_order=None):
+        """修改基础信息。parent_id 修改请使用 move_category"""
+        existing = self.get_category(category_id)
+        if not existing or existing['isDeleted']:
+            raise ValueError('NOT_FOUND')
+        sets = []
+        params = []
+        if name is not None and name.strip():
+            self._check_duplicate(
+                existing['ownerType'], existing['ownerId'],
+                existing['parentId'], name.strip(), exclude_id=category_id)
+            sets.append('name = ?')
+            params.append(name.strip())
+        if icon is not None:
+            sets.append('icon = ?')
+            params.append(icon)
+        if color is not None:
+            sets.append('color = ?')
+            params.append(color)
+        if sort_order is not None:
+            sets.append('sort_order = ?')
+            params.append(sort_order)
+        if not sets:
+            return existing
+        sets.append('updated_at = ?')
+        params.append(datetime.now().isoformat())
+        params.append(category_id)
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(f"UPDATE categories SET {', '.join(sets)} WHERE id = ?", params)
+            conn.commit()
+        return self.get_category(category_id)
+
+    def move_category(self, category_id, new_parent_id, new_sort_order=None):
+        """原子事务：移动分类到 new_parent_id 下；同步更新所有后代 depth。
+        拒绝：DEPTH_EXCEEDED / WOULD_CREATE_CYCLE / NOT_FOUND
+        """
+        cat = self.get_category(category_id)
+        if not cat or cat['isDeleted']:
+            raise ValueError('NOT_FOUND')
+
+        # 0) 自身 / 子树不能移动到自身子树下
+        if new_parent_id and self.is_descendant(category_id, new_parent_id):
+            raise ValueError('WOULD_CREATE_CYCLE')
+
+        new_depth = self._validate_depth(new_parent_id)
+        depth_delta = new_depth - cat['depth']
+
+        if new_sort_order is None:
+            new_sort_order = cat['sortOrder']
+
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            # 更新当前节点
+            cur.execute('''
+                UPDATE categories
+                SET parent_id = ?, depth = ?, sort_order = ?, updated_at = ?
+                WHERE id = ?
+            ''', (new_parent_id, new_depth, new_sort_order,
+                  datetime.now().isoformat(), category_id))
+            # 同步所有后代 depth
+            if depth_delta != 0:
+                descendants = self.get_descendant_ids(category_id)
+                descendants = [x for x in descendants if x != category_id]
+                for did in descendants:
+                    cur.execute('SELECT depth FROM categories WHERE id = ?', (did,))
+                    row = cur.fetchone()
+                    if not row:
+                        continue
+                    cur.execute(
+                        'UPDATE categories SET depth = ?, updated_at = ? WHERE id = ?',
+                        (row['depth'] + depth_delta, datetime.now().isoformat(), did)
+                    )
+            conn.commit()
+        return self.get_category(category_id)
+
+    def delete_category(self, category_id):
+        """安全删除：
+        - 有子级 → HAS_CHILDREN
+        - 软删除分类本身，并从被引用任务的 category_ids 数组中移除
+        返回受影响的 task 数量
+        """
+        cat = self.get_category(category_id)
+        if not cat or cat['isDeleted']:
+            raise ValueError('NOT_FOUND')
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            # 1) 有子级阻止
+            cur.execute('''
+                SELECT id FROM categories
+                WHERE parent_id = ? AND is_deleted = 0
+            ''', (category_id,))
+            if cur.fetchone():
+                raise ValueError('HAS_CHILDREN')
+            # 2) 软删除分类
+            cur.execute('''
+                UPDATE categories SET is_deleted = 1, updated_at = ?
+                WHERE id = ?
+            ''', (datetime.now().isoformat(), category_id))
+            # 3) 清理任务引用
+            affected = 0
+            cur.execute('SELECT id, category_ids FROM tasks')
+            for r in cur.fetchall():
+                ids = self._parse_json_list(r['category_ids'])
+                if category_id in ids:
+                    ids = [x for x in ids if x != category_id]
+                    cur.execute(
+                        'UPDATE tasks SET category_ids = ? WHERE id = ?',
+                        (json.dumps(ids), r['id'])
+                    )
+                    affected += 1
+            conn.commit()
+        return affected
+
+    def add_category_to_task(self, task_id, category_id):
+        """将分类 ID 添加到任务的 category_ids 数组（去重）"""
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT category_ids FROM tasks WHERE id = ?', (task_id,))
+            row = cur.fetchone()
+            if not row:
+                raise ValueError('TASK_NOT_FOUND')
+            ids = self._parse_json_list(row['category_ids'])
+            if category_id not in ids:
+                ids.append(category_id)
+                cur.execute(
+                    'UPDATE tasks SET category_ids = ? WHERE id = ?',
+                    (json.dumps(ids), task_id)
+                )
+                conn.commit()
+
+    def set_task_categories(self, task_id, category_ids):
+        """设置任务的 category_ids。category_ids=[] 视为"无分类"。"""
+        if category_ids is None:
+            category_ids = []
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT id FROM tasks WHERE id = ?', (task_id,))
+            if not cur.fetchone():
+                raise ValueError('TASK_NOT_FOUND')
+            cur.execute(
+                'UPDATE tasks SET category_ids = ? WHERE id = ?',
+                (json.dumps(list(category_ids)), task_id)
+            )
+            conn.commit()
+
+    @staticmethod
+    def _parse_json_list(s):
+        if not s:
+            return []
+        try:
+            v = json.loads(s)
+            if isinstance(v, list):
+                return [str(x) for x in v]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return []
+
+
+class GroupManager:
+    """协作组管理：CRUD、连接码生成、成员管理"""
+
+    # 避免歧义字符（0/O/1/I/L）
+    _CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    def generate_join_code(self) -> str:
+        head = ''.join(random.choices(self._CODE_ALPHABET, k=3))
+        tail = ''.join(random.choices(self._CODE_ALPHABET, k=3))
+        return f'{head}-{tail}'
+
+    # ---------- 群组 CRUD ----------
+
+    def create_group(self, name: str, created_by: str, join_code: str,
+                     icon: str = '👥', color: str = '#4f46e5',
+                     description: str = None, is_hidden: int = 0) -> 'Group':
+        from backend.database.models import Group
+        now = datetime.now().isoformat()
+        g = Group(id=str(uuid.uuid4()), name=name, join_code=join_code,
+                  created_by=created_by, created_at=now, updated_at=now,
+                  icon=icon, color=color, description=description, is_hidden=is_hidden)
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''INSERT INTO groups
+                (id, name, icon, color, description, join_code, created_by,
+                 is_hidden, created_at, updated_at, is_deleted)
+                VALUES (?,?,?,?,?,?,?,?,?,?,0)''',
+                (g.id, g.name, g.icon, g.color, g.description, g.join_code,
+                 g.created_by, g.is_hidden, g.created_at, g.updated_at))
+            # 创建者自动加入为 owner
+            conn.commit()
+        # 添加 owner
+        self.add_member(group_id=g.id, user_id=created_by, role='owner')
+        return g
+
+    def get_group(self, group_id: str) -> 'Group | None':
+        from backend.database.models import Group
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM groups WHERE id = ? AND is_deleted = 0', (group_id,))
+            row = cur.fetchone()
+            return Group.from_dict(dict(row)) if row else None
+
+    def get_group_by_code(self, join_code: str) -> 'Group | None':
+        from backend.database.models import Group
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM groups WHERE join_code = ? AND is_deleted = 0', (join_code,))
+            row = cur.fetchone()
+            return Group.from_dict(dict(row)) if row else None
+
+    def list_user_groups(self, user_id: str) -> list['Group']:
+        from backend.database.models import Group
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''SELECT g.* FROM groups g
+                JOIN group_members m ON m.group_id = g.id
+                WHERE m.user_id = ? AND g.is_deleted = 0 AND m.last_seen_at IS NOT NULL
+                ORDER BY g.created_at DESC''', (user_id,))
+            return [Group.from_dict(dict(r)) for r in cur.fetchall()]
+
+    def soft_delete_group(self, group_id: str, by_user: str) -> bool:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT created_by FROM groups WHERE id = ?', (group_id,))
+            row = cur.fetchone()
+            if not row or row['created_by'] != by_user:
+                return False
+            cur.execute('UPDATE groups SET is_deleted = 1, updated_at = ? WHERE id = ?',
+                        (datetime.now().isoformat(), group_id))
+            conn.commit()
+            return True
+
+    # ---------- 成员管理 ----------
+
+    def add_member(self, group_id: str, user_id: str, role: str,
+                   share_tasks: int = 0, share_categories: int = 0,
+                   share_group_tasks: int = 1, share_history: int = 0) -> 'GroupMember':
+        from backend.database.models import GroupMember
+        now = datetime.now().isoformat()
+        m = GroupMember(id=str(uuid.uuid4()), group_id=group_id, user_id=user_id,
+                        role=role, joined_at=now, last_seen_at=now,
+                        share_tasks=share_tasks, share_categories=share_categories,
+                        share_group_tasks=share_group_tasks, share_history=share_history)
+        try:
+            with self.db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute('''INSERT INTO group_members
+                    (id, group_id, user_id, role, share_tasks, share_categories,
+                     share_group_tasks, share_history, joined_at, last_seen_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                    (m.id, m.group_id, m.user_id, m.role, m.share_tasks, m.share_categories,
+                     m.share_group_tasks, m.share_history, m.joined_at, m.last_seen_at))
+                conn.commit()
+        except Exception as e:
+            if 'UNIQUE' in str(e):
+                raise ValueError('ALREADY_MEMBER') from e
+            raise
+        return m
+
+    def list_members(self, group_id: str) -> list['GroupMember']:
+        from backend.database.models import GroupMember
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM group_members WHERE group_id = ? ORDER BY joined_at',
+                        (group_id,))
+            return [GroupMember.from_dict(dict(r)) for r in cur.fetchall()]
+
+    def remove_member(self, group_id: str, user_id: str) -> bool:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
+                        (group_id, user_id))
+            conn.commit()
+            return cur.rowcount > 0
+
+
+class MessageManager:
+    """群消息管理：发送 / 列表 / 已读 / 软删除"""
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    def send_message(self, group_id: str, sender_id: str, content: str = None,
+                     msg_type: str = 'text', attachment_ids: list = None,
+                     reply_to_id: str = None) -> 'Message':
+        from backend.database.models import Message
+        import uuid
+        import json
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        m = Message(id=str(uuid.uuid4()), group_id=group_id, sender_id=sender_id,
+                    msg_type=msg_type, content=content, created_at=now, updated_at=now,
+                    attachment_ids=json.dumps(attachment_ids or []),
+                    reply_to_id=reply_to_id)
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''INSERT INTO messages
+                (id, group_id, sender_id, content, msg_type, attachment_ids,
+                 reply_to_id, created_at, updated_at, is_deleted, read_by)
+                VALUES (?,?,?,?,?,?,?,?,?,0,'{}')''',
+                (m.id, m.group_id, m.sender_id, m.content, m.msg_type,
+                 m.attachment_ids, m.reply_to_id, m.created_at, m.updated_at))
+            conn.commit()
+        return m
+
+    def get_message(self, message_id: str) -> 'Message | None':
+        from backend.database.models import Message
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM messages WHERE id = ? AND is_deleted = 0', (message_id,))
+            row = cur.fetchone()
+            return Message.from_dict(dict(row)) if row else None
+
+    def list_messages(self, group_id: str, limit: int = 100, before: str = None) -> list['Message']:
+        from backend.database.models import Message
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            if before:
+                cur.execute('''SELECT * FROM messages
+                    WHERE group_id = ? AND is_deleted = 0 AND created_at < ?
+                    ORDER BY created_at ASC LIMIT ?''',
+                    (group_id, before, limit))
+            else:
+                cur.execute('''SELECT * FROM messages
+                    WHERE group_id = ? AND is_deleted = 0
+                    ORDER BY created_at ASC LIMIT ?''',
+                    (group_id, limit))
+            return [Message.from_dict(dict(r)) for r in cur.fetchall()]
+
+    def mark_read(self, message_id: str, user_id: str, at: str) -> bool:
+        import json
+        m = self.get_message(message_id)
+        if not m:
+            return False
+        read_by = json.loads(m.read_by or '{}')
+        read_by[user_id] = at
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('UPDATE messages SET read_by = ? WHERE id = ?',
+                        (json.dumps(read_by), message_id))
+            conn.commit()
+        return True
+
+    def soft_delete_message(self, message_id: str, by_user: str) -> bool:
+        from datetime import datetime
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT sender_id FROM messages WHERE id = ?', (message_id,))
+            row = cur.fetchone()
+            if not row or row['sender_id'] != by_user:
+                return False
+            cur.execute('UPDATE messages SET is_deleted = 1, updated_at = ? WHERE id = ?',
+                        (datetime.now().isoformat(), message_id))
+            conn.commit()
+            return True
+
+
+class SyncManager:
+    """LAN 同步冲突解决 + 同步日志记录。
+    - resolve_conflict：字段级最新时间戳胜出；删除 vs 修改时删除优先（当删除时间更新）
+    - log_sync / list_recent_sync_logs：sync_log 表的写入与查询
+    """
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    @staticmethod
+    def _ts(entity: dict, *keys) -> str:
+        """获取时间戳字段，支持多种命名（updated_at / updatedAt 等）。
+
+        A/B 阶段 get_task / 模型层统一用 camelCase（updatedAt / createdAt），
+        C 阶段早期 sync 协议用 snake_case（updated_at / created_at）。
+        冲突解决时两种命名都可能出现，故按顺序尝试直到找到第一个非空值。
+        """
+        if not entity:
+            return ''
+        for k in keys:
+            v = entity.get(k)
+            if v:
+                return v
+        return ''
+
+    def resolve_conflict(self, local: dict, remote: dict, field: str = None) -> dict:
+        """字段级最新时间戳胜出；删除 vs 修改时删除优先（当删除时间更新）"""
+        if field:
+            return remote if self._ts(remote, 'updated_at', 'updatedAt') > self._ts(local, 'updated_at', 'updatedAt') else local
+
+        # 删除 vs 修改
+        if remote.get('is_deleted') and not local.get('is_deleted'):
+            if self._ts(remote, 'updated_at', 'updatedAt') > self._ts(local, 'updated_at', 'updatedAt'):
+                return remote
+        if local.get('is_deleted') and not remote.get('is_deleted'):
+            if self._ts(local, 'updated_at', 'updatedAt') > self._ts(remote, 'updated_at', 'updatedAt'):
+                return local
+
+        # 字段级合并：优先按字段级时间戳，否则回退到实体级 updated_at
+        result = dict(local)
+        for key, val in remote.items():
+            if key.endswith('_at') or key == 'version':
+                continue
+            if key not in local:
+                result[key] = val
+            else:
+                # 字段级时间戳（带命名兼容）；缺省时回退到实体级 updated_at
+                r_ts = self._ts(remote, f'{key}_updated_at', f'{key}_updatedAt') \
+                       or self._ts(remote, 'updated_at', 'updatedAt')
+                l_ts = self._ts(local, f'{key}_updated_at', f'{key}_updatedAt') \
+                       or self._ts(local, 'updated_at', 'updatedAt')
+                if r_ts > l_ts:
+                    result[key] = val
+        return result
+
+    def log_sync(self, entity_type: str, entity_id: str, operation: str,
+                 peer_id: str = None, user_id: str = None, has_conflict: int = 0,
+                 detail: str = None) -> None:
+        import uuid
+        import json
+        from datetime import datetime
+        from backend.database.models import SyncLog
+        log = SyncLog(id=str(uuid.uuid4()), entity_type=entity_type, entity_id=entity_id,
+                      operation=operation, created_at=datetime.now().isoformat(),
+                      peer_id=peer_id, user_id=user_id, has_conflict=has_conflict,
+                      detail=json.dumps(detail) if isinstance(detail, (dict, list)) else detail)
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''INSERT INTO sync_log
+                (id, entity_type, entity_id, operation, peer_id, user_id,
+                 has_conflict, detail, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?)''',
+                (log.id, log.entity_type, log.entity_id, log.operation,
+                 log.peer_id, log.user_id, log.has_conflict, log.detail, log.created_at))
+            conn.commit()
+
+    def list_recent_sync_logs(self, limit: int = 50) -> list:
+        from backend.database.models import SyncLog
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''SELECT * FROM sync_log
+                ORDER BY created_at DESC LIMIT ?''', (limit,))
+            return [SyncLog.from_dict(dict(r)) for r in cur.fetchall()]

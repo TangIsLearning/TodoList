@@ -2,7 +2,9 @@
 TodoList应用的数据模型定义
 """
 
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from typing import Optional, List, Dict
 import uuid
 
 
@@ -227,3 +229,199 @@ class TaskAuditLog:
             'newValue': self.new_value,
             'createdAt': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class Category:
+    """多级分类数据模型（最多 3 级）"""
+
+    def __init__(self, id=None, name='', parent_id=None, depth=0,
+                 owner_type='user', owner_id='',
+                 icon='📁', color='#4f46e5', sort_order=0,
+                 is_deleted=0, created_at=None, updated_at=None):
+        self.id = id or str(uuid.uuid4())
+        self.name = name
+        self.parent_id = parent_id
+        self.depth = depth
+        self.owner_type = owner_type
+        self.owner_id = owner_id
+        self.icon = icon
+        self.color = color
+        self.sort_order = sort_order
+        self.is_deleted = is_deleted
+        self.created_at = created_at or datetime.now()
+        self.updated_at = updated_at or datetime.now()
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'parentId': self.parent_id,
+            'depth': self.depth,
+            'ownerType': self.owner_type,
+            'ownerId': self.owner_id,
+            'icon': self.icon,
+            'color': self.color,
+            'sortOrder': self.sort_order,
+            'isDeleted': bool(self.is_deleted),
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        if not d:
+            return None
+        return cls(
+            id=d.get('id'),
+            name=d.get('name', ''),
+            parent_id=d.get('parent_id') or d.get('parentId'),
+            depth=d.get('depth', 0),
+            owner_type=d.get('owner_type') or d.get('ownerType') or 'user',
+            owner_id=d.get('owner_id') or d.get('ownerId') or '',
+            icon=d.get('icon', '📁'),
+            color=d.get('color', '#4f46e5'),
+            sort_order=d.get('sort_order') or d.get('sortOrder') or 0,
+            is_deleted=d.get('is_deleted', 0) or d.get('isDeleted', 0) or 0,
+            created_at=cls._parse_dt(d.get('created_at') or d.get('createdAt')),
+            updated_at=cls._parse_dt(d.get('updated_at') or d.get('updatedAt')),
+        )
+
+    @staticmethod
+    def _parse_dt(v):
+        if v is None or v == '':
+            return None
+        if isinstance(v, datetime):
+            return v
+        try:
+            return datetime.fromisoformat(str(v).replace('Z', '+00:00'))
+        except Exception:
+            return None
+
+
+# ===== C 阶段：协作 / 群组 / 同步 相关数据模型 =====
+
+@dataclass
+class Group:
+    id: str
+    name: str
+    join_code: str
+    created_by: str
+    created_at: str
+    updated_at: str
+    icon: str = '👥'
+    color: str = '#4f46e5'
+    description: Optional[str] = None
+    is_hidden: int = 0
+    is_deleted: int = 0
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class GroupMember:
+    id: str
+    group_id: str
+    user_id: str
+    role: str  # 'owner' / 'member'
+    joined_at: str
+    share_tasks: int = 0
+    share_categories: int = 0
+    share_group_tasks: int = 1
+    share_history: int = 0
+    last_seen_at: Optional[str] = None
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class Message:
+    id: str
+    group_id: str
+    sender_id: str
+    msg_type: str  # 'text'/'file'/'image'/'system'
+    created_at: str
+    updated_at: str
+    content: Optional[str] = None
+    attachment_ids: Optional[str] = None  # JSON 数组
+    reply_to_id: Optional[str] = None
+    is_deleted: int = 0
+    read_by: Optional[str] = None  # JSON {user_id: read_at}
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class Attachment:
+    id: str
+    file_hash: str
+    file_name: str
+    file_size: int
+    storage_path: str
+    uploaded_by: str
+    created_at: str
+    message_id: Optional[str] = None
+    mime_type: Optional[str] = None
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class SyncLog:
+    id: str
+    entity_type: str  # 'task'/'category'/'message'/'group'/'attachment'
+    entity_id: str
+    operation: str  # 'push'/'pull'/'conflict'/'reject'
+    created_at: str
+    peer_id: Optional[str] = None
+    user_id: Optional[str] = None
+    has_conflict: int = 0
+    detail: Optional[str] = None
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class FileStorage:
+    file_hash: str
+    storage_path: str
+    file_size: int
+    created_at: str
+    ref_count: int = 1
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
