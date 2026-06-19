@@ -8,7 +8,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from backend.database.operations import TodoDatabase
+from backend.database.operations import TodoDatabase, UserManager
 from backend.database.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient
@@ -31,6 +31,7 @@ class TodoApi:
     def __init__(self, is_android, sync_manager):
         backend_logger.info("初始化TodoApi")
         self.db = TodoDatabase()
+        self.user_manager = UserManager(self.db)
         self.is_android = is_android
         self.sync_manager = sync_manager
         self._received_data = None
@@ -832,3 +833,173 @@ class TodoApi:
 
     def open_in_browser(self, url):
         webbrowser.open(url)
+
+    # ===== A 阶段：用户系统 / 审计日志 API =====
+
+    def auth_get_current_user(self):
+        """获取当前登录用户。无有效 session 时 user=None。"""
+        try:
+            token = self.user_manager.get_current_token()
+            if not token:
+                return {'success': True, 'user': None, 'token': None}
+            user = self.user_manager.get_user_by_token(token)
+            return {
+                'success': True,
+                'user': user.to_dict() if user else None,
+                'token': token,
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_create_user(self, display_name, unit=None, department=None,
+                         role=None, avatar_color='#4f46e5'):
+        """创建新账号并自动登录。"""
+        try:
+            user = self.user_manager.create_user(
+                display_name=display_name, unit=unit, department=department,
+                role=role, avatar_color=avatar_color,
+            )
+            # 清除旧 session，确保单活跃
+            old = self.user_manager.get_current_token()
+            if old:
+                self.user_manager.logout(old)
+            token = self.user_manager.create_session(user.id)
+            return {'success': True, 'user': user.to_dict(), 'token': token}
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_switch_user(self, user_id):
+        """切换到指定用户。"""
+        try:
+            user = self.user_manager.get_user(user_id)
+            if not user:
+                return {'success': False, 'error': '用户不存在'}
+            old = self.user_manager.get_current_token()
+            if old:
+                self.user_manager.logout(old)
+            token = self.user_manager.create_session(user_id)
+            return {'success': True, 'user': user.to_dict(), 'token': token}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_update_user(self, user_id, display_name=None, unit=None,
+                         department=None, role=None, avatar_color=None):
+        """更新当前用户的档案。"""
+        try:
+            user = self.user_manager.update_user(
+                user_id, display_name=display_name, unit=unit,
+                department=department, role=role, avatar_color=avatar_color,
+            )
+            return {'success': True, 'user': user.to_dict()}
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_delete_user(self, user_id):
+        """软删除用户（最后一个账号阻止）。"""
+        try:
+            remaining = [u for u in self.user_manager.list_local_users() if u.id != user_id]
+            if not remaining:
+                return {'success': False, 'error': '至少保留一个账号'}
+            token = self.user_manager.get_current_token()
+            if token:
+                current = self.user_manager.get_user_by_token(token)
+                if current and current.id == user_id:
+                    self.user_manager.logout(token)
+            self.user_manager.delete_user(user_id)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_logout(self):
+        """退出当前登录。"""
+        try:
+            token = self.user_manager.get_current_token()
+            if token:
+                self.user_manager.logout(token)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_heartbeat(self):
+        """更新心跳时间（前端 60s 一次调用）。"""
+        try:
+            token = self.user_manager.get_current_token()
+            if token:
+                self.user_manager.heartbeat(token)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def auth_list_local_users(self):
+        """列出本机所有账号。"""
+        try:
+            users = self.user_manager.list_local_users()
+            return {
+                'success': True,
+                'users': [
+                    {
+                        'id': u.id,
+                        'displayName': u.display_name,
+                        'unit': u.unit,
+                        'department': u.department,
+                        'role': u.role,
+                        'avatarColor': u.avatar_color,
+                        'lastActiveAt': u.last_active_at.isoformat() if u.last_active_at else None,
+                    }
+                    for u in users
+                ],
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def user_search(self, query):
+        """按 display_name/unit/department 模糊匹配本机用户。"""
+        try:
+            q = (query or '').lower()
+            users = self.user_manager.list_local_users()
+            matched = [
+                u for u in users
+                if q in (u.display_name or '').lower()
+                or q in (u.unit or '').lower()
+                or q in (u.department or '').lower()
+            ]
+            return {'success': True, 'users': [u.to_dict() for u in matched]}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def task_get_audit_log(self, task_id):
+        """获取任务的审计日志（含已删除用户的占位显示）。"""
+        try:
+            with self.db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute('''
+                    SELECT a.*, u.display_name AS user_name
+                    FROM task_audit_log a
+                    LEFT JOIN users u ON a.user_id = u.id AND u.is_deleted = 0
+                    WHERE a.task_id = ?
+                    ORDER BY a.created_at DESC
+                ''', (task_id,))
+                rows = cur.fetchall()
+            return {
+                'success': True,
+                'logs': [
+                    {
+                        'id': r['id'],
+                        'taskId': r['task_id'],
+                        'userId': r['user_id'],
+                        'userName': r['user_name'] or '已删除用户',
+                        'action': r['action'],
+                        'field': r['field'],
+                        'oldValue': r['old_value'],
+                        'newValue': r['new_value'],
+                        'createdAt': r['created_at'],
+                    }
+                    for r in rows
+                ],
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
