@@ -332,39 +332,46 @@ class TodoDatabase:
         if tags:
             self.update_task_tags(task.id, tags)
 
-        return task.to_dict()
+        # 重新从 db 读取完整 dict（含 owner/cooperator 扩展字段）
+        result = self.get_task(task.id) or task.to_dict()
+        return result
     
     def get_all_tasks(self):
         """获取所有任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         # 明确指定字段顺序，避免依赖字段位置
         cursor.execute('''
             SELECT id, title, description, completed, priority, category_id, due_date,
-                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
-                   parent_task_id, created_at, updated_at
-            FROM tasks 
-            ORDER BY 
-                CASE 
-                    WHEN due_date IS NOT NULL THEN 1 
-                    ELSE 2 
+                   is_recurring, recurrence_type, recurrence_interval, recurrence_count,
+                   parent_task_id, created_at, updated_at,
+                   owner_user_id, cooperator_user_ids
+            FROM tasks
+            ORDER BY
+                CASE
+                    WHEN due_date IS NOT NULL THEN 1
+                    ELSE 2
                 END,
                 due_date ASC,
-                CASE priority 
-                    WHEN 'high' THEN 1 
-                    WHEN 'medium' THEN 2 
-                    WHEN 'low' THEN 3 
-                    ELSE 4 
+                CASE priority
+                    WHEN 'high' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'low' THEN 3
+                    ELSE 4
                 END,
                 created_at DESC
         ''')
-        
+
         rows = cursor.fetchall()
         conn.close()
-        
+
         tasks = []
         for row in rows:
+            try:
+                coop_ids = json.loads(row[15] or '[]')
+            except (json.JSONDecodeError, TypeError):
+                coop_ids = []
             task_dict = {
                 'id': row[0],
                 'title': row[1],
@@ -380,10 +387,12 @@ class TodoDatabase:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
+                'ownerUserId': row[14],
+                'cooperatorUserIds': coop_ids,
                 'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
-        
+
         return tasks
 
     def get_tasks_paginated(self, page=1, page_size=10, category_id=None, status=None, 
@@ -552,31 +561,36 @@ class TodoDatabase:
         offset = (page - 1) * page_size
         data_sql = f'''
             SELECT id, title, description, completed, priority, category_id, due_date,
-                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
-                   parent_task_id, created_at, updated_at
-            FROM tasks 
+                   is_recurring, recurrence_type, recurrence_interval, recurrence_count,
+                   parent_task_id, created_at, updated_at,
+                   owner_user_id, cooperator_user_ids
+            FROM tasks
             WHERE {where_sql}
-            ORDER BY 
-                CASE 
-                    WHEN due_date IS NOT NULL THEN 1 
-                    ELSE 2 
+            ORDER BY
+                CASE
+                    WHEN due_date IS NOT NULL THEN 1
+                    ELSE 2
                 END,
                 due_date ASC,
-                CASE priority 
-                    WHEN 'high' THEN 1 
-                    WHEN 'medium' THEN 2 
-                    WHEN 'low' THEN 3 
-                    ELSE 4 
+                CASE priority
+                    WHEN 'high' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'low' THEN 3
+                    ELSE 4
                 END,
                 created_at DESC
             LIMIT ? OFFSET ?
         '''
-        
+
         cursor.execute(data_sql, params + [page_size, offset])
         rows = cursor.fetchall()
-        
+
         tasks = []
         for row in rows:
+            try:
+                coop_ids = json.loads(row[15] or '[]')
+            except (json.JSONDecodeError, TypeError):
+                coop_ids = []
             task_dict = {
                 'id': row[0],
                 'title': row[1],
@@ -592,6 +606,8 @@ class TodoDatabase:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
+                'ownerUserId': row[14],
+                'cooperatorUserIds': coop_ids,
                 'tags': self.get_task_tags(row[0])  # 添加标签信息
             }
             tasks.append(task_dict)
@@ -614,8 +630,9 @@ class TodoDatabase:
         # 明确指定字段顺序
         cursor.execute('''
             SELECT id, title, description, completed, priority, category_id, due_date,
-                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
-                   parent_task_id, created_at, updated_at
+                   is_recurring, recurrence_type, recurrence_interval, recurrence_count,
+                   parent_task_id, created_at, updated_at,
+                   owner_user_id, cooperator_user_ids
             FROM tasks WHERE id = ?
         ''', (task_id,))
         row = cursor.fetchone()
@@ -624,6 +641,10 @@ class TodoDatabase:
             conn.close()
             return None
 
+        try:
+            coop_ids = json.loads(row[15] or '[]')
+        except (json.JSONDecodeError, TypeError):
+            coop_ids = []
         task_dict = {
             'id': row[0],
             'title': row[1],
@@ -639,6 +660,8 @@ class TodoDatabase:
             'parentTaskId': row[11],
             'createdAt': row[12],
             'updatedAt': row[13],
+            'ownerUserId': row[14],
+            'cooperatorUserIds': coop_ids,
             'tags': self.get_task_tags(task_id)  # 添加标签信息
         }
 
@@ -726,7 +749,9 @@ class TodoDatabase:
             tags = task_data.get('tags', [])
             self.update_task_tags(task_id, tags)
 
-        return task.to_dict()
+        # 重新从 db 读取完整 dict（含 owner/cooperator 扩展字段）
+        result = self.get_task(task_id) or task.to_dict()
+        return result
 
     def delete_task(self, task_id, current_user_id=None):
         """删除任务（写 delete 审计）。"""

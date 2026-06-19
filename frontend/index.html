@@ -272,7 +272,9 @@
     </div>
 </div>
 
-<div class="app-container">
+<!-- 骨架屏对应的用户卡片占位（仅样式，不可见） -->
+
+<div class="app-container" id="main-view" style="display: none;">
     <!-- 侧边栏 -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -349,12 +351,38 @@
             </span>
         </div>
 
-        <!-- 联系作者 -->
-        <div class="contact-author-section">
-            <button id="contact-author-btn" class="contact-author-btn">
-                <span class="contact-icon">✉️</span>
-                <span class="contact-text">联系作者</span>
-            </button>
+        <!-- 用户卡片（替换原"联系作者"位置） -->
+        <div class="user-card-section">
+            <div id="user-card" class="user-card" style="display: none;">
+                <div id="user-card-avatar" class="user-card-avatar">
+                    <span id="user-card-initial">?</span>
+                    <span id="user-card-online" class="user-online-dot" title="在线"></span>
+                </div>
+                <div class="user-card-info">
+                    <div id="user-card-name" class="user-card-name">未登录</div>
+                    <div id="user-card-role" class="user-card-role"></div>
+                    <div id="user-card-meta" class="user-card-meta"></div>
+                </div>
+            </div>
+            <div id="user-menu" class="user-menu" style="display: none;">
+                <div class="user-menu-item" data-action="profile">
+                    <span class="user-menu-icon">👤</span>
+                    <span>个人设置</span>
+                </div>
+                <div class="user-menu-item" data-action="switch">
+                    <span class="user-menu-icon">🔁</span>
+                    <span>切换账号</span>
+                </div>
+                <div class="user-menu-item" data-action="groups">
+                    <span class="user-menu-icon">👥</span>
+                    <span>协作组管理</span>
+                </div>
+                <div class="user-menu-divider"></div>
+                <div class="user-menu-item user-menu-item-danger" data-action="logout">
+                    <span class="user-menu-icon">🚪</span>
+                    <span>退出登录</span>
+                </div>
+            </div>
         </div>
 
     </aside>
@@ -550,6 +578,22 @@
                     </button>
 
                     <div id="more-options-content" class="more-options-content" style="display: none;">
+                        <div class="form-group">
+                            <label for="task-owner">责任人</label>
+                            <select id="task-owner" class="collaborator-select">
+                                <option value="">（默认 = 当前账号）</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>协作人
+                                <span style="color: #999; font-size: 12px;">（可多选）</span>
+                            </label>
+                            <div id="task-cooperators" class="collaborator-chips">
+                                <!-- 协作人 chip 由 JS 动态生成 -->
+                            </div>
+                        </div>
+
                         <div class="form-group datetime-group">
                             <label>截止日期和时间 <span
                                     style="color: #666; font-size: 12px;">（可选）</span></label>
@@ -598,6 +642,53 @@
         <div class="modal-footer">
             <button type="button" id="cancel-btn" class="cancel-btn">取消</button>
             <button type="submit" form="task-form" id="save-btn" class="save-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 任务详情模态框（含协作人 + 审计日志） -->
+<div id="task-detail-modal" class="modal">
+    <div class="modal-content task-detail-content">
+        <div class="modal-header">
+            <h2 id="task-detail-title">任务详情</h2>
+            <button class="modal-close" id="task-detail-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="task-detail-meta" id="task-detail-meta"></div>
+            <div class="task-detail-description" id="task-detail-description"></div>
+
+            <div class="task-detail-tags" id="task-detail-tags"></div>
+
+            <div class="task-detail-collaborators">
+                <h4>协作</h4>
+                <div class="collab-row">
+                    <span class="collab-label">责任人：</span>
+                    <span id="task-detail-owner" class="collab-value">未指定</span>
+                </div>
+                <div class="collab-row">
+                    <span class="collab-label">协作人：</span>
+                    <span id="task-detail-cooperators" class="collab-value">无</span>
+                </div>
+            </div>
+
+            <div class="task-detail-tabs">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="info">基本信息</button>
+                    <button class="tab-btn" data-tab="audit">审计日志</button>
+                </div>
+                <div class="tab-panels">
+                    <div class="tab-panel active" data-panel="info" id="task-detail-info-panel"></div>
+                    <div class="tab-panel" data-panel="audit" id="task-detail-audit-panel">
+                        <div id="task-audit-list" class="audit-list">
+                            <p class="audit-empty">暂无审计日志</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="task-detail-edit" class="primary-btn">编辑</button>
+            <button type="button" class="cancel-btn" id="task-detail-cancel">关闭</button>
         </div>
     </div>
 </div>
@@ -1004,6 +1095,122 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+
+<!-- 账号选择页（首屏，无账号或选择账号时显示） -->
+<div id="account-selector-view" class="account-selector-view">
+    <div class="account-selector-content">
+        <div class="account-selector-header">
+            <h1 class="account-selector-title">📝 Todo List</h1>
+            <p class="account-selector-subtitle">请选择或创建一个账号开始使用</p>
+        </div>
+        <div id="account-list" class="account-list">
+            <!-- 账号卡片由 JS 动态渲染 -->
+        </div>
+        <button id="btn-create-account" class="btn-create-account">+ 新建账号</button>
+    </div>
+</div>
+
+<!-- 创建账号模态框 -->
+<div id="create-account-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>新建账号</h2>
+            <button class="modal-close" data-close="create-account-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="create-account-form" class="user-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="ca-display-name">用户名 *</label>
+                    <input type="text" id="ca-display-name" maxlength="50" required placeholder="请输入显示名称">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ca-unit">单位</label>
+                        <input type="text" id="ca-unit" maxlength="100" placeholder="（可选）">
+                    </div>
+                    <div class="form-group">
+                        <label for="ca-department">部门</label>
+                        <input type="text" id="ca-department" maxlength="100" placeholder="（可选）">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="ca-role">角色</label>
+                    <input type="text" id="ca-role" maxlength="50" placeholder="例如：Owner / Member（可选）">
+                </div>
+                <div class="form-group">
+                    <label>头像颜色</label>
+                    <div id="ca-color-picker" class="color-picker-row">
+                        <span class="color-dot selected" data-color="#4f46e5" style="background:#4f46e5"></span>
+                        <span class="color-dot" data-color="#0ea5e9" style="background:#0ea5e9"></span>
+                        <span class="color-dot" data-color="#10b981" style="background:#10b981"></span>
+                        <span class="color-dot" data-color="#f59e0b" style="background:#f59e0b"></span>
+                        <span class="color-dot" data-color="#ef4444" style="background:#ef4444"></span>
+                        <span class="color-dot" data-color="#ec4899" style="background:#ec4899"></span>
+                        <span class="color-dot" data-color="#8b5cf6" style="background:#8b5cf6"></span>
+                        <span class="color-dot" data-color="#64748b" style="background:#64748b"></span>
+                    </div>
+                </div>
+                <div id="ca-error" class="form-error" style="display:none;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="cancel-btn" data-close="create-account-modal">取消</button>
+            <button type="button" id="ca-submit" class="save-btn">创建并登录</button>
+        </div>
+    </div>
+</div>
+
+<!-- 个人设置模态框 -->
+<div id="profile-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>个人设置</h2>
+            <button class="modal-close" data-close="profile-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="profile-form" class="user-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="pr-display-name">用户名 *</label>
+                    <input type="text" id="pr-display-name" maxlength="50" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pr-unit">单位</label>
+                        <input type="text" id="pr-unit" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="pr-department">部门</label>
+                        <input type="text" id="pr-department" maxlength="100">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="pr-role">角色</label>
+                    <input type="text" id="pr-role" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>头像颜色</label>
+                    <div id="pr-color-picker" class="color-picker-row">
+                        <span class="color-dot" data-color="#4f46e5" style="background:#4f46e5"></span>
+                        <span class="color-dot" data-color="#0ea5e9" style="background:#0ea5e9"></span>
+                        <span class="color-dot" data-color="#10b981" style="background:#10b981"></span>
+                        <span class="color-dot" data-color="#f59e0b" style="background:#f59e0b"></span>
+                        <span class="color-dot" data-color="#ef4444" style="background:#ef4444"></span>
+                        <span class="color-dot" data-color="#ec4899" style="background:#ec4899"></span>
+                        <span class="color-dot" data-color="#8b5cf6" style="background:#8b5cf6"></span>
+                        <span class="color-dot" data-color="#64748b" style="background:#64748b"></span>
+                    </div>
+                </div>
+                <div id="pr-error" class="form-error" style="display:none;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="pr-delete" class="danger-btn" style="margin-right:auto;">删除账号</button>
+            <button type="button" class="cancel-btn" data-close="profile-modal">取消</button>
+            <button type="button" id="pr-save" class="save-btn">保存</button>
+        </div>
+    </div>
+</div>
+
 <script src="config/languages.js"></script>
 <script src="js/pikaday.js"></script>
 <script src="js/utils.js"></script>
@@ -1015,6 +1222,9 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/calendar.js"></script>
 <script src="js/dataTransfer.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/api.js"></script>
+<script src="js/user.js"></script>
+<script src="js/taskCollaboration.js"></script>
 <script src="js/main.js"></script>
 <script src="js/timeline.js"></script>
 </body>

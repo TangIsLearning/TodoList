@@ -1133,20 +1133,20 @@ class TodoManager {
     showAddTaskModal() {
         const modalTitle = document.getElementById('modal-title');
         const taskForm = document.getElementById('task-form');
-        
+
         modalTitle.textContent = '新建任务';
         taskForm.reset();
         taskForm.dataset.editingId = '';
-        
+
         // 重置更多选项状态
         this.resetMoreOptions();
-        
+
         // 启用周期性任务选项（新建任务模式下允许）
         this.enableRecurringOptions();
-        
+
         // 移除编辑模式提示（如果存在）
         this.removeRecurringEditNotice();
-        
+
         // 截止日期默认为空，不设置默认值
         document.getElementById('task-due-time').value = '';
 
@@ -1159,21 +1159,31 @@ class TodoManager {
         // 获取当前选中的分类ID
         const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
         console.log('Setting default category for new task:', currentCategory || 'no category');
-        
+
         // 加载分类选项并设置默认选中
         this.loadCategoryOptions(currentCategory);
 
         // 加载标签选择器
         this.loadTagsSelector();
 
+        // 加载协作人选择（默认空 => 后端取当前账号）
+        if (window.taskCollab) {
+            window.taskCollab.renderOwnerSelect('');
+            window.taskCollab.renderCooperatorChips([]);
+        }
+
         Utils.ModalManager.show('task-modal');
     }
     
-    // 查看任务详情
+    // 查看任务详情（使用新的 task-detail-modal，支持协作 + 审计日志）
     async viewTaskDetails(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
-
+        if (window.taskCollab && typeof window.taskCollab.openTaskDetail === 'function') {
+            await window.taskCollab.openTaskDetail(task);
+            return;
+        }
+        // 兜底：若新模态框不可用则维持旧的 confirmDialog
         const priorityInfo = Utils.getPriorityInfo(task.priority);
         const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
 
@@ -1190,68 +1200,61 @@ class TodoManager {
         }
 
         const detailContent = `
-            <div style="padding: 20px;">
-                <div style="margin-bottom: 20px;">
-                    <h3 style="font-size: 20px; color: var(--text-primary); margin-bottom: 10px;">
-                        ${Utils.escapeHtml(task.title)}
-                        ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
-                        ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                    </h3>
-                    <p style="color: var(--text-secondary); line-height: 1.6;">
-                        ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : window.languageManager.getText('noTaskDescription', '无描述')}
-                    </p>
+            <div style="padding: 8px 0;">
+                <p style="color: var(--text-secondary); line-height: 1.6;">
+                    ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : window.languageManager.getText('noTaskDescription', '无描述')}
+                </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskStatus', '状态')}</strong>
+                    <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
+                          ${task.completed ? 'background-color: var(--success-color); color: white;' : 'background-color: var(--priority-medium); color: var(--text-primary);'}">
+                        ${task.completed ? window.languageManager.getText('statusCompleted', '已完成') : window.languageManager.getText('statusUncompleted', '未完成')}
+                    </span>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskStatus', '状态')}</strong>
-                        <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
-                              ${task.completed ? 'background-color: var(--success-color); color: white;' : 'background-color: var(--priority-medium); color: var(--text-primary);'}">
-                            ${task.completed ? window.languageManager.getText('statusCompleted', '已完成') : window.languageManager.getText('statusUncompleted', '未完成')}
-                        </span>
-                    </div>
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskPriority', '优先级')}</strong>
+                    <span class="task-priority ${task.priority}" style="font-size: 14px; padding: 6px 12px;">
+                        ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
+                    </span>
+                </div>
 
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskPriority', '优先级')}</strong>
-                        <span class="task-priority ${task.priority}" style="font-size: 14px; padding: 6px 12px;">
-                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
-                        </span>
-                    </div>
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskDueDate', '截止日期')}</strong>
+                    <span style="color: ${isOverdue ? 'var(--danger-color)' : 'var(--text-primary)'}; font-size: 14px;">
+                        ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : window.languageManager.getText('dueDateNoDueDate', '无截止日期')}
+                    </span>
+                </div>
 
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskDueDate', '截止日期')}</strong>
-                        <span style="color: ${isOverdue ? 'var(--danger-color)' : 'var(--text-primary)'}; font-size: 14px;">
-                            ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : window.languageManager.getText('dueDateNoDueDate', '无截止日期')}
-                        </span>
-                    </div>
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCategory', '分类')}</strong>
+                    <span style="color: var(--text-primary); font-size: 14px;">
+                        ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : window.languageManager.getText('uncategorized', '无分类')}
+                    </span>
+                </div>
 
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCategory', '分类')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : window.languageManager.getText('uncategorized', '无分类')}
-                        </span>
+                <div style="grid-column: 1 / -1;">
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskTags', '标签')}</strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${tagsHtml}
                     </div>
+                </div>
 
-                    <div style="grid-column: 1 / -1;">
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskTags', '标签')}</strong>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            ${tagsHtml}
-                        </div>
-                    </div>
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCreateTime', '创建时间')}</strong>
+                    <span style="color: var(--text-primary); font-size: 14px;">
+                        ${task.createdAt ? `📅 ${Utils.formatDate(task.createdAt)}` : '-'}
+                    </span>
+                </div>
 
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCreateTime', '创建时间')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.createdAt ? `📅 ${Utils.formatDate(task.createdAt)}` : '-'}
-                        </span>
-                    </div>
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskUpdateTime', '更新时间')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.updatedAt ? `📅 ${Utils.formatDate(task.updatedAt)}` : '-'}
-                        </span>
-                    </div>
+                <div>
+                    <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskUpdateTime', '更新时间')}</strong>
+                    <span style="color: var(--text-primary); font-size: 14px;">
+                        ${task.updatedAt ? `📅 ${Utils.formatDate(task.updatedAt)}` : '-'}
+                    </span>
                 </div>
             </div>
         `;
@@ -1297,19 +1300,19 @@ class TodoManager {
             Utils.showToast(window.languageManager.getText('periodicTaskEditFailed', '周期性任务不支持编辑，请删除后重新创建'), 'warning');
             return;
         }
-        
+
         const modalTitle = document.getElementById('modal-title');
         const taskForm = document.getElementById('task-form');
-        
+
         modalTitle.textContent = '编辑任务';
         taskForm.dataset.editingId = taskId;
 
         // 重置更多选项状态
         this.resetMoreOptions();
-        
+
         // 启用周期性任务选项（新建任务模式下允许）
         this.enableRecurringOptions();
-        
+
         // 移除编辑模式提示（如果存在）
         this.removeRecurringEditNotice();
 
@@ -1326,33 +1329,39 @@ class TodoManager {
             const [datePart, timePart] = task.dueDate.split('T');
             document.getElementById('task-due-date-picker').value = datePart;
             document.getElementById('task-due-time').value = timePart;
-            
+
             // 自动展开更多选项
             const moreOptionsContent = document.getElementById('more-options-content');
             const moreOptionsToggle = document.getElementById('more-options-toggle');
             const toggleIcon = moreOptionsToggle.querySelector('.toggle-icon');
-            
+
             if (moreOptionsContent && moreOptionsToggle && toggleIcon) {
                 moreOptionsContent.style.display = 'block';
                 moreOptionsToggle.classList.add('expanded');
                 toggleIcon.textContent = '-';
             }
         }
-        
+
         // 禁用周期性任务选项（编辑模式下不允许转换为周期性任务）
         this.disableRecurringOptions();
-        
+
         // 添加编辑模式提示
         this.addRecurringEditNotice();
-        
+
         // 加载分类选项
         this.loadCategoryOptions(task.categoryId);
-        
+
         // 添加输入值变化监听
         this.addInputValueListeners();
 
         // 加载标签选择器
         this.loadTagsSelector();
+
+        // 加载协作人选择
+        if (window.taskCollab) {
+            window.taskCollab.renderOwnerSelect(task.ownerUserId || '');
+            window.taskCollab.renderCooperatorChips(task.cooperatorUserIds || []);
+        }
 
         Utils.ModalManager.show('task-modal');
     }
@@ -1478,6 +1487,15 @@ class TodoManager {
             dueDate: isoDateStr || null,
             tags: this.getSelectedTagsNames()
         };
+
+        // 协作人数据（owner/cooperators + 当前操作人）
+        if (window.taskCollab) {
+            const collab = window.taskCollab.collectCollaboratorData();
+            if (collab.ownerUserId) taskData.ownerUserId = collab.ownerUserId;
+            taskData.cooperatorUserIds = collab.cooperatorUserIds;
+        }
+        const me = window.userManager && window.userManager.currentUser;
+        if (me) taskData.currentUserId = me.id;
         
         // 编辑模式下强制清除周期性任务相关数据
         if (!isEdit) {

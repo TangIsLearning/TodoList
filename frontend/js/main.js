@@ -72,6 +72,10 @@ class App {
     
     // 绑定全局事件
     bindGlobalEvents() {
+        // 任务协作模态框按钮
+        if (window.taskCollab && typeof window.taskCollab.bindModalButtons === 'function') {
+            window.taskCollab.bindModalButtons();
+        }
         // 设置中心按钮
         const settingsBtn = document.getElementById('settings-btn');
         if (settingsBtn) {
@@ -472,10 +476,35 @@ const app = new App();
 
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    // 延迟初始化，确保所有资源加载完成
-    setTimeout(() => {
-        app.init();
-    }, 100);
+    // 先初始化用户系统（决定显示账号选择页还是主视图）
+    if (window.userManager) {
+        window.userManager.initUI();
+        window.userManager.init().then(() => {
+            // 如果没有登录用户，不启动主应用
+            if (!window.userManager.currentUser) {
+                // 隐藏骨架屏
+                const skeletonScreen = document.getElementById('skeleton-screen');
+                if (skeletonScreen) skeletonScreen.style.display = 'none';
+                return;
+            }
+            // 延迟初始化主应用
+            setTimeout(() => {
+                app.init();
+            }, 100);
+        }).catch((err) => {
+            console.error('UserManager init failed:', err);
+            // 失败时回退到主视图，避免完全无法使用
+            const main = document.getElementById('main-view');
+            if (main) main.style.display = 'block';
+            setTimeout(() => {
+                app.init();
+            }, 100);
+        });
+    } else {
+        setTimeout(() => {
+            app.init();
+        }, 100);
+    }
 });
 
 // 导出到全局
