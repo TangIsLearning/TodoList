@@ -2515,6 +2515,8 @@ class TodoManager {
             const searchInput = document.getElementById('search-input');
             searchInput.value = selectedTags.join(';');
             this.searchQuery = selectedTags.join(';');
+            this.currentPage = 1; // 重置到第一页
+            this.resetInfiniteScroll(); // 重置无限下拉状态
             this.loadTasks();
         }
         this.bindTagModuleEvents(tagsList, selectedTagIds);
