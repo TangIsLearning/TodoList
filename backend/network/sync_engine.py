@@ -1,12 +1,51 @@
 # backend/network/sync_engine.py
 import json
 import time
+from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from backend.network.protocol import (
     SYNC_TASK_PUSH, SYNC_TASK_PULL, SYNC_CATEGORY_PUSH, SYNC_CATEGORY_PULL,
     SYNC_USER_PROFILE_PUSH,
 )
+
+
+# ===== D 阶段：clock-skew 容忍 =====
+SKEW_TOLERANCE_SEC = 1.0  # 视为同时的最大时间差
+
+
+def _parse_ts(ts: str) -> Optional[datetime]:
+    """将 ISO-8601 时间戳解析为 datetime（兼容 Z 后缀与无时区）。"""
+    if not ts:
+        return None
+    try:
+        s = str(ts).replace('Z', '+00:00')
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def resolve_with_skew(local_ts: str, remote_ts: str,
+                      local_id: str, remote_id: str) -> str:
+    """Clock-skew 容忍冲突解决。
+
+    返回胜出方的标识 ('local' / 'remote')。
+    - |Δt| < SKEW_TOLERANCE_SEC：视为同时 → 节点 ID 字典序大的胜出
+    - 否则：时间戳更新的胜出
+    - 解析失败回退：按节点 ID 字典序
+    """
+    ldt = _parse_ts(local_ts)
+    rdt = _parse_ts(remote_ts)
+    if ldt and rdt:
+        delta = abs((rdt - ldt).total_seconds())
+        if delta < SKEW_TOLERANCE_SEC:
+            return 'remote' if remote_id > local_id else 'local'
+        return 'remote' if rdt > ldt else 'local'
+    # 时间戳解析失败：回退到 ID 字典序
+    return 'remote' if (remote_id or '') > (local_id or '') else 'local'
 
 
 class SyncEngine:
@@ -18,6 +57,21 @@ class SyncEngine:
         self.on_apply = on_apply
         # 节点级最后同步时间戳
         self._last_sync_at: dict[str, str] = {}
+
+    def _ts(self, entity: dict, *keys) -> str:
+        """获取时间戳字段，支持多种命名（updated_at / updatedAt 等）。
+
+        A/B 阶段 get_task / 模型层统一用 camelCase（updatedAt / createdAt），
+        C 阶段早期 sync 协议用 snake_case（updated_at / created_at）。
+        冲突解决时两种命名都可能出现，故按顺序尝试直到找到第一个非空值。
+        """
+        if not entity:
+            return ''
+        for k in keys:
+            v = entity.get(k)
+            if v:
+                return v
+        return ''
 
     def apply_remote_change(self, entity_type: str, entity: dict,
                             peer_id: str = '', user_id: str = '') -> dict:
@@ -84,3 +138,44 @@ class SyncEngine:
         if entity_type == 'message':
             return []
         return []
+
+    # ===== D 阶段：增量同步 =====
+    def apply_pull_response(self, entity_type: str, entities: list,
+                            peer_id: str = '', user_id: str = '') -> int:
+        """应用远端 PULL_RESPONSE 拉取结果，逐条 apply_remote_change。
+
+        返回成功 apply 的数量。
+        """
+        applied = 0
+        for ent in entities:
+            try:
+                self.apply_remote_change(entity_type, ent, peer_id=peer_id, user_id=user_id)
+                applied += 1
+            except Exception:
+                # 单条失败不影响整批
+                pass
+        return applied
+
+    def sync_with_peer(self, peer_id: str, since: str = '',
+                       entity_types: tuple = ('task', 'category')) -> dict:
+        """对指定 peer 触发增量同步。
+
+        返回 {entity_type: count}。
+        实际发送由 NetworkCoordinator 完成；本方法只负责生成本地应有的 PULL_REQUEST 数据。
+        调用方需把 PULL_REQUEST 通过 PeerConnection 发送，收到 PULL_RESPONSE 后调用
+        apply_pull_response 落地。
+        """
+        # 仅生成 since / entity_types 元数据，发送与接收在协调器层
+        self._last_sync_at[peer_id] = since or ''
+        return {
+            'peer_id': peer_id,
+            'since': since or '',
+            'entity_types': list(entity_types),
+        }
+
+    def record_sync_at(self, peer_id: str, ts: str = None) -> None:
+        """记录对 peer 的最后同步时间戳。"""
+        self._last_sync_at[peer_id] = ts or datetime.now(timezone.utc).isoformat()
+
+    def get_last_sync_at(self, peer_id: str) -> str:
+        return self._last_sync_at.get(peer_id, '')

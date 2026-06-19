@@ -1,491 +1,186 @@
-// 分类管理模块
+// 多级分类前端管理器（Task B7）
+// 状态 + 树 + 拖拽 + 侧边栏
+(function() {
+    'use strict';
 
-class CategoryManager {
-    constructor() {
-        this.categories = [];
-        this.currentCategory = 'all';
-        this.defaultShowCategories = 3; // 默认只展示4个分类项，超出则隐藏
-    }
-    
-    // 初始化
-    async init() {
-        await this.loadCategories();
-        this.bindEvents();
-        this.renderCategories();
-        
-        // 设置初始筛选状态为"全部"
-        this.setActiveCategory('all');
-    }
-    
-    // 绑定事件
-    bindEvents() {
-        // 添加分类按钮
-        const showMoreCategories = document.getElementById('categories-more');
-        if (showMoreCategories) {
-            showMoreCategories.addEventListener('click', () => {
-                if (this.categories.length <= this.defaultShowCategories) return;
-                let isShowMore = showMoreCategories.classList.contains('selected');
-                if (isShowMore) {
-                    showMoreCategories.classList.remove('selected');
-                } else {
-                    showMoreCategories.classList.add('selected');
-                }
-                this.renderCategories(false, !isShowMore);
-            });
-        }
+    const LS_KEY = 'category.sidebar.expanded';
+    const LS_FILTER_KEY = 'category.filter.selected';
 
-        // 添加分类按钮
-        const addCategoryBtn = document.getElementById('add-category-btn');
-        if (addCategoryBtn) {
-            addCategoryBtn.addEventListener('click', () => this.showAddCategoryModal());
-        }
-        
-        // 分类表单
-        const categoryForm = document.getElementById('category-form');
-        if (categoryForm) {
-            categoryForm.addEventListener('submit', (e) => this.handleCategorySubmit(e));
-        }
-        
-        // 模态框关闭按钮
-        const modalClose = document.getElementById('category-modal-close');
-        const cancelBtn = document.getElementById('category-cancel-btn');
-        
-        if (modalClose) {
-            modalClose.addEventListener('click', () => Utils.ModalManager.hide('category-modal'));
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => Utils.ModalManager.hide('category-modal'));
-        }
-        
-        // 颜色预设按钮
-        document.querySelectorAll('.color-presets button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const color = e.target.dataset.color;
-                document.getElementById('category-color').value = color;
-            });
-        });
-        
-        // 分类筛选、编辑和删除
-        document.addEventListener('click', (e) => {
-            // 删除分类按钮
-            if (e.target.closest('.category-delete-btn')) {
-                e.stopPropagation();
-                const deleteBtn = e.target.closest('.category-delete-btn');
-                const categoryId = deleteBtn.dataset.categoryId;
-                console.log('Delete button clicked for category:', categoryId);
-                this.deleteCategory(categoryId);
-                return;
-            }
-            
-            // 编辑分类按钮
-            if (e.target.closest('.category-edit-btn')) {
-                e.stopPropagation();
-                const editBtn = e.target.closest('.category-edit-btn');
-                const categoryId = editBtn.dataset.categoryId;
-                console.log('Edit button clicked for category:', categoryId);
-                this.editCategory(categoryId);
-                return;
-            }
-            
-            // 分类筛选 - 确保不是点击按钮时触发
-            if (e.target.closest('.category-item') && !e.target.closest('.category-edit-btn') && !e.target.closest('.category-delete-btn')) {
-                const categoryItem = e.target.closest('.category-item');
-                const categoryId = categoryItem.dataset.category;
-                console.log('Category clicked:', categoryId); // 调试日志
-                console.log('Category element:', categoryItem); // 调试日志
-                console.log('Target element:', e.target); // 调试日志
-                this.filterByCategory(categoryId);
-            }
-        });
-        
-        // 删除按钮悬停事件 - 隐藏数字
-        document.addEventListener('mouseover', (e) => {
-            if (e.target.closest('.category-delete-btn')) {
-                const wrapper = e.target.closest('.category-item-wrapper');
-                const countElement = wrapper.querySelector('.category-count');
-                if (countElement) {
-                    countElement.style.opacity = '0';
-                    countElement.style.visibility = 'hidden';
-                }
-            }
-        });
-        
-        document.addEventListener('mouseout', (e) => {
-            if (e.target.closest('.category-delete-btn')) {
-                const wrapper = e.target.closest('.category-item-wrapper');
-                const countElement = wrapper.querySelector('.category-count');
-                if (countElement) {
-                    countElement.style.opacity = '1';
-                    countElement.style.visibility = 'visible';
-                }
-            }
-        });
-    }
-    
-    // 加载分类
-    async loadCategories() {
+    function _readLS(key, def) {
         try {
-            const response = await window.pywebview.api.get_categories();
-            
-            if (response.success) {
-                this.categories = response.categories;
-            } else {
-                Utils.showToast(`${window.languageManager.getText('loadCategoriesFailed', '加载分类失败')}: ${response.error}`, 'error');
-            }
-        } catch (error) {
-            console.error('加载分类失败:', error);
-            Utils.showToast(window.languageManager.getText('loadCategoriesFailed', '加载分类失败'), 'error');
-        }
+            const v = localStorage.getItem(key);
+            return v == null ? def : JSON.parse(v);
+        } catch (e) { return def; }
     }
-    
-    // 渲染分类列表
-    async renderCategories(defaultFiltered = true, isShowMore=false) {
-        const categoryList = document.getElementById('category-list');
-        if (!categoryList) return;
-        
-        // 加载任务数量统计
-        const taskCounts = await this.getTaskCounts(defaultFiltered);
-        
-        // 生成HTML
-        const categoriesHtml = this.generateCategoriesHtml(taskCounts, isShowMore);
-        categoryList.innerHTML = categoriesHtml;
-        
-        // 设置当前分类的激活状态
-        this.setActiveCategory(this.currentCategory);
+    function _writeLS(key, v) {
+        try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {}
     }
-    
-    // 生成分类HTML
-    generateCategoriesHtml(taskCounts, isShowMore=false) {
-        let html = `
-            <button class="category-item" data-category="all">
-                <span class="category-item-with-color">
-                    <span class="category-color-indicator" style="background-color: var(--primary-color);"></span>
-                    <span id="allCategories">${window.languageManager.getText('allCategories', '全部')}</span>
-                </span>
-                <span class="category-count">${taskCounts.all || 0}</span>
-            </button>
-        `;
-        
-        this.categories.forEach((category, index) => {
-            if (!isShowMore && index >= this.defaultShowCategories) return;
-            const count = taskCounts[category.id] || 0;
-            html += `
-                <div class="category-item-wrapper" data-category-id="${category.id}">
-                    <button class="category-item" data-category="${category.id}">
-                        <span class="category-item-with-color">
-                            <span class="category-color-indicator" style="background-color: ${category.color};"></span>
-                            <span>${Utils.escapeHtml(category.name)}</span>
-                        </span>
-                        <span class="category-count">${count}</span>
-                    </button>
-                    <button class="category-edit-btn" data-category-id="${category.id}" title="编辑分类">
-                        ✏️
-                    </button>
-                    <button class="category-delete-btn" data-category-id="${category.id}" title="删除分类">
-                        🗑️
-                    </button>
-                </div>
-            `;
-        });
-        
-        return html;
-    }
-    
-    // 获取任务数量统计
-    async getTaskCounts(defaultFiltered = true, filteredTasks = null) {
-        const counts = { all: 0 };
-        
-        try {
-            // 如果没有传入筛选后的任务，则获取所有任务
-            let tasks;
-            if (filteredTasks) {
-                tasks = filteredTasks;
-            } else {
-                const response = defaultFiltered ? await window.pywebview.api.get_todos() : await window.pywebview.api.get_todos(
-                    1,  // page
-                    999999,  // page_size - 设置一个足够大的值以获取所有任务
-                    null,  // 分类
-                    'uncompleted',  // 状态
-                    null,  // 优先级
-                    null,  // 逾期
-                    null,  // year
-                    null,  // month
-                    null,  // search-input
-                    null   // custom-date
-                );
-                if (response.success) {
-                    tasks = response.tasks;
-                } else {
-                    return counts;
-                }
-            }
-            
-            counts.all = tasks.length;
-            
-            tasks.forEach(task => {
-                if (task.categoryId) {
-                    counts[task.categoryId] = (counts[task.categoryId] || 0) + 1;
-                }
-            });
-        } catch (error) {
-            console.error('获取任务统计失败:', error);
-        }
-        
-        return counts;
-    }
-    
-    // 按分类筛选
-    async filterByCategory(categoryId) {
-        console.log('Filtering by category:', categoryId); // 调试日志
-        this.currentCategory = categoryId;
-        this.setActiveCategory(categoryId);
-        
-        // 通知TodoManager进行筛选
-        if (window.todoManager) {
-            console.log('Notifying TodoManager to filter by:', categoryId); // 调试日志
-            console.log('Current tasks before filter:', window.todoManager.tasks.length); // 调试日志
-            window.todoManager.currentFilter = categoryId;
-            window.todoManager.currentPage = 1; // 重置到第一页
-            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-            await window.todoManager.loadTasks();
-            console.log('Filter completed'); // 调试日志
-        } else {
-            console.log('TodoManager not available'); // 调试日志
-        }
-    }
-    
-    // 设置激活的分类
-    setActiveCategory(categoryId) {
-        console.log('Setting active category:', categoryId); // 调试日志
-        document.querySelectorAll('.category-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        const activeItem = document.querySelector(`[data-category="${categoryId}"]`);
-        console.log('Found active item:', activeItem); // 调试日志
-        if (activeItem) {
-            activeItem.classList.add('active');
-            console.log('Active class added'); // 调试日志
-        } else {
-            console.log('Active item not found for category:', categoryId); // 调试日志
-        }
-    }
-    
-    // 显示添加分类模态框
-    showAddCategoryModal() {
-        const categoryForm = document.getElementById('category-form');
-        const modalTitle = document.getElementById('category-modal-title');
-        
-        categoryForm.reset();
-        categoryForm.dataset.editingId = '';
-        modalTitle.textContent = '新建分类';
-        
-        // 设置默认颜色
-        const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14'];
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        document.getElementById('category-color').value = randomColor;
-        
-        Utils.ModalManager.show('category-modal');
-    }
-    
-    // 处理分类表单提交
-    async handleCategorySubmit(e) {
-        e.preventDefault();
-        
-        const categoryForm = e.target;
-        const editingId = categoryForm.dataset.editingId;
-        const isEdit = editingId && editingId !== '';
-        
-        const categoryData = {
-            name: document.getElementById('category-name').value.trim(),
-            color: document.getElementById('category-color').value
-        };
-        
-        if (!categoryData.name) {
-            Utils.showToast(window.languageManager.getText('errorCategoryNameRequired', '请输入分类名称'), 'warning');
-            return;
-        }
-        
-        // 检查重名
-        const isDuplicate = this.categories.some(cat => 
-            cat.id !== editingId && cat.name === categoryData.name
-        );
-        
-        if (isDuplicate) {
-            Utils.showToast(window.languageManager.getText('errorCategoryExisted', '分类名称已存在'), 'warning');
-            return;
-        }
-        
-        try {
-            Utils.setLoading(true, isEdit ? '更新中...' : '创建中...');
-            
-            let response;
-            if (isEdit) {
-                response = await window.pywebview.api.update_category(editingId, categoryData);
-            } else {
-                response = await window.pywebview.api.add_category(categoryData);
-            }
-            
-            if (response.success) {
-                Utils.showToast(isEdit ?
-                    window.languageManager.getText('categoryUpdated', '分类更新成功') :
-                    window.languageManager.getText('categoryCreated', '分类创建成功'), 'success');
-                Utils.ModalManager.hide('category-modal');
 
-                await this.loadCategories();
-                await this.renderCategories();
-                
-                // 重新加载任务列表以更新分类信息
-                if (window.todoManager) {
-                    await window.todoManager.loadTasks();
-                }
-                
-                // 触发云端同步上传
-                if (window.todoManager) {
-                    await window.todoManager.triggerCloudUpload();
-                }
+    class CategoryManager {
+        constructor() {
+            this.tree = [];           // 后端返回的扁平数组
+            this.childrenMap = new Map();  // parentId -> [category]
+            this.idMap = new Map();        // id -> category
+            this.expanded = _readLS(LS_KEY, {});  // {categoryId: true}
+            this.selected = new Set(_readLS(LS_FILTER_KEY, []));  // 多选筛选
+            this.taskCounts = new Map();   // categoryId -> count
+        }
+
+        async init() {
+            await this.refresh();
+        }
+
+        async refresh() {
+            const r = await window.categoryApi.list();
+            if (r && r.success && Array.isArray(r.categories)) {
+                this.tree = r.categories;
+                this._buildIndex();
             } else {
-                Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
+                this.tree = [];
+                this.childrenMap = new Map();
+                this.idMap = new Map();
             }
-        } catch (error) {
-            console.error('保存分类失败:', error);
-            Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
-        } finally {
-            Utils.setLoading(false);
+            return this.tree;
         }
-    }
-    
-    // 删除分类
-    async editCategory(categoryId) {
-        const category = this.categories.find(c => c.id === categoryId);
-        if (!category) return;
-        
-        // 显示编辑对话框
-        this.showEditCategoryModal(category);
-    }
-    
-    showEditCategoryModal(category) {
-        const modal = document.getElementById('category-modal');
-        const modalTitle = document.getElementById('category-modal-title');
-        const form = document.getElementById('category-form');
-        
-        if (!modal || !modalTitle || !form) return;
-        
-        modalTitle.textContent = '编辑分类';
-        document.getElementById('category-name').value = category.name;
-        document.getElementById('category-color').value = category.color;
-        
-        // 修改表单提交行为为编辑模式
-        form.dataset.editingId = category.id;
-        
-        Utils.ModalManager.show('category-modal');
-    }
-    
-    async deleteCategory(categoryId) {
-        const category = this.categories.find(c => c.id === categoryId);
-        if (!category) return;
-        
-        // 检查是否有任务使用此分类
-        const taskCount = await this.getCategoryTaskCount(categoryId);
-        const message = taskCount > 0 
-            ? `分类"${category.name}"下有 ${taskCount} 个任务，删除后这些任务将变为无分类。\n确定要删除吗？`
-            : `确定要删除分类"${category.name}"吗？`;
-        
-        Utils.confirmDialog(message, async () => {
-            try {
-                Utils.setLoading(true, '删除中...');
-                
-                const response = await window.pywebview.api.delete_category(categoryId);
-                if (response.success) {
-                    Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
 
-                    // 如果当前选中的是被删除的分类，切换到"全部"
-                    if (this.currentCategory === categoryId) {
-                        this.filterByCategory('all');
-                    }
-                    
-                    await this.loadCategories();
-                    await this.renderCategories();
-                    
-                    // 重新加载任务列表
-                    if (window.todoManager) {
-                        await window.todoManager.loadTasks();
-                    }
-                    
-                    // 触发云端同步上传
-                    if (window.todoManager) {
-                        await window.todoManager.triggerCloudUpload();
-                    }
-                } else {
-                    Utils.showToast(`${window.languageManager.getText('operationFailed', '操作失败')}: ${response.error}`, 'error');
+        _buildIndex() {
+            this.childrenMap = new Map();
+            this.idMap = new Map();
+            this.taskCounts = new Map();
+            for (const c of this.tree) {
+                this.idMap.set(c.id, c);
+                this.taskCounts.set(c.id, c.taskCount || 0);
+                const parentKey = c.parentId || '__root__';
+                if (!this.childrenMap.has(parentKey)) this.childrenMap.set(parentKey, []);
+                this.childrenMap.get(parentKey).push(c);
+            }
+            // 同级按 sortOrder 排序
+            for (const arr of this.childrenMap.values()) {
+                arr.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            }
+        }
+
+        // ===== 查询 =====
+        getById(id) { return this.idMap.get(id); }
+        getChildren(parentId) {
+            return this.childrenMap.get(parentId || '__root__') || [];
+        }
+        getDescendantIds(id) {
+            const result = [id];
+            const stack = [id];
+            while (stack.length) {
+                const cur = stack.pop();
+                const children = this.childrenMap.get(cur) || [];
+                for (const ch of children) {
+                    result.push(ch.id);
+                    stack.push(ch.id);
                 }
-            } catch (error) {
-                console.error('删除分类失败:', error);
-                Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
-            } finally {
-                Utils.setLoading(false);
             }
-        });
-    }
-    
-    // 获取分类下的任务数量
-    async getCategoryTaskCount(categoryId) {
-        try {
-            const response = await window.pywebview.api.get_todos();
-            if (response.success) {
-                return response.tasks.filter(task => task.categoryId === categoryId).length;
-            }
-        } catch (error) {
-            console.error('获取分类任务数量失败:', error);
+            return result;
         }
-        return 0;
-    }
-    
-    // 获取分类信息
-    getCategoryById(categoryId) {
-        return this.categories.find(c => c.id === categoryId);
-    }
-    
-    // 获取分类名称
-    getCategoryName(categoryId) {
-        const category = this.getCategoryById(categoryId);
-        return category ? category.name : '未知分类';
-    }
-    
-    // 获取分类颜色
-    getCategoryColor(categoryId) {
-        const category = this.getCategoryById(categoryId);
-        return category ? category.color : '#007bff';
-    }
-    
-    // 更新分类任务数量
-    async updateCategoryCounts(filteredTasks = null) {
-        const taskCounts = await this.getTaskCounts(true, filteredTasks);
-        
-        // 更新"全部"分类的数量 - 如果有筛选任务则显示筛选后的数量，否则显示总数量
-        const allCountEl = document.querySelector('[data-category="all"] .category-count');
-        if (allCountEl) {
-            allCountEl.textContent = taskCounts.all || 0;
-        }
-        
-        // 更新各个分类的数量
-        this.categories.forEach(category => {
-            const count = taskCounts[category.id] || 0;
-            const countEl = document.querySelector(`[data-category="${category.id}"] .category-count`);
-            if (countEl) {
-                countEl.textContent = count;
+        getPath(id) {
+            const parts = [];
+            let cur = this.idMap.get(id);
+            const visited = new Set();
+            while (cur && !visited.has(cur.id)) {
+                visited.add(cur.id);
+                parts.push(cur.name);
+                cur = cur.parentId ? this.idMap.get(cur.parentId) : null;
             }
-        });
-    }
-    
-    // 重新加载数据
-    async refresh() {
-        await this.loadCategories();
-        await this.renderCategories(false);
-    }
-}
+            return parts.reverse().join(' / ');
+        }
+        getTaskCount(id) {
+            // 含所有后代
+            const ids = this.getDescendantIds(id);
+            let n = 0;
+            for (const cid of ids) n += this.taskCounts.get(cid) || 0;
+            return n;
+        }
 
-// 创建全局实例
-window.categoryManager = new CategoryManager();
+        // ===== CRUD =====
+        async create(data) {
+            const r = await window.categoryApi.create(data);
+            if (r && r.success) {
+                await this.refresh();
+            }
+            return r;
+        }
+        async update(categoryId, data) {
+            const r = await window.categoryApi.update(categoryId, data);
+            if (r && r.success) {
+                await this.refresh();
+            }
+            return r;
+        }
+        async move(categoryId, newParentId, newSortOrder) {
+            const r = await window.categoryApi.move(categoryId, newParentId, newSortOrder);
+            if (r && r.success) {
+                await this.refresh();
+                // 自动展开新父级
+                if (newParentId) this.expanded[newParentId] = true;
+                _writeLS(LS_KEY, this.expanded);
+            }
+            return r;
+        }
+        async remove(categoryId) {
+            const r = await window.categoryApi.delete(categoryId);
+            if (r && r.success) {
+                await this.refresh();
+                this.selected.delete(categoryId);
+                _writeLS(LS_FILTER_KEY, [...this.selected]);
+            }
+            return r;
+        }
+
+        // ===== 展开状态 =====
+        isExpanded(id) { return !!this.expanded[id]; }
+        toggleExpand(id) {
+            if (this.expanded[id]) delete this.expanded[id];
+            else this.expanded[id] = true;
+            _writeLS(LS_KEY, this.expanded);
+        }
+
+        // ===== 筛选 =====
+        toggleSelect(id) {
+            if (this.selected.has(id)) {
+                this.selected.delete(id);
+            } else {
+                if (this.selected.size >= 3) {
+                    return { ok: false, reason: 'MAX_3' };
+                }
+                this.selected.add(id);
+            }
+            _writeLS(LS_FILTER_KEY, [...this.selected]);
+            return { ok: true };
+        }
+        clearSelection() {
+            this.selected.clear();
+            _writeLS(LS_FILTER_KEY, []);
+        }
+        isSelected(id) { return this.selected.has(id); }
+
+        /**
+         * 任务筛选：路径 + AND
+         * 选中节点 → 该节点 + 所有后代下的任务；多选 → 任务须属于至少一个所选（OR within same tree）
+         * （spec 5.6：单选=该分类及后代；多选=AND 任务须同时属于所有所选）
+         */
+        matchesFilter(task) {
+            if (this.selected.size === 0) return true;
+            const cats = task.categoryIds || (task.categoryId ? [task.categoryId] : []);
+            if (cats.length === 0) return false;
+            // 路径展开
+            const expanded = new Set();
+            for (const sel of this.selected) {
+                for (const d of this.getDescendantIds(sel)) expanded.add(d);
+            }
+            // AND: 任务须至少与每个所选类有交集
+            for (const sel of this.selected) {
+                const selDescendants = new Set(this.getDescendantIds(sel));
+                if (!cats.some(cid => selDescendants.has(cid))) return false;
+            }
+            return true;
+        }
+    }
+
+    window.categoryManager = new CategoryManager();
+})();

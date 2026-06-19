@@ -270,6 +270,33 @@ def _migrate_database(cursor):
     if 'version' not in cols:
         cursor.execute('ALTER TABLE tasks ADD COLUMN version INTEGER DEFAULT 1')
 
+    # ===== D 阶段：节点注册表 / 网络事件日志 =====
+    d_tables = [
+        '''CREATE TABLE IF NOT EXISTS network_nodes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            user_name TEXT,
+            address TEXT,
+            last_seen TEXT NOT NULL,
+            last_sync_at TEXT,
+            status TEXT DEFAULT 'online',
+            protocol_version TEXT,
+            group_ids TEXT
+        )''',
+        '''CREATE TABLE IF NOT EXISTS network_events (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            peer_id TEXT,
+            user_id TEXT,
+            detail TEXT,
+            created_at TEXT NOT NULL
+        )''',
+    ]
+    for ddl in d_tables:
+        cursor.execute(ddl)
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_created ON network_events(created_at)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_nodes_status ON network_nodes(status)')
+
 
 class TodoDatabase:
     """Todo数据库操作类"""
@@ -2178,3 +2205,162 @@ class SyncManager:
             cur.execute('''SELECT * FROM sync_log
                 ORDER BY created_at DESC LIMIT ?''', (limit,))
             return [SyncLog.from_dict(dict(r)) for r in cur.fetchall()]
+
+
+# ===== D 阶段：节点注册表 + 网络事件日志管理器 =====
+
+class NetworkNodeRegistry:
+    """节点注册表：本机视角下所有已知网络节点的状态。
+
+    节点进入流程：DiscoveryService 发现 beacon → NetworkCoordinator 主动 connect_peer
+                  → 握手成功后 upsert(online)
+                  → 心跳 / 主动断线 → 标记 offline
+    """
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    def upsert(self, node_id: str, user_id: str = None, user_name: str = None,
+               address: str = None, status: str = 'online',
+               protocol_version: str = None, group_ids: list = None) -> None:
+        """插入或更新节点（idempotent）。"""
+        from datetime import datetime
+        from backend.database.models import NetworkNode
+        now = datetime.now().isoformat()
+        group_ids_json = json.dumps(group_ids or [])
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT 1 FROM network_nodes WHERE id = ?', (node_id,))
+            if cur.fetchone():
+                cur.execute('''UPDATE network_nodes
+                    SET user_id = COALESCE(?, user_id),
+                        user_name = COALESCE(?, user_name),
+                        address = COALESCE(?, address),
+                        status = ?,
+                        last_seen = ?,
+                        protocol_version = COALESCE(?, protocol_version),
+                        group_ids = ?
+                    WHERE id = ?''',
+                    (user_id, user_name, address, status, now,
+                     protocol_version, group_ids_json, node_id))
+            else:
+                cur.execute('''INSERT INTO network_nodes
+                    (id, user_id, user_name, address, last_seen, status,
+                     protocol_version, group_ids)
+                    VALUES (?,?,?,?,?,?,?,?)''',
+                    (node_id, user_id, user_name, address, now, status,
+                     protocol_version, group_ids_json))
+            conn.commit()
+
+    def mark_status(self, node_id: str, status: str) -> None:
+        """仅更新状态（用于 on_connect / on_disconnect）。"""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''UPDATE network_nodes
+                SET status = ?, last_seen = ? WHERE id = ?''',
+                (status, now, node_id))
+            conn.commit()
+
+    def update_last_sync_at(self, node_id: str, ts: str = None) -> None:
+        from datetime import datetime
+        ts = ts or datetime.now().isoformat()
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''UPDATE network_nodes SET last_sync_at = ? WHERE id = ?''',
+                        (ts, node_id))
+            conn.commit()
+
+    def remove(self, node_id: str) -> None:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('DELETE FROM network_nodes WHERE id = ?', (node_id,))
+            conn.commit()
+
+    def get(self, node_id: str):
+        from backend.database.models import NetworkNode
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT * FROM network_nodes WHERE id = ?', (node_id,))
+            row = cur.fetchone()
+            return NetworkNode.from_dict(dict(row)) if row else None
+
+    def list_all(self, status: str = None) -> list:
+        from backend.database.models import NetworkNode
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            if status:
+                cur.execute('SELECT * FROM network_nodes WHERE status = ? ORDER BY last_seen DESC',
+                            (status,))
+            else:
+                cur.execute('SELECT * FROM network_nodes ORDER BY last_seen DESC')
+            return [NetworkNode.from_dict(dict(r)) for r in cur.fetchall()]
+
+    def list_online(self) -> list:
+        return self.list_all(status='online')
+
+    def count(self) -> int:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT COUNT(*) AS c FROM network_nodes')
+            return cur.fetchone()['c']
+
+
+class NetworkEventManager:
+    """网络事件日志：连接 / 断开 / 握手成功 / 握手失败 / 协议错误 / 冲突。
+
+    写入策略：所有重要事件（peer_joined/left、handshake_*、protocol_error、conflict）
+    均落 network_events 表，便于事后审计与 UI 面板展示。
+    """
+
+    EVENT_PEER_JOINED = 'peer_joined'
+    EVENT_PEER_LEFT = 'peer_left'
+    EVENT_HANDSHAKE_OK = 'handshake_ok'
+    EVENT_HANDSHAKE_FAIL = 'handshake_fail'
+    EVENT_PROTOCOL_ERROR = 'protocol_error'
+    EVENT_CONFLICT = 'conflict'
+
+    def __init__(self, db: 'TodoDatabase'):
+        self.db = db
+
+    def log(self, event_type: str, peer_id: str = None, user_id: str = None,
+            detail=None) -> None:
+        """写入一条网络事件。"""
+        import uuid as _uuid
+        from datetime import datetime
+        from backend.database.models import NetworkEvent
+        ev = NetworkEvent(
+            id=str(_uuid.uuid4()),
+            type=event_type,
+            peer_id=peer_id,
+            user_id=user_id,
+            detail=json.dumps(detail, ensure_ascii=False) if isinstance(detail, (dict, list)) else detail,
+            created_at=datetime.now().isoformat(),
+        )
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('''INSERT INTO network_events
+                (id, type, peer_id, user_id, detail, created_at)
+                VALUES (?,?,?,?,?,?)''',
+                (ev.id, ev.type, ev.peer_id, ev.user_id, ev.detail, ev.created_at))
+            conn.commit()
+
+    def list_recent(self, limit: int = 50, event_type: str = None) -> list:
+        from backend.database.models import NetworkEvent
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            if event_type:
+                cur.execute('''SELECT * FROM network_events
+                    WHERE type = ? ORDER BY created_at DESC LIMIT ?''',
+                    (event_type, limit))
+            else:
+                cur.execute('''SELECT * FROM network_events
+                    ORDER BY created_at DESC LIMIT ?''', (limit,))
+            return [NetworkEvent.from_dict(dict(r)) for r in cur.fetchall()]
+
+    def count(self) -> int:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT COUNT(*) AS c FROM network_events')
+            return cur.fetchone()['c']

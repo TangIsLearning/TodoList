@@ -8,7 +8,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from backend.database.operations import TodoDatabase, UserManager
+from backend.database.operations import TodoDatabase, UserManager, CategoryManager
 from backend.database.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient
@@ -32,6 +32,7 @@ class TodoApi:
         backend_logger.info("初始化TodoApi")
         self.db = TodoDatabase()
         self.user_manager = UserManager(self.db)
+        self.category_manager = CategoryManager(self.db)
         self.is_android = is_android
         self.sync_manager = sync_manager
         self._received_data = None
@@ -84,9 +85,9 @@ class TodoApi:
         validation_result = self.validate_due_date(task_data)
         if not validation_result['valid']:
             return {'success': False, 'error': validation_result['message']}
-        
+
         try:
-            if task_data['dueDate'] and self.is_android:
+            if task_data.get('dueDate') and self.is_android:
                 target_time = datetime.fromisoformat(task_data['dueDate']).timestamp() * 1000
                 service.add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
             result = self.db.add_task(task_data)
@@ -968,6 +969,577 @@ class TodoApi:
                 or q in (u.department or '').lower()
             ]
             return {'success': True, 'users': [u.to_dict() for u in matched]}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    # ===== B 阶段：分类管理 API =====
+    # 8 个核心 API + 1 个拖拽辅助：list / create / update / move / delete / get_path / get_descendants / task_count + add_to_task
+
+    def _current_owner_id(self):
+        """当前 owner_id = 当前用户 id。B 阶段仅 user 维度。"""
+        token = self.user_manager.get_current_token()
+        if not token:
+            return None
+        u = self.user_manager.get_user_by_token(token)
+        return u.id if u else None
+
+    def category_list(self):
+        try:
+            owner_id = self._current_owner_id()
+            if not owner_id:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            cats = self.category_manager.list_categories('user', owner_id)
+            for c in cats:
+                c['taskCount'] = self.category_manager.get_task_count(c['id'])
+            return {'success': True, 'categories': cats}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_create(self, name, parent_id=None, icon='📁', color='#4f46e5',
+                        sort_order=None):
+        try:
+            owner_id = self._current_owner_id()
+            if not owner_id:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            cat = self.category_manager.create_category(
+                name=name, owner_type='user', owner_id=owner_id,
+                parent_id=parent_id, icon=icon, color=color,
+                sort_order=sort_order,
+            )
+            return {'success': True, 'category': cat}
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_update(self, category_id, name=None, icon=None, color=None,
+                        sort_order=None):
+        try:
+            cat = self.category_manager.update_category(
+                category_id, name=name, icon=icon, color=color, sort_order=sort_order)
+            return {'success': True, 'category': cat}
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_move(self, category_id, new_parent_id, new_sort_order=None):
+        try:
+            cat = self.category_manager.move_category(
+                category_id, new_parent_id, new_sort_order=new_sort_order)
+            return {'success': True, 'category': cat}
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_delete(self, category_id):
+        try:
+            affected = self.category_manager.delete_category(category_id)
+            return {'success': True, 'affectedTaskCount': affected}
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    # ===== C 阶段：协作组 / 消息 / 同步 API =====
+
+    def _ensure_c_managers(self):
+        """懒加载 C 阶段 3 个 Manager + SyncEngine。"""
+        if not hasattr(self, 'group_manager') or self.group_manager is None:
+            from backend.database.operations import (
+                GroupManager, MessageManager, SyncManager,
+            )
+            self.group_manager = GroupManager(self.db)
+            self.message_manager = MessageManager(self.db)
+            self.sync_manager = SyncManager(self.db)
+        if not hasattr(self, 'network_engine') or self.network_engine is None:
+            from backend.network.sync_engine import SyncEngine
+            self.network_engine = SyncEngine(self.db, self.sync_manager)
+
+    # ===== D 阶段：节点注册 / 网络协调器 =====
+
+    def _ensure_d_components(self):
+        """懒加载 D 阶段：NodeRegistry / EventManager / NetworkCoordinator。"""
+        self._ensure_c_managers()
+        from backend.database.operations import NetworkNodeRegistry, NetworkEventManager
+        if not hasattr(self, 'node_registry') or self.node_registry is None:
+            self.node_registry = NetworkNodeRegistry(self.db)
+        if not hasattr(self, 'event_manager') or self.event_manager is None:
+            self.event_manager = NetworkEventManager(self.db)
+        if not hasattr(self, 'network_coordinator') or self.network_coordinator is None:
+            from backend.network.network_coordinator import NetworkCoordinator
+            from backend.network.discovery import GroupBeacon
+            uid = self._current_owner_id() or 'anonymous'
+            user = self.user_manager.get_user(uid) if hasattr(self, 'user_manager') else None
+            user_name = (user.display_name if user else uid) or uid
+
+            def _groups_provider():
+                if not hasattr(self, 'group_manager') or self.group_manager is None:
+                    return []
+                try:
+                    groups = self.group_manager.list_user_groups(uid)
+                except Exception:
+                    return []
+                return [GroupBeacon(group_id=g.id, join_code=g.join_code,
+                                    is_hidden=bool(g.is_hidden)) for g in groups]
+
+            self.network_coordinator = NetworkCoordinator(
+                node_id=f'node-{uid}', user_id=uid, user_name=user_name,
+                tcp_port=54722, udp_port=54721,
+                db=self.db, sync_manager=self.sync_manager,
+                sync_engine=self.network_engine,
+                node_registry=self.node_registry, event_manager=self.event_manager,
+                groups_provider=_groups_provider,
+            )
+
+    @staticmethod
+    def _group_to_dict(g) -> dict:
+        """Group dataclass → camelCase dict（与现有 Task 风格一致）。"""
+        return {
+            'id': g.id,
+            'name': g.name,
+            'icon': g.icon,
+            'color': g.color,
+            'description': g.description,
+            'joinCode': g.join_code,
+            'createdBy': g.created_by,
+            'isHidden': g.is_hidden,
+            'isDeleted': g.is_deleted,
+            'createdAt': g.created_at,
+            'updatedAt': g.updated_at,
+        }
+
+    @staticmethod
+    def _member_to_dict(m) -> dict:
+        return {
+            'id': m.id,
+            'groupId': m.group_id,
+            'userId': m.user_id,
+            'role': m.role,
+            'shareTasks': m.share_tasks,
+            'shareCategories': m.share_categories,
+            'shareGroupTasks': m.share_group_tasks,
+            'shareHistory': m.share_history,
+            'joinedAt': m.joined_at,
+            'lastSeenAt': m.last_seen_at,
+        }
+
+    @staticmethod
+    def _message_to_dict(m) -> dict:
+        import json
+        att_ids = m.attachment_ids
+        if isinstance(att_ids, str):
+            try:
+                att_ids = json.loads(att_ids or '[]')
+            except json.JSONDecodeError:
+                att_ids = []
+        read_by = m.read_by
+        if isinstance(read_by, str):
+            try:
+                read_by = json.loads(read_by or '{}')
+            except json.JSONDecodeError:
+                read_by = {}
+        return {
+            'id': m.id,
+            'groupId': m.group_id,
+            'senderId': m.sender_id,
+            'content': m.content,
+            'msgType': m.msg_type,
+            'attachmentIds': att_ids or [],
+            'replyToId': m.reply_to_id,
+            'createdAt': m.created_at,
+            'updatedAt': m.updated_at,
+            'isDeleted': m.is_deleted,
+            'readBy': read_by or {},
+        }
+
+    @staticmethod
+    def _sync_log_to_dict(l) -> dict:
+        return {
+            'id': l.id,
+            'entityType': l.entity_type,
+            'entityId': l.entity_id,
+            'operation': l.operation,
+            'peerId': l.peer_id,
+            'userId': l.user_id,
+            'hasConflict': l.has_conflict,
+            'detail': l.detail,
+            'createdAt': l.created_at,
+        }
+
+    # ---------- 协作组 ----------
+
+    def group_list(self):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            groups = self.group_manager.list_user_groups(uid)
+            out = []
+            for g in groups:
+                d = self._group_to_dict(g)
+                d['memberCount'] = len(self.group_manager.list_members(g.id))
+                out.append(d)
+            return {'success': True, 'groups': out}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_create(self, name, icon='👥', color='#4f46e5',
+                     description=None, is_hidden=0):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            if not name or not name.strip():
+                return {'success': False, 'error': 'NAME_REQUIRED'}
+            join_code = self.group_manager.generate_join_code()
+            g = self.group_manager.create_group(
+                name=name.strip(), created_by=uid, join_code=join_code,
+                icon=icon, color=color, description=description,
+                is_hidden=int(is_hidden) if is_hidden else 0,
+            )
+            return {'success': True, 'group': self._group_to_dict(g)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_join(self, join_code, share_tasks=0, share_categories=0,
+                   share_group_tasks=1, share_history=0):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            g = self.group_manager.get_group_by_code(join_code)
+            if not g:
+                return {'success': False, 'error': 'GROUP_NOT_FOUND'}
+            m = self.group_manager.add_member(
+                group_id=g.id, user_id=uid, role='member',
+                share_tasks=int(share_tasks or 0),
+                share_categories=int(share_categories or 0),
+                share_group_tasks=int(share_group_tasks if share_group_tasks is not None else 1),
+                share_history=int(share_history or 0),
+            )
+            return {
+                'success': True,
+                'group': self._group_to_dict(g),
+                'member': self._member_to_dict(m),
+            }
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_leave(self, group_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            ok = self.group_manager.remove_member(group_id, uid)
+            return {'success': ok}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_disband(self, group_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            ok = self.group_manager.soft_delete_group(group_id, by_user=uid)
+            return {'success': ok, 'error': 'NOT_OWNER' if not ok else None}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_reset_code(self, group_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            g = self.group_manager.get_group(group_id)
+            if not g or g.created_by != uid:
+                return {'success': False, 'error': 'NOT_OWNER'}
+            new_code = self.group_manager.generate_join_code()
+            with self.db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'UPDATE groups SET join_code = ?, updated_at = ? WHERE id = ?',
+                    (new_code, datetime.now().isoformat(), group_id),
+                )
+                conn.commit()
+            return {'success': True, 'joinCode': new_code}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_members(self, group_id):
+        try:
+            self._ensure_c_managers()
+            members = self.group_manager.list_members(group_id)
+            return {'success': True, 'members': [self._member_to_dict(m) for m in members]}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_kick(self, group_id, user_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            g = self.group_manager.get_group(group_id)
+            if not g or g.created_by != uid:
+                return {'success': False, 'error': 'NOT_OWNER'}
+            ok = self.group_manager.remove_member(group_id, user_id)
+            return {'success': ok}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def group_set_share(self, group_id, share_tasks=None, share_categories=None,
+                        share_group_tasks=None, share_history=None):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            updates = {k: v for k, v in {
+                'share_tasks': share_tasks, 'share_categories': share_categories,
+                'share_group_tasks': share_group_tasks, 'share_history': share_history,
+            }.items() if v is not None}
+            if not updates:
+                return {'success': False, 'error': 'NO_UPDATE'}
+            with self.db.get_connection() as conn:
+                cur = conn.cursor()
+                for k, v in updates.items():
+                    cur.execute(
+                        f'UPDATE group_members SET {k} = ? '
+                        f'WHERE group_id = ? AND user_id = ?',
+                        (int(v), group_id, uid),
+                    )
+                conn.commit()
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    # ---------- 消息 ----------
+
+    def message_list(self, group_id, limit=50, before=None):
+        try:
+            self._ensure_c_managers()
+            msgs = self.message_manager.list_messages(
+                group_id, limit=int(limit or 50), before=before,
+            )
+            return {'success': True, 'messages': [self._message_to_dict(m) for m in msgs]}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def message_send(self, group_id, content=None, msg_type='text',
+                     attachment_ids=None, reply_to_id=None):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            m = self.message_manager.send_message(
+                group_id=group_id, sender_id=uid, content=content,
+                msg_type=msg_type or 'text',
+                attachment_ids=list(attachment_ids) if attachment_ids else None,
+                reply_to_id=reply_to_id,
+            )
+            return {'success': True, 'message': self._message_to_dict(m)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def message_mark_read(self, message_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            ok = self.message_manager.mark_read(
+                message_id, uid, datetime.now().isoformat(),
+            )
+            return {'success': ok}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def message_delete(self, message_id):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            ok = self.message_manager.soft_delete_message(message_id, by_user=uid)
+            return {'success': ok, 'error': 'NOT_SENDER' if not ok else None}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    # ---------- 同步 ----------
+
+    def sync_status(self):
+        try:
+            self._ensure_c_managers()
+            uid = self._current_owner_id()
+            if not uid:
+                return {'success': False, 'error': 'NOT_LOGGED_IN'}
+            groups = self.group_manager.list_user_groups(uid)
+            return {
+                'success': True,
+                'status': {
+                    'groupCount': len(groups),
+                    'onlineCount': 0,
+                    'connectedPeers': getattr(self, '_connected_peers', []),
+                },
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def sync_log(self, limit=50):
+        try:
+            self._ensure_c_managers()
+            logs = self.sync_manager.list_recent_sync_logs(limit=int(limit or 50))
+            return {'success': True, 'logs': [self._sync_log_to_dict(l) for l in logs]}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_get_path(self, category_id):
+        try:
+            path = self.category_manager.get_category_path(category_id)
+            return {'success': True, 'path': path}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_get_descendants(self, category_id):
+        try:
+            ids = self.category_manager.get_descendant_ids(category_id)
+            return {'success': True, 'ids': ids}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    # ===== D 阶段：网络 / 节点 / 事件 8 个 API =====
+
+    def network_list_peers(self, status: str = None):
+        """返回节点列表（可按 status 过滤：online/syncing/offline）。"""
+        try:
+            self._ensure_d_components()
+            nodes = self.node_registry.list_all(status=status) if status \
+                else self.node_registry.list_all()
+            return {
+                'success': True,
+                'peers': [
+                    {
+                        'nodeId': n.id,
+                        'userId': n.user_id,
+                        'userName': n.user_name,
+                        'address': n.address,
+                        'lastSeen': n.last_seen,
+                        'lastSyncAt': n.last_sync_at,
+                        'status': n.status,
+                        'protocolVersion': n.protocol_version,
+                    } for n in nodes
+                ],
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_get_local_node(self):
+        """返回本机节点信息。"""
+        try:
+            self._ensure_d_components()
+            return {'success': True, 'node': self.network_coordinator.get_local_node()}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_start_coordinator(self):
+        """启动 LAN 协调器（Discovery + PeerServer）。"""
+        try:
+            self._ensure_d_components()
+            if self.network_coordinator.is_running():
+                return {'success': True, 'message': '已在运行', 'node': self.network_coordinator.get_local_node()}
+            self.network_coordinator.start()
+            return {
+                'success': True,
+                'message': '协调器已启动',
+                'node': self.network_coordinator.get_local_node(),
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_stop_coordinator(self):
+        """停止协调器。"""
+        try:
+            self._ensure_d_components()
+            self.network_coordinator.stop()
+            return {'success': True, 'message': '协调器已停止'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_pull_from_peer(self, peer_id: str = None):
+        """对单个 peer 或所有 peer 触发增量同步。"""
+        try:
+            self._ensure_d_components()
+            if not self.network_coordinator.is_running():
+                return {'success': False, 'error': 'COORDINATOR_NOT_RUNNING'}
+            if peer_id:
+                ok = self.network_coordinator.resync_with_peer(peer_id)
+                return {'success': ok, 'resynced': [peer_id] if ok else []}
+            n = self.network_coordinator.resync_all()
+            return {'success': True, 'resynced_count': n}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_broadcast_change(self, entity_type: str, entity: dict):
+        """把本地变更广播至所有在线 peer。"""
+        try:
+            self._ensure_d_components()
+            if not self.network_coordinator.is_running():
+                return {'success': False, 'error': 'COORDINATOR_NOT_RUNNING'}
+            self.network_coordinator.apply_local_change(entity_type, entity)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def network_resync(self):
+        """对所有 peer 触发重同步（手动入口）。"""
+        return self.network_pull_from_peer()
+
+    def network_event_log(self, limit: int = 50, event_type: str = None):
+        """获取网络事件日志。"""
+        try:
+            self._ensure_d_components()
+            events = self.event_manager.list_recent(limit=limit, event_type=event_type)
+            return {
+                'success': True,
+                'events': [
+                    {
+                        'id': e.id,
+                        'type': e.type,
+                        'peerId': e.peer_id,
+                        'userId': e.user_id,
+                        'detail': e.detail,
+                        'createdAt': e.created_at,
+                    } for e in events
+                ],
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_task_count(self, category_id):
+        try:
+            count = self.category_manager.get_task_count(category_id)
+            return {'success': True, 'count': count}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def category_add_to_task(self, task_id, category_id):
+        """拖拽交互：将分类 ID 添加到任务 category_ids 数组"""
+        try:
+            self.category_manager.add_category_to_task(task_id, category_id)
+            return {'success': True}
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'code': str(e)}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

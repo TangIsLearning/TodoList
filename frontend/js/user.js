@@ -144,7 +144,14 @@ class UserManager {
         } else if (action === 'switch') {
             this._showAccountSelector();
         } else if (action === 'groups') {
-            alert('协作组管理功能开发中 (C 阶段实现)');
+            // C 阶段：打开协作组管理模态框
+            if (window.groupManager && window.GroupUIBindings) {
+                window.GroupUIBindings.openManager();
+            } else {
+                // 兜底：原生弹窗
+                const modal = document.getElementById('group-manager-modal');
+                if (modal) modal.classList.add('active');
+            }
         } else if (action === 'logout') {
             if (confirm('确定要退出登录吗？')) {
                 this.logout();

@@ -425,3 +425,47 @@ class FileStorage:
     def from_dict(cls, d: dict):
         keys = {f for f in cls.__dataclass_fields__}
         return cls(**{k: d[k] for k in keys if k in d})
+
+
+# ===== D 阶段：节点注册表 / 网络事件日志 =====
+
+@dataclass
+class NetworkNode:
+    """本机视角下的远端网络节点"""
+    id: str
+    last_seen: str
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
+    address: Optional[str] = None  # ip:port
+    last_sync_at: Optional[str] = None
+    status: str = 'online'  # online / syncing / offline
+    protocol_version: Optional[str] = None
+    group_ids: Optional[str] = None  # JSON 数组
+
+    def to_dict(self):
+        d = asdict(self)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})
+
+
+@dataclass
+class NetworkEvent:
+    """网络事件：连接/断开/握手成功/握手失败/协议错误/冲突"""
+    id: str
+    type: str  # peer_joined / peer_left / handshake_ok / handshake_fail / protocol_error / conflict
+    created_at: str
+    peer_id: Optional[str] = None
+    user_id: Optional[str] = None
+    detail: Optional[str] = None  # JSON / 文本
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        keys = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: d[k] for k in keys if k in d})

@@ -319,19 +319,12 @@
             </div>
         </div>
 
-        <!-- 分类管理 -->
-        <div class="categories-section">
-            <div class="categories-section-header">
-                <span class="categories-section-title">分类</span>
-                <span class="categories-more" id="categories-more">展示更多</span>
+        <!-- B 阶段：手风琴分类树（多级） -->
+        <div class="categories-section" id="category-tree-area">
+            <div class="cat-sidebar-header">
+                <span class="cat-sidebar-title">📁 分类</span>
+                <button class="cat-add-btn" data-action="add-root" title="新建分类">+</button>
             </div>
-            <div class="category-list" id="category-list">
-                <button class="category-item active" id="all-category-item" data-category="all">
-                    <span>📋全部</span>
-                    <span class="category-count">0</span>
-                </button>
-            </div>
-            <button id="add-category-btn" class="add-category-btn">+ 添加分类</button>
         </div>
 
         <div class="tags-section" id="tags-section">
@@ -563,11 +556,12 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label for="task-category">分类</label>
-                        <select id="task-category">
-                            <option value="">无分类</option>
-                        </select>
+                    <div class="form-group" style="flex: 2;">
+                        <label>分类 <span style="color: #999; font-size: 12px;">（可多选，至多 5 个）</span></label>
+                        <div id="task-categories-selector" class="task-categories-selector">
+                            <span class="empty-tip">加载中…</span>
+                        </div>
+                        <input type="hidden" id="task-category-ids" value="">
                     </div>
                 </div>
 
@@ -693,21 +687,71 @@
     </div>
 </div>
 
-<!-- 分类创建模态框 -->
-<div id="category-modal" class="modal">
+<!-- 分类编辑模态框（新建/重命名/改样式） -->
+<div id="category-editor-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="category-editor-title">新建分类</h2>
+            <button class="modal-close" data-close="category-editor-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="category-editor-form" class="category-editor-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="ce-name">分类名称 *</label>
+                    <input type="text" id="ce-name" required maxlength="20" placeholder="例如：研发 / 后端">
+                </div>
+
+                <div class="form-group">
+                    <label>图标</label>
+                    <div id="ce-icon-picker" class="ce-icon-picker">
+                        <!-- JS 动态填充 -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>颜色</label>
+                    <div id="ce-color-picker" class="ce-color-picker">
+                        <!-- JS 动态填充 -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="ce-parent">父级分类</label>
+                    <select id="ce-parent" class="ce-parent">
+                        <option value="">(顶级)</option>
+                    </select>
+                    <div id="ce-hint" class="ce-hint">顶级分类（0 级）</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="ce-sort">排序值</label>
+                    <input type="number" id="ce-sort" value="0" placeholder="同父级下数字小靠前">
+                </div>
+
+                <div id="ce-error" class="form-error" style="display:none;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="ce-delete" class="danger-btn" style="display:none; margin-right:auto;">删除</button>
+            <button type="button" class="cancel-btn" data-close="category-editor-modal">取消</button>
+            <button type="button" id="ce-save" class="save-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 保留旧 #category-modal 兼容（如有其他代码引用） -->
+<div id="category-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="category-modal-title">新建分类</h2>
             <button class="modal-close" id="category-modal-close">&times;</button>
         </div>
-
         <div class="modal-body">
             <form id="category-form" class="category-form">
                 <div class="form-group">
                     <label for="category-name">分类名称 *</label>
                     <input type="text" id="category-name" required maxlength="20">
                 </div>
-
                 <div class="form-group">
                     <label for="category-color">颜色</label>
                     <div class="color-picker">
@@ -724,7 +768,6 @@
                 </div>
             </form>
         </div>
-
         <div class="modal-footer">
             <button type="button" id="category-cancel-btn" class="cancel-btn">取消</button>
             <button type="submit" form="category-form" class="save-btn">保存</button>
@@ -1219,13 +1262,126 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/language.js"></script>
 <script src="js/todo.js"></script>
 <script src="js/category.js"></script>
+<script src="js/categorySidebar.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/dataTransfer.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/api.js"></script>
 <script src="js/user.js"></script>
 <script src="js/taskCollaboration.js"></script>
+<!-- C 阶段：协作组 / 消息 / 同步 / 网络 -->
+<script src="js/group.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/sync-status.js"></script>
+<script src="js/network.js"></script>
 <script src="js/main.js"></script>
 <script src="js/timeline.js"></script>
+
+<!-- C 阶段：协作组管理模态框 -->
+<div id="group-manager-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>协作组管理</h2>
+            <button class="modal-close" data-close="group-manager-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="group-list-area" class="group-list-area">
+                <p class="empty-tip">加载中…</p>
+            </div>
+            <div class="group-actions">
+                <button id="group-create-btn" class="primary-btn">+ 创建协作组</button>
+                <button id="group-join-btn" class="secondary-btn">+ 加入协作组</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- C 阶段：创建协作组模态框 -->
+<div id="group-create-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>创建协作组</h2>
+            <button class="modal-close" data-close="group-create-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="group-create-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="gc-name">组名 *</label>
+                    <input type="text" id="gc-name" required maxlength="50" placeholder="例如：研发组">
+                </div>
+                <div class="form-group">
+                    <label>图标</label>
+                    <div id="gc-icon-picker" class="ce-icon-picker"></div>
+                </div>
+                <div class="form-group">
+                    <label>颜色</label>
+                    <div id="gc-color-picker" class="ce-color-picker"></div>
+                </div>
+                <div class="form-group">
+                    <label for="gc-description">描述（可选）</label>
+                    <textarea id="gc-description" maxlength="200" rows="2"></textarea>
+                </div>
+                <div id="gc-error" class="form-error" style="display:none;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="cancel-btn" data-close="group-create-modal">取消</button>
+            <button type="button" id="gc-submit" class="save-btn">创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- C 阶段：加入协作组模态框 -->
+<div id="group-join-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>加入协作组</h2>
+            <button class="modal-close" data-close="group-join-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="group-join-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="gj-code">连接码 *</label>
+                    <input type="text" id="gj-code" required maxlength="20"
+                           placeholder="6 位连接码，例如 A8B-3K9" style="text-transform:uppercase;">
+                </div>
+                <div class="form-group">
+                    <label>共享范围</label>
+                    <label class="share-check"><input type="checkbox" id="gj-share-tasks"> 共享任务</label>
+                    <label class="share-check"><input type="checkbox" id="gj-share-categories"> 共享分类</label>
+                    <label class="share-check"><input type="checkbox" id="gj-share-history"> 共享历史</label>
+                </div>
+                <div id="gj-error" class="form-error" style="display:none;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="cancel-btn" data-close="group-join-modal">取消</button>
+            <button type="button" id="gj-submit" class="save-btn">加入</button>
+        </div>
+    </div>
+</div>
+
+<!-- C 阶段：消息抽屉（右侧） -->
+<div id="chat-drawer" class="drawer">
+    <div class="drawer-header">
+        <select id="chat-group-select" class="chat-group-select"></select>
+        <button class="drawer-close" data-close="chat-drawer">&times;</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+        <p class="empty-tip">选择协作组开始聊天</p>
+    </div>
+    <div class="chat-input-area">
+        <textarea id="chat-input" placeholder="输入消息..." rows="2"></textarea>
+        <button id="chat-send-btn" class="primary-btn">发送</button>
+    </div>
+</div>
+
+<!-- C 阶段：同步状态条 -->
+<div id="sync-status-bar" class="sync-status-bar">
+    <span id="sync-status-text">○ 未加入协作组</span>
+    <button id="open-group-manager" class="link-btn">协作组</button>
+    <button id="open-chat-drawer" class="link-btn">💬 <span id="chat-unread-count"></span></button>
+</div>
+
 </body>
 </html>

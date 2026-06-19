@@ -24,7 +24,19 @@ class App {
             
             // 初始化模块
             await this.initModules();
-            
+
+            // C 阶段：启动网络状态机 + 同步状态轮询
+            if (window.networkManager) {
+                try { await window.networkManager.start(); }
+                catch (e) { console.warn('NetworkManager 启动失败：', e); }
+            }
+
+            // C 阶段：刷新协作组缓存
+            if (window.groupManager) {
+                try { await window.groupManager.refresh(); }
+                catch (e) { /* 静默失败 */ }
+            }
+
             // 设置初始焦点
             const searchInput = document.getElementById('search-input');
             if (searchInput) {
@@ -250,6 +262,12 @@ class App {
                 console.error(`Failed to initialize ${module.name}:`, error);
                 Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
             }
+        }
+
+        // 渲染分类侧边栏（B 阶段）
+        if (window.categorySidebar && typeof window.categorySidebar.renderTo === 'function') {
+            const area = document.getElementById('category-tree-area');
+            if (area) window.categorySidebar.renderTo(area);
         }
     }
     

@@ -651,6 +651,22 @@ class TodoManager {
     }
     
     // 创建任务元素
+    renderCategoryChips(task) {
+        const cats = (task.categoryIds && task.categoryIds.length)
+            ? task.categoryIds
+            : (task.categoryId ? [task.categoryId] : []);
+        if (cats.length === 0) return '';
+        if (!window.categoryManager) return '';
+        return cats.map(cid => {
+            const c = window.categoryManager.getById(cid);
+            if (!c) return '';
+            const name = (c.name || '').replace(/[<>]/g, '');
+            const tip = (c.path || c.name || '').replace(/"/g, '&quot;');
+            return `<span class="task-category-chip" style="background:${c.color}" title="${tip}">` +
+                   `<span class="chip-icon">${c.icon || '📁'}</span>${name}</span>`;
+        }).join('');
+    }
+
     createTaskElement(task) {
         const priorityInfo = Utils.getPriorityInfo(task.priority);
         // 只有未完成的任务才检查是否逾期
@@ -667,6 +683,9 @@ class TodoManager {
             ).join('');
         }
 
+        // B 阶段：分类 chips（多分类）
+        const categoryChipsHtml = this.renderCategoryChips(task);
+
         // 大屏幕表格式布局
         if (isLargeScreen) {
             return `
@@ -678,6 +697,7 @@ class TodoManager {
                             <div class="task-content">
                                 <h3 class="task-title">
                                     ${Utils.escapeHtml(task.title)}
+                                    ${categoryChipsHtml ? `<span class="task-category-chips">${categoryChipsHtml}</span>` : ''}
                                     ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                                     ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                                 </h3>
@@ -721,6 +741,7 @@ class TodoManager {
                     <div class="task-content">
                         <h3 class="task-title">
                             ${Utils.escapeHtml(task.title)}
+                            ${categoryChipsHtml ? `<span class="task-category-chips">${categoryChipsHtml}</span>` : ''}
                             ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                         </h3>
@@ -729,11 +750,6 @@ class TodoManager {
                             <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
                                 ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                             </span>
-                            ${task.categoryId ? `
-                                <span class="task-category" data-category-id="${task.categoryId}">
-                                    📁 加载中...
-                                </span>
-                            ` : ''}
                             ${task.dueDate ? `
                                 <span class="task-due-date ${isOverdue ? 'overdue' : ''}"
                                       title="截止时间">
@@ -1064,40 +1080,9 @@ class TodoManager {
             };
         });
 
-        // 加载分类名称
-        await this.loadCategoryNames();
+        // 分类 chip 由 renderCategoryChips 直接渲染，无需后置加载
     }
-    
-    // 加载分类名称
-    async loadCategoryNames() {
-        try {
-            // 确保pywebview已加载完成
-            const isLoaded = await Utils.loadPywebviewApi();
-            if (!isLoaded) {
-                console.error('pywebview未加载，无法获取分类');
-                return;
-            }
-            
-            const response = await window.pywebview.api.get_categories();
-            if (response.success) {
-                const categories = response.categories;
-                const categoryMap = {};
-                
-                categories.forEach(cat => {
-                    categoryMap[cat.id] = cat.name;
-                });
-                
-                document.querySelectorAll('.task-category').forEach(el => {
-                    const categoryId = el.dataset.categoryId;
-                    const categoryName = categoryMap[categoryId] || '未知分类';
-                    el.textContent = `📁 ${categoryName}`;
-                });
-            }
-        } catch (error) {
-            console.error('加载分类失败:', error);
-        }
-    }
-    
+
     // 切换任务状态
     async toggleTask(taskId) {
         try {
@@ -1160,17 +1145,18 @@ class TodoManager {
         const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
         console.log('Setting default category for new task:', currentCategory || 'no category');
 
-        // 加载分类选项并设置默认选中
-        this.loadCategoryOptions(currentCategory);
-
-        // 加载标签选择器
-        this.loadTagsSelector();
-
         // 加载协作人选择（默认空 => 后端取当前账号）
         if (window.taskCollab) {
             window.taskCollab.renderOwnerSelect('');
             window.taskCollab.renderCooperatorChips([]);
         }
+
+        // 加载分类选项（B 阶段：多选）
+        // 如果当前有筛选的分类，则默认勾选第一个
+        const defaultIds = (this.currentFilter && this.currentFilter !== 'all')
+            ? [this.currentFilter]
+            : [];
+        this.loadCategoryOptions(defaultIds);
 
         Utils.ModalManager.show('task-modal');
     }
@@ -1363,6 +1349,12 @@ class TodoManager {
             window.taskCollab.renderCooperatorChips(task.cooperatorUserIds || []);
         }
 
+        // 加载分类选项（B 阶段：多选）
+        const catIds = (task.categoryIds && task.categoryIds.length)
+            ? task.categoryIds
+            : (task.categoryId ? [task.categoryId] : []);
+        this.loadCategoryOptions(catIds);
+
         Utils.ModalManager.show('task-modal');
     }
     
@@ -1432,28 +1424,90 @@ class TodoManager {
         }
     }
     
-    // 加载分类选项
-    async loadCategoryOptions(selectedId = '') {
-        const categorySelect = document.getElementById('task-category');
-        if (!categorySelect) return;
-        
+    // 加载分类选项（B 阶段：多选 chip 面板）
+    async loadCategoryOptions(selectedIds = []) {
+        const selector = document.getElementById('task-categories-selector');
+        const hidden = document.getElementById('task-category-ids');
+        if (!selector || !hidden) return;
+
+        // 标准化为数组
+        const selIds = Array.isArray(selectedIds)
+            ? selectedIds
+            : (selectedIds ? [selectedIds] : []);
+
         try {
-            const response = await window.pywebview.api.get_categories();
-            if (response.success) {
-                const categories = response.categories;
-                
-                categorySelect.innerHTML = `<option value="">${window.languageManager.getText('uncategorized', '未分类')}</option>`;
-                categories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat.id;
-                    option.textContent = cat.name;
-                    option.selected = cat.id === selectedId;
-                    categorySelect.appendChild(option);
-                });
+            // 优先使用 window.categoryManager（已加载）
+            if (!window.categoryManager || !window.categoryManager.tree || window.categoryManager.tree.length === 0) {
+                await window.categoryManager.refresh();
             }
+            const categories = window.categoryManager.tree || [];
+            if (categories.length === 0) {
+                selector.innerHTML = '<span class="empty-tip">暂无分类，先在左侧侧边栏创建</span>';
+                hidden.value = '[]';
+                return;
+            }
+
+            // 按父级关系展平：先根后子（用 depth + sortOrder 排序）
+            const sorted = [...categories].sort((a, b) => {
+                if (a.depth !== b.depth) return a.depth - b.depth;
+                return (a.sortOrder || 0) - (b.sortOrder || 0);
+            });
+
+            // 渲染 chip
+            selector.innerHTML = sorted.map(c => {
+                const isSel = selIds.includes(c.id);
+                const indent = '　'.repeat(c.depth || 0);
+                return `<span class="task-category-chip-selectable ${isSel ? 'selected' : ''}"
+                              data-cat-id="${c.id}"
+                              style="--chip-color: ${c.color};">
+                            <span class="chip-icon" style="background:${c.color}">${c.icon || '📁'}</span>
+                            <span class="chip-indent">${indent}</span>${c.name}
+                        </span>`;
+            }).join('');
+
+            // 绑定点击
+            this.bindCategoryChipsEvents();
+
+            // 写入 hidden
+            hidden.value = JSON.stringify(selIds);
         } catch (error) {
             console.error('加载分类选项失败:', error);
+            selector.innerHTML = '<span class="empty-tip">分类加载失败</span>';
         }
+    }
+
+    bindCategoryChipsEvents() {
+        const selector = document.getElementById('task-categories-selector');
+        const hidden = document.getElementById('task-category-ids');
+        if (!selector || !hidden) return;
+        const MAX_SEL = 5;
+        selector.querySelectorAll('.task-category-chip-selectable').forEach(chip => {
+            chip.onclick = () => {
+                const id = chip.dataset.catId;
+                let arr = [];
+                try { arr = JSON.parse(hidden.value || '[]'); } catch (e) { arr = []; }
+                if (chip.classList.contains('selected')) {
+                    chip.classList.remove('selected');
+                    arr = arr.filter(x => x !== id);
+                } else {
+                    if (arr.length >= MAX_SEL) {
+                        if (window.Utils && Utils.showToast) {
+                            Utils.showToast(`最多选择 ${MAX_SEL} 个分类`, 'warning');
+                        }
+                        return;
+                    }
+                    chip.classList.add('selected');
+                    arr.push(id);
+                }
+                hidden.value = JSON.stringify(arr);
+            };
+        });
+    }
+
+    getSelectedCategoryIds() {
+        const hidden = document.getElementById('task-category-ids');
+        if (!hidden) return [];
+        try { return JSON.parse(hidden.value || '[]'); } catch (e) { return []; }
     }
     
     // 处理任务表单提交
@@ -1483,7 +1537,10 @@ class TodoManager {
             title: document.getElementById('task-title').value.trim(),
             description: document.getElementById('task-description').value.trim(),
             priority: document.getElementById('task-priority').value,
-            categoryId: document.getElementById('task-category').value || null,
+            // B 阶段：多选分类
+            categoryIds: this.getSelectedCategoryIds(),
+            // 兼容后端旧字段
+            categoryId: this.getSelectedCategoryIds()[0] || null,
             dueDate: isoDateStr || null,
             tags: this.getSelectedTagsNames()
         };
