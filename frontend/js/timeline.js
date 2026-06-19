@@ -61,10 +61,12 @@ class TimelineManager {
 
             // 计算时段：时间点归属于前一个整点时段
             let slotKey;
-            if (hour === 0) {
+            if (hour >= 0 && hour <= 8) {
                 // 0点特殊处理，可根据实际需求改为 '23-24'（跨天）或 '0-1'
-                slotKey = '0-1';
-            } else {
+                slotKey = '0-8';
+            } else if (hour > 18 && hour <=23) {
+                slotKey = '18-24';
+            }else {
                 slotKey = `${hour - 1}-${hour}`;
             }
 
