@@ -67,6 +67,71 @@ def _migrate_database(cursor):
             )
         ''')
 
+    # ===== A 子系统：用户系统迁移 =====
+    # 新增 users 表
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                unit TEXT,
+                department TEXT,
+                role TEXT,
+                avatar_color TEXT DEFAULT '#4f46e5',
+                created_at TEXT NOT NULL,
+                last_active_at TEXT,
+                is_deleted INTEGER DEFAULT 0,
+                UNIQUE(unit, department, display_name)
+            )
+        ''')
+        cursor.execute('CREATE INDEX idx_users_owner ON users(unit, department, display_name)')
+
+    # 新增 user_sessions 表
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_sessions'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE user_sessions (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+
+    # 新增 task_audit_log 表
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_audit_log'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE task_audit_log (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                field TEXT,
+                old_value TEXT,
+                new_value TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('CREATE INDEX idx_audit_task ON task_audit_log(task_id, created_at)')
+
+    # tasks 扩展字段（注意：函数顶部已经读过 columns，但要确保在最末尾再读一次最新值）
+    cursor.execute("PRAGMA table_info(tasks)")
+    columns_latest = [column[1] for column in cursor.fetchall()]
+
+    task_new_cols = [
+        ('owning_dept_id', 'TEXT'),
+        ('cooperating_dept_ids', 'TEXT'),
+        ('owner_user_id', 'TEXT'),
+        ('cooperator_user_ids', 'TEXT'),
+        ('audit_enabled', 'INTEGER DEFAULT 1')
+    ]
+    for col_name, col_def in task_new_cols:
+        if col_name not in columns_latest:
+            cursor.execute(f'ALTER TABLE tasks ADD COLUMN {col_name} {col_def}')
+
 
 class TodoDatabase:
     """Todo数据库操作类"""
