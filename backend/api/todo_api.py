@@ -47,8 +47,14 @@ class TodoApi:
     
     def validate_due_date(self, task_data):
         """校验截止时间"""
-        due_date_str = task_data.get('dueDate')
-        
+        # 如果传入的是字典，提取 dueDate
+        if isinstance(task_data, dict):
+            due_date_str = task_data.get('dueDate')
+            if not due_date_str:
+                return {'valid': True, 'message': ''}
+        else:
+            due_date_str = task_data
+
         if not due_date_str:
             return {'valid': True, 'message': ''}
         
@@ -148,6 +154,19 @@ class TodoApi:
         
         try:
             result = self.db.update_task(task_id, task_data)
+            return {'success': True, 'task': result}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def update_todo_due_date(self, task_id, due_date):
+        """更新任务"""
+        # 校验截止时间
+        validation_result = self.validate_due_date(due_date)
+        if not validation_result['valid']:
+            return {'success': False, 'error': validation_result['message']}
+
+        try:
+            result = self.db.update_task_due_date(task_id, due_date)
             return {'success': True, 'task': result}
         except Exception as e:
             return {'success': False, 'error': str(e)}

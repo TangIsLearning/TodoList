@@ -490,6 +490,26 @@ class TodoDatabase:
 
         conn.close()
         return task_dict
+
+    def update_task_due_date(self, task_id, due_date):
+        """更新任务截止时间"""
+        task = Task(
+            due_date=datetime.fromisoformat(due_date)
+        )
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            UPDATE tasks SET due_date = ?, updated_at = ? WHERE id = ?
+        ''', (
+            due_date, datetime.now().isoformat(), task_id
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return task.to_dict()
     
     def update_task(self, task_id, task_data, is_update_task_tags = True):
         """更新任务"""
