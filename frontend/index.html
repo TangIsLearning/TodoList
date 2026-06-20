@@ -410,12 +410,6 @@
                     <option value="no-due-date">无截止日期</option>
                 </select>
 
-                <div id="calendar-filter" class="calendar-filter" style="display: none;">
-                    <button id="prev-month" class="calendar-nav-btn"><</button>
-                    <div id="current-month-year" class="calendar-title"></div>
-                    <button id="next-month" class="calendar-nav-btn">></button>
-                </div>
-
                 <button id="add-task-btn" class="add-task-btn desktop-only">+ 新建任务</button>
             </div>
         </header>
@@ -462,18 +456,23 @@
 
         <!-- 日历视图 -->
         <div class="calendar-container" id="calendar-view" style="display: none;">
-            <div class="calendar-weekdays">
-                <div class="calendar-weekday">日</div>
-                <div class="calendar-weekday">一</div>
-                <div class="calendar-weekday">二</div>
-                <div class="calendar-weekday">三</div>
-                <div class="calendar-weekday">四</div>
-                <div class="calendar-weekday">五</div>
-                <div class="calendar-weekday">六</div>
+            <div class="calendar-background-month" id="calendar-background-month">1</div>
+            <div class="calendar-prev-month" id="prev-month">◀</div>
+            <div class="calendar-main-content">
+                <div class="calendar-weekdays">
+                    <div class="calendar-weekday">日</div>
+                    <div class="calendar-weekday">一</div>
+                    <div class="calendar-weekday">二</div>
+                    <div class="calendar-weekday">三</div>
+                    <div class="calendar-weekday">四</div>
+                    <div class="calendar-weekday">五</div>
+                    <div class="calendar-weekday">六</div>
+                </div>
+                <div id="calendar-days" class="calendar-days">
+                    <!-- 日历日期将通过JavaScript动态添加 -->
+                </div>
             </div>
-            <div id="calendar-days" class="calendar-days">
-                <!-- 日历日期将通过JavaScript动态添加 -->
-            </div>
+            <div class="calendar-next-month" id="next-month">▶</div>
         </div>
 
         <div class="task-scheduler" id="timeline-view" style="display: none;">

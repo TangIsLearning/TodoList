@@ -5,6 +5,7 @@ class CalendarManager {
         this.currentDate = new Date();
         this.currentView = 'list'; // 'list' 或 'calendar'
         this.tasks = [];
+        this.currentMonth = null;
     }
 
     // 初始化
@@ -17,6 +18,8 @@ class CalendarManager {
         const viewToggleSelect = document.getElementById('view-toggle-select');
         const prevMonthBtn = document.getElementById('prev-month');
         const nextMonthBtn = document.getElementById('next-month');
+        this.currentMonth = document.getElementById('calendar-background-month');
+        this.currentMonth.textContent = this.currentDate.getMonth() + 1;
 
         if (viewToggleSelect) {
             viewToggleSelect.addEventListener('change', (e) => this.toggleView(e));
@@ -37,7 +40,6 @@ class CalendarManager {
         const tasksView = document.getElementById('tasks-view');
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
-        const calendarFilter = document.getElementById('calendar-filter');
         const dueDateFilter = document.getElementById('due-date-filter');
         const prevMonthFilter = document.getElementById('filter-prev-month');
         const nextMonthFilter = document.getElementById('filter-next-month');
@@ -54,14 +56,13 @@ class CalendarManager {
                 timelineView.style.display = 'none';
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
-                calendarView.style.display = 'block';
-                calendarFilter.style.display = 'flex';
+                calendarView.style.display = 'flex';
                 dueDateFilter.style.display = 'none';
                 prevMonthFilter.style.display = 'block';
                 nextMonthFilter.style.display = 'block';
                 groupDividerFilter.style.display = 'block';
-                moreMenuIcon.textContent = '📋';
-                moreMenuText.textContent = '切换列表视图';
+                moreMenuIcon.textContent = '📅';
+                moreMenuText.textContent = '切换日历视图';
                 addTaskFab.style.display = 'none';
                 this.currentView = 'calendar';
                 filterPageSize = 9999; // 假定单月任务最多9999个任务
@@ -78,13 +79,12 @@ class CalendarManager {
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
                 calendarView.style.display = 'none';
-                calendarFilter.style.display = 'none';
                 dueDateFilter.style.display = 'block';
                 prevMonthFilter.style.display = 'none';
                 nextMonthFilter.style.display = 'none';
                 groupDividerFilter.style.display = 'block';
-                moreMenuIcon.textContent = '📋';
-                moreMenuText.textContent = '切换列表视图';
+                moreMenuIcon.textContent = '⌛';
+                moreMenuText.textContent = '切换时间轴视图';
                 addTaskFab.style.display = 'none';
                 this.currentView = 'calendar';
                 filterPageSize = 9999; // 假定单月任务最多9999个任务
@@ -98,13 +98,12 @@ class CalendarManager {
                 tasksView.style.display = 'block';
                 pagination.style.display = 'flex';
                 calendarView.style.display = 'none';
-                calendarFilter.style.display = 'none';
                 dueDateFilter.style.display = 'block';
                 prevMonthFilter.style.display = 'none';
                 nextMonthFilter.style.display = 'none';
                 groupDividerFilter.style.display = 'none';
-                moreMenuIcon.textContent = '📅';
-                moreMenuText.textContent = '切换日历视图';
+                moreMenuIcon.textContent = '📋';
+                moreMenuText.textContent = '切换列表视图';
                 addTaskFab.style.display = 'none';
                 this.currentView = 'list';
                 filterPageSize = 10;
@@ -119,6 +118,8 @@ class CalendarManager {
 
     // 上一个月
     previousMonth() {
+        const monthIndex = this.currentDate.getMonth();
+        this.currentMonth.textContent = monthIndex == 0 ? 12 : monthIndex;
         this.currentDate.setMonth(this.currentDate.getMonth() - 1);
         this.renderCalendar();
     }
@@ -126,6 +127,7 @@ class CalendarManager {
     // 下一个月
     nextMonth() {
         this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+        this.currentMonth.textContent = this.currentDate.getMonth() + 1;
         this.renderCalendar();
     }
 
@@ -141,13 +143,6 @@ class CalendarManager {
     renderCalendar() {
         const year = this.currentDate.getFullYear();
         const month = this.currentDate.getMonth();
-
-        // 更新标题
-        const monthYearEl = document.getElementById('current-month-year');
-        if (monthYearEl) {
-            monthYearEl.textContent = ` ${year} / ${month + 1} `;
-        }
-
         // 渲染日历天数
         this.renderCalendarDays(year, month);
     }

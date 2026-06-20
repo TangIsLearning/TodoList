@@ -1617,44 +1617,60 @@ svg {
 .calendar-container {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-sm);
-}
-
-.calendar-filter {
     display: flex;
-    justify-content: space-between;
+}
+
+.calendar-prev-month, .calendar-next-month {
+    display: flex;
+    flex-shrink: 0;         /* 防止被压缩 */
+    text-align: center;
+    font-size: 6px;
+    padding: 2px;
     align-items: center;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid var(--border-color);
-    line-height: 33px;
 }
 
-.calendar-title {
-    color: var(--text-primary);
-    padding: 0 var(--spacing-sm);
+.calendar-prev-month:hover, .calendar-next-month:hover {
+    background-color: var(--secondary-color);
 }
 
-.calendar-nav-btn {
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    cursor: pointer;
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    transition: var(--transition-fast);
+.calendar-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--spacing-sm);
 }
 
-.calendar-nav-btn:hover {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
+.calendar-background-month {
+    position: absolute;
+    top: 50%;
+    left: 60%;
+    transform: translate(-50%, -50%); /* 实现居中 */
+    font-size: 400px;
+    font-weight: bold;
+    color: #dc354530; /* 半透明文字 */
+    letter-spacing: 4px;
+    pointer-events: none;         /* 让点击穿透给按钮 */
+    user-select: none;            /* 让文字不能被鼠标选中（更干净） */
+    z-index: 1;
+}
+
+.calendar-days::before {
+    background: rgba(0, 0, 0, 0); /* 默认完全透明 */
+    transition: background 0.3s ease;
+    z-index: 0; /* 层级最低，位于主背景之上，但在文字之下 */
+    pointer-events: none; /* 防止这个层挡住点击事件（让点击穿透给父级） */
+}
+
+.calendar-days:active::before,
+.calendar-days.active::before { /* 支持JS切换类名 */
+  background: rgba(0, 0, 0, 0.3); /* 变暗，但不会盖住水印 */
 }
 
 .calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
     padding: var(--spacing-sm);
     background-color: var(--bg-secondary);
     border-radius: var(--border-radius);
@@ -1671,7 +1687,7 @@ svg {
 .calendar-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    grid-auto-rows: minmax(120px, auto);
+    flex: 1;
     gap: var(--spacing-sm);
 }
 
@@ -2043,6 +2059,10 @@ svg {
     .more-options-section {
         margin-top: 2px;
         padding-top: 2px;
+    }
+
+    .calendar-background-month {
+        left: 50%;
     }
 }
 
@@ -2599,6 +2619,10 @@ svg {
     .pagination-btn {
         padding: var(--spacing-xs) !important;
         font-size: 12px !important;
+    }
+
+    .calendar-background-month {
+        left: 50%;
     }
 }
 
