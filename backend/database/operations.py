@@ -67,6 +67,22 @@ def _migrate_database(cursor):
             )
         ''')
 
+    # 新增 task_relations 表
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_relations'")
+    if not cursor.fetchone():
+        cursor.execute('''
+                CREATE TABLE task_relations (
+                    sub_task_id TEXT NOT NULL,
+                    main_task_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (sub_task_id, main_task_id),
+                    UNIQUE(sub_task_id),   -- 确保每个子任务只能有一个父任务
+                    FOREIGN KEY (sub_task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+                    FOREIGN KEY (main_task_id) REFERENCES tasks (id) ON DELETE CASCADE
+                )
+            ''')
+        cursor.execute('CREATE INDEX idx_task_relations_parent ON task_relations(main_task_id)')
+
 
 class TodoDatabase:
     """Todo数据库操作类"""
@@ -90,7 +106,7 @@ class TodoDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 创建任务表
+        # 创建任务表，额外说明：tasks.parent_task_id 字段仅用于周期性任务，标记父模板ID，与普通父子任务关联（task_relations）无关。
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
@@ -451,6 +467,52 @@ class TodoDatabase:
             'page_size': page_size,
             'total_pages': total_pages
         }
+
+    def get_tasks_by_ids(self, task_ids):
+        """
+        根据任务ID列表批量获取任务完整信息（含标签）
+        :param task_ids: 任务ID列表
+        :return: 任务字典列表（顺序与传入ID无关）
+        """
+        if not task_ids:
+            return []
+        ids = list(set([tid for tid in task_ids if tid]))
+        if not ids:
+            return []
+
+        placeholders = ','.join(['?'] * len(ids))
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(f'''
+            SELECT id, title, description, completed, priority, category_id, due_date,
+                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
+                   parent_task_id, created_at, updated_at
+            FROM tasks WHERE id IN ({placeholders})
+        ''', ids)
+        rows = cursor.fetchall()
+        conn.close()
+
+        tasks = []
+        for row in rows:
+            task_dict = {
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'completed': bool(row[3]),
+                'priority': row[4],
+                'categoryId': row[5],
+                'dueDate': row[6],
+                'isRecurring': bool(row[7]) if row[7] is not None else False,
+                'recurrenceType': row[8],
+                'recurrenceInterval': row[9] if row[9] is not None else 1,
+                'recurrenceCount': row[10],
+                'parentTaskId': row[11],
+                'createdAt': row[12],
+                'updatedAt': row[13],
+                'tags': self.get_task_tags(row[0])
+            }
+            tasks.append(task_dict)
+        return tasks
     
     def get_task(self, task_id):
         """获取单个任务"""
@@ -550,6 +612,12 @@ class TodoDatabase:
         """删除任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+
+        # 1. 如果任务有子任务（作为父任务），删除所有子关联（子任务保留）
+        self.delete_relations_by_parent(task_id)
+
+        # 2. 如果任务有父任务（作为子任务），删除自身关联
+        self.delete_relation_by_children(task_id)
         
         cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
         cursor.execute('DELETE FROM task_tags WHERE task_id = ?', (task_id,))
@@ -942,3 +1010,63 @@ class TodoDatabase:
         conn.commit()
         conn.close()
         return True
+
+    # ---------- 关联关系辅助方法 ----------
+    def add_task_relation(self, sub_task_id, main_task_id):
+        """添加或更新一条关联（确保单父）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        # 由于 UNIQUE(task_id) 约束，直接用 INSERT OR REPLACE 即可
+        cursor.execute('''
+            INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at)
+            VALUES (?, ?, ?)
+        ''', (sub_task_id, main_task_id, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+
+    def _update_task_relation(self, sub_task_id, new_main_task_id):
+        """更新任务的父任务（new_parent_id 可为 None 表示删除）"""
+        if new_main_task_id is None:
+            self.delete_relation_by_children(sub_task_id)
+        else:
+            self.add_task_relation(sub_task_id, new_main_task_id)
+
+    def delete_relation_by_children(self, task_id):
+        """删除该任务作为子任务的关联"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
+        conn.commit()
+        conn.close()
+
+    def delete_relations_by_parent(self, task_id):
+        """删除所有以 main_task_id 为父的关联"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM task_relations WHERE main_task_id = ?', (task_id,))
+        conn.commit()
+        conn.close()
+
+    def get_children(self, task_id):
+        """获取指定任务的所有直接子任务（单层查询）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        # 查询关联表中的子任务 ID
+        cursor.execute('SELECT sub_task_id FROM task_relations WHERE main_task_id = ?', (task_id,))
+        child_ids = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        if not child_ids:
+            return []
+        return child_ids
+
+    def get_parent(self, task_id):
+        """获取任务的父任务（如果有）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT main_task_id FROM task_relations WHERE sub_task_id = ?', (task_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return self.get_task(row[0])
+        return None

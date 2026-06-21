@@ -669,6 +669,114 @@ class TodoApi:
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    # ---------- 任务关联管理 API ----------
+
+    def get_children(self, task_id):
+        """获取指定任务的直接子任务列表（完整任务信息）"""
+        try:
+            children = self.db.get_children(task_id)
+            return {'success': True, 'children': children}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_parent(self, task_id):
+        """获取指定任务的父任务（完整任务信息）"""
+        try:
+            parent = self.db.get_parent(task_id)
+            return {'success': True, 'parent': parent}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def add_task_relation(self, sub_task_id, main_task_id):
+        """为单个子任务设置父任务（若已存在则更新）"""
+        try:
+            sub = self.db.get_task(sub_task_id)
+            if not sub:
+                return {'success': False, 'error': '子任务不存在'}
+            main = self.db.get_task(main_task_id)
+            if not main:
+                return {'success': False, 'error': '父任务不存在'}
+            if sub_task_id == main_task_id:
+                return {'success': False, 'error': '不能将自己设为父任务'}
+            if sub.get('isRecurring'):
+                return {'success': False, 'error': '周期性任务不允许添加父任务关联'}
+            self.db.add_task_relation(sub_task_id, main_task_id)
+            return {'success': True, 'message': '关联已建立'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def remove_task_relation(self, sub_task_id):
+        """移除单个子任务的父任务关联"""
+        try:
+            sub = self.db.get_task(sub_task_id)
+            if not sub:
+                return {'success': False, 'error': '子任务不存在'}
+            self.db.delete_relation_by_children(sub_task_id)
+            return {'success': True, 'message': '关联已移除'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def batch_add_task_relations(self, sub_task_ids, main_task_id):
+        """批量将多个子任务关联到同一个父任务"""
+        try:
+            if not sub_task_ids:
+                return {'success': False, 'error': '子任务列表为空'}
+            main = self.db.get_task(main_task_id)
+            if not main:
+                return {'success': False, 'error': '父任务不存在'}
+            success_count = 0
+            errors = []
+            for sub_id in sub_task_ids:
+                try:
+                    if sub_id == main_task_id:
+                        errors.append(f'{sub_id}: 不能将自己设为父任务')
+                        continue
+                    sub = self.db.get_task(sub_id)
+                    if not sub:
+                        errors.append(f'{sub_id}: 子任务不存在')
+                        continue
+                    if sub.get('isRecurring'):
+                        errors.append(f'{sub_id}: 周期性任务不允许添加父任务关联')
+                        continue
+                    self.db.add_task_relation(sub_id, main_task_id)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f'{sub_id}: {str(e)}')
+            return {
+                'success': True,
+                'success_count': success_count,
+                'errors': errors,
+                'total': len(sub_task_ids)
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def batch_remove_task_relations(self, sub_task_ids):
+        """批量移除多个子任务的父任务关联"""
+        try:
+            if not sub_task_ids:
+                return {'success': False, 'error': '子任务列表为空'}
+            success_count = 0
+            errors = []
+            for sub_id in sub_task_ids:
+                try:
+                    sub = self.db.get_task(sub_id)
+                    if not sub:
+                        errors.append(f'{sub_id}: 子任务不存在')
+                        continue
+                    self.db.delete_relation_by_children(sub_id)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f'{sub_id}: {str(e)}')
+            return {
+                'success': True,
+                'success_count': success_count,
+                'errors': errors,
+                'total': len(sub_task_ids)
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
     
     # ==================== WebDAV同步相关API ====================
 
