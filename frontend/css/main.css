@@ -3246,3 +3246,158 @@ svg {
     font-size: 0.7rem;
 }
 
+/* 子任务相关样式 */
+.subtask-count {
+    display: inline;
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    margin-left: 6px;
+    padding: 2px 6px;
+    background-color: var(--bg-secondary);
+    border-radius: 10px;
+}
+
+.link-text {
+    text-decoration: underline;
+    transition: opacity 0.2s;
+}
+
+.link-text:hover {
+    opacity: 0.7;
+}
+
+/* 父任务选择器（Combobox）样式 */
+.parent-task-combobox {
+    position: relative;
+    width: 100%;
+}
+
+#task-parent-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-base);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+#task-parent-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+#task-parent-input::placeholder {
+    color: var(--text-muted);
+}
+
+.combobox-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 4px;
+}
+
+.combobox-loading {
+    padding: var(--spacing-md);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.combobox-results {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.combobox-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: background-color 0.15s;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.combobox-item:last-child {
+    border-bottom: none;
+}
+
+.combobox-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+.combobox-item .task-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.combobox-item .task-title.completed {
+    opacity: 0.6 !important;
+    text-decoration: line-through !important;
+}
+
+.combobox-item .task-priority {
+    margin-left: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.combobox-load-more {
+    padding: var(--spacing-sm);
+    text-align: center;
+    border-top: 1px solid var(--border-light);
+}
+
+.load-more-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--primary-color);
+    transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.combobox-empty {
+    padding: var(--spacing-md);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* 隐藏滚动条但保持功能 */
+.combobox-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.combobox-dropdown::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.combobox-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+

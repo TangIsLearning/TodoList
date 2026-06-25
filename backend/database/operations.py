@@ -1053,12 +1053,12 @@ class TodoDatabase:
         cursor = conn.cursor()
         # 查询关联表中的子任务 ID
         cursor.execute('SELECT sub_task_id FROM task_relations WHERE main_task_id = ?', (task_id,))
-        child_ids = [row[0] for row in cursor.fetchall()]
+        children = [self.get_task(row[0]) for row in cursor.fetchall()]
         conn.close()
 
-        if not child_ids:
+        if not children:
             return []
-        return child_ids
+        return children
 
     def get_parent(self, task_id):
         """获取任务的父任务（如果有）"""

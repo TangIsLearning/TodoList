@@ -12,6 +12,17 @@ class TodoManager {
         this.sortBy = 'created_at'; // 使用默认排序逻辑
         this.sortOrder = 'desc';
         this.customDateFilter = null; // 自定义日期筛选（用于日历视图）
+        // 父任务选择器状态
+        this.parentTaskState = {
+            currentPage: 1,
+            pageSize: 10,
+            searchQuery: '',
+            selectedId: '',
+            hasMore: false,
+            isLoading: false,
+            isOpen: false,
+            editingTaskId: ''
+        };
         // 分页相关
         this.currentPage = 1;
         this.pageSize = 10;
@@ -680,6 +691,7 @@ class TodoManager {
                                     ${Utils.escapeHtml(task.title)}
                                     ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                                     ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                                    <span class="subtask-count" data-task-id="${task.id}" style="display: none;">📋 <span class="count">0</span></span>
                                 </h3>
                             </div>
                         </div>
@@ -723,6 +735,7 @@ class TodoManager {
                             ${Utils.escapeHtml(task.title)}
                             ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                            <span class="subtask-count" data-task-id="${task.id}" style="display: none;">📋 <span class="count">0</span></span>
                         </h3>
                         ${task.description ? `<p class="task-description">${Utils.escapeHtml(task.description)}</p>` : ''}
                         <div class="task-meta">
@@ -1002,6 +1015,8 @@ class TodoManager {
         document.addEventListener('click', closeAllHandler);
         document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
 
+        await this.loadSubtaskCounts();
+
         // 添加CSS样式防止移动端默认行为
         const style = document.createElement('style');
         style.textContent = `
@@ -1163,15 +1178,259 @@ class TodoManager {
         // 加载分类选项并设置默认选中
         this.loadCategoryOptions(currentCategory);
 
+        // 重置并初始化父任务选择器
+        this.parentTaskState.editingTaskId = '';
+        this.resetParentTaskCombobox();
+        this.initParentTaskCombobox();
+
         // 加载标签选择器
         this.loadTagsSelector();
 
         Utils.ModalManager.show('task-modal');
     }
     
+    // 初始化父任务选择器
+    initParentTaskCombobox() {
+        const combobox = document.getElementById('parent-task-combobox');
+        const input = document.getElementById('task-parent-input');
+        const hiddenInput = document.getElementById('task-parent');
+        const dropdown = document.getElementById('parent-task-dropdown');
+        const loadMoreBtn = dropdown.querySelector('.load-more-btn');
+        
+        if (!combobox || !input || !dropdown) return;
+        
+        // 点击输入框打开下拉
+        input.addEventListener('focus', async (e) => {
+            this.parentTaskState.isOpen = true;
+            dropdown.style.display = 'block';
+            
+            // 如果没有内容，加载初始数据
+            const results = dropdown.querySelector('.combobox-results');
+            if (results.children.length === 0 && !this.parentTaskState.isLoading) {
+                await this.loadParentTasks(false);
+            }
+        });
+        
+        // 输入搜索
+        let searchTimeout;
+        input.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            searchTimeout = setTimeout(async () => {
+                if (query !== this.parentTaskState.searchQuery) {
+                    this.parentTaskState.searchQuery = query;
+                    this.parentTaskState.currentPage = 1;
+                    await this.loadParentTasks(true);
+                }
+            }, 300);
+        });
+        
+        // 点击其他地方关闭
+        document.addEventListener('click', (e) => {
+            if (!combobox.contains(e.target)) {
+                this.closeParentTaskDropdown();
+            }
+        });
+        
+        // 加载更多
+        loadMoreBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await this.loadParentTasks(false);
+        });
+    }
+    
+    // 关闭下拉框
+    closeParentTaskDropdown() {
+        const dropdown = document.getElementById('parent-task-dropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+            this.parentTaskState.isOpen = false;
+        }
+    }
+    
+    // 加载父任务列表
+    async loadParentTasks(isNewSearch = false) {
+        const dropdown = document.getElementById('parent-task-dropdown');
+        const results = dropdown.querySelector('.combobox-results');
+        const loading = dropdown.querySelector('.combobox-loading');
+        const loadMore = dropdown.querySelector('.combobox-load-more');
+        const empty = dropdown.querySelector('.combobox-empty');
+        
+        if (this.parentTaskState.isLoading) return;
+        this.parentTaskState.isLoading = true;
+        
+        loading.style.display = 'block';
+        empty.style.display = 'none';
+        
+        try {
+            const searchQuery = this.parentTaskState.searchQuery;
+            const page = this.parentTaskState.currentPage;
+            const pageSize = this.parentTaskState.pageSize;
+            
+            console.log('加载父任务:', { page, pageSize, searchQuery, isNewSearch }); // 调试日志
+            
+            // 获取任务列表
+            const response = await window.pywebview.api.get_todos(
+                page, pageSize, null, null, null, null, null, null, searchQuery || null
+            );
+            
+            console.log('API响应:', response); // 调试日志
+            
+            if (response.success) {
+                let tasks = response.tasks.filter(t => !t.isRecurring && !t.parentTaskId);
+                
+                // 排除当前编辑的任务
+                if (this.parentTaskState.editingTaskId) {
+                    tasks = tasks.filter(t => t.id !== this.parentTaskState.editingTaskId);
+                }
+                
+                if (isNewSearch) {
+                    results.innerHTML = '';
+                }
+                
+                console.log('过滤后的任务:', tasks.length); // 调试日志
+                
+                // 渲染任务列表
+                if (tasks.length > 0) {
+                    tasks.forEach(task => {
+                        const item = this.createParentTaskItem(task);
+                        results.appendChild(item);
+                    });
+                    
+                    // 使用后端返回的分页信息判断是否有更多
+                    const total = response.total || 0;
+                    const loadedCount = page * pageSize;
+                    this.parentTaskState.hasMore = loadedCount < total;
+                    
+                    console.log('分页信息:', { total, loadedCount, hasMore: this.parentTaskState.hasMore }); // 调试日志
+                    
+                    loadMore.style.display = this.parentTaskState.hasMore ? 'block' : 'none';
+                    empty.style.display = 'none';
+                } else if (results.children.length === 0) {
+                    empty.style.display = 'block';
+                    loadMore.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('加载父任务列表失败:', error);
+        } finally {
+            this.parentTaskState.isLoading = false;
+            this.parentTaskState.currentPage++;
+            loading.style.display = 'none';
+        }
+    }
+    
+    // 创建父任务列表项
+    createParentTaskItem(task) {
+        const item = document.createElement('div');
+        item.className = 'combobox-item';
+        item.dataset.taskId = task.id;
+        item.dataset.taskTitle = task.title;
+        
+        // 显示任务标题和状态
+        item.innerHTML = `
+            <span class="task-title ${task.completed ? 'completed' : ''}">${Utils.escapeHtml(task.title)}</span>
+        `;
+        
+        item.addEventListener('click', () => {
+            this.selectParentTask(task);
+        });
+        
+        return item;
+    }
+    
+    // 选择父任务
+    selectParentTask(task) {
+        const input = document.getElementById('task-parent-input');
+        const hiddenInput = document.getElementById('task-parent');
+        
+        input.value = task.title;
+        hiddenInput.value = task.id;
+        this.parentTaskState.selectedId = task.id;
+        
+        this.closeParentTaskDropdown();
+    }
+    
+    // 重置父任务选择器
+    resetParentTaskCombobox() {
+        const input = document.getElementById('task-parent-input');
+        const hiddenInput = document.getElementById('task-parent');
+        const results = document.querySelector('.combobox-results');
+        
+        input.value = '';
+        hiddenInput.value = '';
+        this.parentTaskState.selectedId = '';
+        this.parentTaskState.searchQuery = '';
+        this.parentTaskState.currentPage = 1;
+        this.parentTaskState.hasMore = false;
+        
+        if (results) {
+            results.innerHTML = '';
+        }
+    }
+    
+    // 初始化父任务选择器（编辑模式）
+    async initParentTaskForEdit(taskId) {
+        // 重置并初始化选择器
+        this.parentTaskState.editingTaskId = taskId;
+        this.resetParentTaskCombobox();
+        this.initParentTaskCombobox();
+        
+        // 获取当前任务的父任务
+        try {
+            const response = await window.pywebview.api.get_parent(taskId);
+            if (response.success && response.parent) {
+                const input = document.getElementById('task-parent-input');
+                const hiddenInput = document.getElementById('task-parent');
+                
+                input.value = response.parent.title;
+                hiddenInput.value = response.parent.id;
+                this.parentTaskState.selectedId = response.parent.id;
+            }
+        } catch (error) {
+            console.error('获取父任务信息失败:', error);
+        }
+    }
+    
+    // 加载子任务数量并更新显示
+    async loadSubtaskCounts() {
+        const subtaskCountEls = document.querySelectorAll('.subtask-count');
+        if (subtaskCountEls.length === 0) return;
+        
+        const taskIds = Array.from(subtaskCountEls).map(el => el.dataset.taskId);
+        
+        for (const taskId of taskIds) {
+            try {
+                const response = await window.pywebview.api.get_children(taskId);
+                if (response.success && response.children && response.children.length > 0) {
+                    const countEl = document.querySelector(`.subtask-count[data-task-id="${taskId}"]`);
+                    if (countEl) {
+                        const countSpan = countEl.querySelector('.count');
+                        if (countSpan) {
+                            countSpan.textContent = response.children.length;
+                        }
+                        countEl.style.display = 'inline';
+                    }
+                }
+            } catch (error) {
+                console.error(`加载任务 ${taskId} 的子任务数量失败:`, error);
+            }
+        }
+    }
+    
     // 查看任务详情
     async viewTaskDetails(taskId) {
-        const task = this.tasks.find(t => t.id === taskId);
+        let task = this.tasks.find(t => t.id === taskId);
+
+        // 如果当前页任务中不存在该任务，再查询数据库
+        if (!task) {
+            let response = await window.pywebview.api.get_todo(taskId);
+
+            if (response.success) {
+                task = response.task;
+            }
+        }
         if (!task) return;
 
         const priorityInfo = Utils.getPriorityInfo(task.priority);
@@ -1187,6 +1446,47 @@ class TodoManager {
             ).join('');
         } else {
             tagsHtml = `<span style="color: var(--text-secondary);">${window.languageManager.getText('noTaskTags', '无标签')}</span>`;
+        }
+
+        // 获取父任务和子任务信息
+        let parentInfo = '';
+        let childrenInfo = '';
+        
+        try {
+            const parentResponse = await window.pywebview.api.get_parent(taskId);
+            if (parentResponse.success && parentResponse.parent) {
+                const parent = parentResponse.parent;
+                parentInfo = `
+                    <div>
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('parentTask', '父任务')}</strong>
+                        <span style="color: var(--primary-color); font-size: 14px; cursor: pointer;" class="link-text" data-task-id="${parent.id}">
+                            🔗 ${Utils.escapeHtml(parent.title)}
+                        </span>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('获取父任务信息失败:', error);
+        }
+
+        try {
+            const childrenResponse = await window.pywebview.api.get_children(taskId);
+            if (childrenResponse.success && childrenResponse.children && childrenResponse.children.length > 0) {
+                const children = childrenResponse.children;
+                const childrenHtml = children.map(child => 
+                    `<span style="display: block; color: var(--primary-color); font-size: 14px; cursor: pointer; margin-bottom: 4px;" class="link-text" data-task-id="${child.id}">
+                        📋 ${Utils.escapeHtml(child.title)} ${child.completed ? '✓' : ''}
+                    </span>`
+                ).join('');
+                childrenInfo = `
+                    <div style="grid-column: 1 / -1;">
+                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('subTasks', '子任务')} (${children.length})</strong>
+                        <div>${childrenHtml}</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('获取子任务信息失败:', error);
         }
 
         const detailContent = `
@@ -1232,12 +1532,16 @@ class TodoManager {
                         </span>
                     </div>
 
+                    ${parentInfo}
+
                     <div style="grid-column: 1 / -1;">
                         <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskTags', '标签')}</strong>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                             ${tagsHtml}
                         </div>
                     </div>
+
+                    ${childrenInfo}
 
                     <div>
                         <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCreateTime', '创建时间')}</strong>
@@ -1266,6 +1570,15 @@ class TodoManager {
 
         // 加载分类名称
         await this.loadCategoryNameForDetail(task.categoryId);
+
+        // 绑定关联任务点击事件
+        document.querySelectorAll('.link-text[data-task-id]').forEach(el => {
+            el.onclick = (e) => {
+                const targetTaskId = e.currentTarget.dataset.taskId;
+                Utils.ModalManager.hide('view-modal');
+                this.viewTaskDetails(targetTaskId);
+            };
+        });
     }
 
     // 加载分类名称(用于详情对话框)
@@ -1347,6 +1660,9 @@ class TodoManager {
         
         // 加载分类选项
         this.loadCategoryOptions(task.categoryId);
+
+        // 初始化父任务选择器（编辑模式需要先获取已选的父任务）
+        this.initParentTaskForEdit(task.id);
         
         // 添加输入值变化监听
         this.addInputValueListeners();
@@ -1355,6 +1671,20 @@ class TodoManager {
         this.loadTagsSelector();
 
         Utils.ModalManager.show('task-modal');
+    }
+    
+    // 加载父任务选项（编辑模式）
+    async loadParentTaskOptionsForEdit(taskId) {
+        let parentId = '';
+        try {
+            const response = await window.pywebview.api.get_parent(taskId);
+            if (response.success && response.parent) {
+                parentId = response.parent.id;
+            }
+        } catch (error) {
+            console.error('获取父任务信息失败:', error);
+        }
+        await this.loadParentTaskOptions(parentId);
     }
     
     // 禁用周期性任务选项
@@ -1470,6 +1800,8 @@ class TodoManager {
             isoDateStr = `${dateStr}T${timeStr}`;
         }
 
+        const parentTaskId = document.getElementById('task-parent').value || null;
+
         const taskData = {
             title: document.getElementById('task-title').value.trim(),
             description: document.getElementById('task-description').value.trim(),
@@ -1528,6 +1860,17 @@ class TodoManager {
             if (response.success) {
                 const message = isEdit ? window.languageManager.getText('taskUpdated', '任务更新成功') :
                     window.languageManager.getText('taskCreated', '任务创建成功');
+                
+                if (parentTaskId) {
+                    const taskId = isEdit ? editingId : response.task.id;
+                    try {
+                        await window.pywebview.api.add_task_relation(taskId, parentTaskId);
+                    } catch (relationError) {
+                        console.error('添加父任务关联失败:', relationError);
+                        Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning');
+                    }
+                }
+                
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
 
