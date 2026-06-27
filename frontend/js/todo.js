@@ -1243,6 +1243,12 @@ class TodoManager {
             clearTimeout(searchTimeout);
             const query = e.target.value.trim();
             
+            // 如果输入框为空，清空父任务选择
+            if (query === '') {
+                hiddenInput.value = '';
+                this.parentTaskState.selectedId = '';
+            }
+            
             searchTimeout = setTimeout(async () => {
                 if (query !== this.parentTaskState.searchQuery) {
                     this.parentTaskState.searchQuery = query;
@@ -1912,8 +1918,33 @@ class TodoManager {
                 const message = isEdit ? window.languageManager.getText('taskUpdated', '任务更新成功') :
                     window.languageManager.getText('taskCreated', '任务创建成功');
                 
-                if (parentTaskId) {
-                    const taskId = isEdit ? editingId : response.task.id;
+                const taskId = isEdit ? editingId : response.task.id;
+                
+                // 处理父任务关联
+                if (isEdit) {
+                    // 编辑模式下需要处理父任务的更新/删除
+                    try {
+                        // 获取当前父任务
+                        const parentResponse = await window.pywebview.api.get_parent(taskId);
+                        const currentParentId = parentResponse.success && parentResponse.parent ? parentResponse.parent.id : null;
+                        
+                        if (currentParentId !== parentTaskId) {
+                            // 父任务发生了变化
+                            if (currentParentId) {
+                                // 先删除旧关联
+                                await window.pywebview.api.remove_task_relation(taskId);
+                            }
+                            if (parentTaskId) {
+                                // 添加新关联
+                                await window.pywebview.api.add_task_relation(taskId, parentTaskId);
+                            }
+                        }
+                    } catch (relationError) {
+                        console.error('更新父任务关联失败:', relationError);
+                        Utils.showToast(window.languageManager.getText('updateParentRelationFailed', '更新父任务关联失败'), 'warning');
+                    }
+                } else if (parentTaskId) {
+                    // 新建模式下直接添加关联
                     try {
                         await window.pywebview.api.add_task_relation(taskId, parentTaskId);
                     } catch (relationError) {
