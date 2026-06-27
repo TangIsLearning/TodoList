@@ -522,19 +522,42 @@ class TodoManager {
         try {
             Utils.setLoading(true, '加载任务...');
 
-            // 查询数据库
-            let response = await this.safeGetTodos(
-                this.currentPage,
-                this.pageSize,
-                this.currentFilter === 'all' ? null : this.currentFilter,
-                this.statusFilter === 'all' ? null : this.statusFilter,
-                this.priorityFilter === 'all' ? null : this.priorityFilter,
-                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-                null,  // year
-                null,  // month
-                this.searchQuery || null,
-                this.customDateFilter || null
-            );
+            let response;
+            
+            // 检查是否是子任务搜索模式（以">"开头）
+            if (this.searchQuery && this.searchQuery.startsWith('>')) {
+                const parentName = this.searchQuery.substring(1).trim();
+                if (parentName) {
+                    response = await window.pywebview.api.search_subtasks_by_parent_name(
+                        parentName,
+                        this.currentPage,
+                        this.pageSize
+                    );
+                } else {
+                    response = await this.safeGetTodos(
+                        this.currentPage,
+                        this.pageSize,
+                        this.currentFilter === 'all' ? null : this.currentFilter,
+                        this.statusFilter === 'all' ? null : this.statusFilter,
+                        this.priorityFilter === 'all' ? null : this.priorityFilter,
+                        this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                        null, null, null, null
+                    );
+                }
+            } else {
+                response = await this.safeGetTodos(
+                    this.currentPage,
+                    this.pageSize,
+                    this.currentFilter === 'all' ? null : this.currentFilter,
+                    this.statusFilter === 'all' ? null : this.statusFilter,
+                    this.priorityFilter === 'all' ? null : this.priorityFilter,
+                    this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                    null,  // year
+                    null,  // month
+                    this.searchQuery || null,
+                    this.customDateFilter || null
+                );
+            }
             console.log('查询数据库');
             
             if (response.success) {
@@ -691,7 +714,7 @@ class TodoManager {
                                     ${Utils.escapeHtml(task.title)}
                                     ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                                     ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                                    <span class="subtask-count" data-task-id="${task.id}" style="display: none;">📋 <span class="count">0</span></span>
+                                    <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                                 </h3>
                             </div>
                         </div>
@@ -735,7 +758,7 @@ class TodoManager {
                             ${Utils.escapeHtml(task.title)}
                             ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                            <span class="subtask-count" data-task-id="${task.id}" style="display: none;">📋 <span class="count">0</span></span>
+                            <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                         </h3>
                         ${task.description ? `<p class="task-description">${Utils.escapeHtml(task.description)}</p>` : ''}
                         <div class="task-meta">
@@ -1016,6 +1039,9 @@ class TodoManager {
         document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
 
         await this.loadSubtaskCounts();
+
+        // 绑定子任务数量徽章点击事件
+        this.bindSubtaskCountEvents();
 
         // 添加CSS样式防止移动端默认行为
         const style = document.createElement('style');
@@ -1417,6 +1443,31 @@ class TodoManager {
                 console.error(`加载任务 ${taskId} 的子任务数量失败:`, error);
             }
         }
+    }
+    
+    // 绑定子任务数量徽章点击事件
+    bindSubtaskCountEvents() {
+        document.querySelectorAll('.subtask-count').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                const count = el.querySelector('.count');
+                const countValue = parseInt(count?.textContent || '0');
+                
+                if (countValue > 0) {
+                    const taskTitle = el.dataset.taskTitle;
+                    if (taskTitle) {
+                        const searchInput = document.getElementById('search-input');
+                        if (searchInput) {
+                            searchInput.value = `>${taskTitle}`;
+                            this.searchQuery = `>${taskTitle}`;
+                            this.currentPage = 1;
+                            this.loadTasks();
+                        }
+                    }
+                }
+            });
+        });
     }
     
     // 查看任务详情

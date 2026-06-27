@@ -87,7 +87,7 @@ const Languages = {
         contactAuthor: "联系作者",
         
         // 搜索和筛选
-        searchPlaceholder: "搜索任务... (支持 #标签 搜索)",
+        searchPlaceholder: "搜索任务... (支持 #标签 / >父任务全称 搜索)",
         searchClear: "清空搜索",
         filterAll: "所有",
         filterPriority: "所有优先级",
@@ -369,7 +369,7 @@ const Languages = {
         contactAuthor: "Contact Author",
         
         // 搜索和筛选
-        searchPlaceholder: "Search tasks... (Supports #tag search)",
+        searchPlaceholder: "Search tasks... (Supports #tag / <Parent-Task search)",
         searchClear: "Clear Search",
         filterAll: "All",
         filterPriority: "All Priority",

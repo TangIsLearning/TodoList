@@ -247,6 +247,43 @@ class TodoDatabase:
             tasks.append(task_dict)
         
         return tasks
+    
+    def find_task_by_title_exact(self, title):
+        """通过任务标题精确查找任务（不区分大小写）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, title, description, completed, priority, category_id, due_date,
+                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
+                   parent_task_id, created_at, updated_at
+            FROM tasks 
+            WHERE title = ? COLLATE NOCASE
+            LIMIT 1
+        ''', (title,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'completed': bool(row[3]),
+                'priority': row[4],
+                'categoryId': row[5],
+                'dueDate': row[6],
+                'isRecurring': bool(row[7]) if row[7] is not None else False,
+                'recurrenceType': row[8],
+                'recurrenceInterval': row[9] if row[9] is not None else 1,
+                'recurrenceCount': row[10],
+                'parentTaskId': row[11],
+                'createdAt': row[12],
+                'updatedAt': row[13],
+                'tags': self.get_task_tags(row[0])
+            }
+        return None
 
     def get_tasks_paginated(self, page=1, page_size=10, category_id=None, status=None, 
                             priority=None, due_date_filter=None, year=None, month=None,

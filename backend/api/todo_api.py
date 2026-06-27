@@ -777,6 +777,36 @@ class TodoApi:
             }
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    def search_subtasks_by_parent_name(self, parent_name, page=1, page_size=10):
+        """通过父任务名称搜索其子任务（要求父任务名称完全匹配）"""
+        try:
+            # 先查找父任务
+            parent_task = self.db.find_task_by_title_exact(parent_name)
+            if not parent_task:
+                return {'success': True, 'tasks': [], 'total': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
+            
+            # 获取该父任务的子任务
+            children = self.db.get_children(parent_task['id'])
+            
+            # 分页处理
+            total = len(children)
+            total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_children = children[start_idx:end_idx]
+            
+            return {
+                'success': True,
+                'tasks': paginated_children,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages,
+                'parent_task': {'id': parent_task['id'], 'title': parent_task['title']}
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
     
     # ==================== WebDAV同步相关API ====================
 
