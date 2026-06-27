@@ -542,22 +542,6 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="task-parent">父任务 <span style="color: #999; font-size: 12px;">（可选）</span></label>
-                    <div class="parent-task-combobox" id="parent-task-combobox">
-                        <input type="text" id="task-parent-input" placeholder="点击选择或输入搜索父任务" autocomplete="off">
-                        <input type="hidden" id="task-parent" value="">
-                        <div class="combobox-dropdown" id="parent-task-dropdown">
-                            <div class="combobox-loading" style="display: none;">加载中...</div>
-                            <div class="combobox-results"></div>
-                            <div class="combobox-load-more" style="display: none;">
-                                <button type="button" class="load-more-btn">加载更多</button>
-                            </div>
-                            <div class="combobox-empty" style="display: none;">无匹配任务</div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- 更多选项 -->
                 <div class="more-options-section">
                     <button type="button" id="more-options-toggle" class="more-options-toggle">
@@ -565,6 +549,22 @@
                     </button>
 
                     <div id="more-options-content" class="more-options-content" style="display: none;">
+                        <div class="form-group">
+                            <label for="task-parent">父任务 <span style="color: #666; font-size: 12px;">可选</span></label>
+                            <div class="parent-task-combobox" id="parent-task-combobox">
+                                <input type="text" id="task-parent-input" placeholder="点击选择或输入搜索父任务" autocomplete="off">
+                                <input type="hidden" id="task-parent" value="">
+                                <div class="combobox-dropdown" id="parent-task-dropdown">
+                                    <div class="combobox-loading" style="display: none;">加载中...</div>
+                                    <div class="combobox-results"></div>
+                                    <div class="combobox-load-more" style="display: none;">
+                                        <button type="button" class="load-more-btn">加载更多</button>
+                                    </div>
+                                    <div class="combobox-empty" style="display: none;">无匹配任务</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group datetime-group">
                             <label>截止日期和时间 <span
                                     style="color: #666; font-size: 12px;">（可选）</span></label>
