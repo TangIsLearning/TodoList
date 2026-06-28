@@ -305,7 +305,7 @@ exec $HERE/usr/bin/TodoList "$@"
         output.unlink()
 
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, env={**os.environ, 'ARCH': 'x86_64'})
         print(f"   ✅ AppImage 已生成: {output}")
         return True
     except subprocess.CalledProcessError as e:
