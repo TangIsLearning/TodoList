@@ -57,7 +57,9 @@ class CalendarManager {
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
                 calendarView.style.display = 'flex';
-                dueDateFilter.style.display = 'none';
+                dueDateFilter.disabled = true;
+                dueDateFilter.style.pointerEvents = 'auto';
+                dueDateFilter.style.cursor = 'not-allowed';
                 prevMonthFilter.style.display = 'block';
                 nextMonthFilter.style.display = 'block';
                 groupDividerFilter.style.display = 'block';
@@ -79,7 +81,9 @@ class CalendarManager {
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
                 calendarView.style.display = 'none';
-                dueDateFilter.style.display = 'block';
+                dueDateFilter.disabled = true;
+                dueDateFilter.style.pointerEvents = 'auto';
+                dueDateFilter.style.cursor = 'not-allowed';
                 prevMonthFilter.style.display = 'none';
                 nextMonthFilter.style.display = 'none';
                 groupDividerFilter.style.display = 'block';
@@ -98,7 +102,9 @@ class CalendarManager {
                 tasksView.style.display = 'block';
                 pagination.style.display = 'flex';
                 calendarView.style.display = 'none';
-                dueDateFilter.style.display = 'block';
+                dueDateFilter.disabled = false;
+                dueDateFilter.style.pointerEvents = 'auto';
+                dueDateFilter.style.cursor = 'default';
                 prevMonthFilter.style.display = 'none';
                 nextMonthFilter.style.display = 'none';
                 groupDividerFilter.style.display = 'none';
