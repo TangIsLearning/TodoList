@@ -1099,9 +1099,9 @@ class TodoManager {
 
         // 删除按钮
         document.querySelectorAll('.task-action-btn.delete').forEach(btn => {
-            btn.onclick = (e) => {
+            btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;
-                this.deleteTask(taskId);
+                await this.deleteTask(taskId);
             };
         });
 
@@ -1983,9 +1983,23 @@ class TodoManager {
     }
     
     // 删除任务
-    deleteTask(taskId) {
+    async deleteTask(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
+        
+        // 检查是否有子任务
+        try {
+            const childrenResponse = await window.pywebview.api.get_children(taskId);
+            if (childrenResponse.success && childrenResponse.children && childrenResponse.children.length > 0) {
+                Utils.showToast(
+                    window.languageManager.getText('cannotDeleteWithChildren', '该任务存在子任务，请先解除关联后再删除'),
+                    'warning'
+                );
+                return;
+            }
+        } catch (error) {
+            console.error('检查子任务失败:', error);
+        }
         
         // 检查是否为周期性任务
         const isRecurringTask = task.isRecurring || task.parentTaskId;
