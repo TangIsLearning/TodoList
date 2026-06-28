@@ -139,10 +139,20 @@ class ConfigManager:
         env_file = os.environ.get('TODO_DATA_FILE')
         if env_file:
             return env_file
+
+        # Linux环境appimage返回可写入数据的文件路径
+        import sys
+        is_frozen_appimage = getattr(sys, 'frozen', False) and os.environ.get('APPIMAGE') is not None
+
+        if is_frozen_appimage:
+            # 打包环境：使用用户家目录下的固定路径，确保可写
+            data_dir = Path.home() / '.todolist' / 'data'
+            data_dir.mkdir(parents=True, exist_ok=True)
+            return str(data_dir / 'todo.db')
             
         # 返回默认文件
         project_root = Path(__file__).parent.parent
-        
+
         # Android系统使用专用的数据目录
         if self._is_android():
             # Android数据文件目录
