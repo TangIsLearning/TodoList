@@ -1141,6 +1141,29 @@ class TodoManager {
     
     // 切换任务状态
     async toggleTask(taskId) {
+        // 获取当前任务状态
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // 如果是要完成任务，检查是否有未完成的子任务
+        if (!task.completed) {
+            try {
+                const childrenResponse = await window.pywebview.api.get_children(taskId);
+                if (childrenResponse.success && childrenResponse.children && childrenResponse.children.length > 0) {
+                    const uncompletedChildren = childrenResponse.children.filter(child => !child.completed);
+                    if (uncompletedChildren.length > 0) {
+                        Utils.showToast(
+                            window.languageManager.getText('cannotCompleteWithUncompletedChildren', '该任务存在未完成的子任务，请先完成所有子任务'),
+                            'warning'
+                        );
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('检查子任务失败:', error);
+            }
+        }
+        
         try {
             const response = await window.pywebview.api.toggle_todo(taskId);
             if (response.success) {
