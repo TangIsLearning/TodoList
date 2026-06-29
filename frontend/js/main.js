@@ -210,9 +210,7 @@ class App {
             // 页面显示时刷新数据
             console.log('Page visible');
             if (this.isInitialized) {
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
+                this.refreshData();
             }
         }
     }
@@ -313,9 +311,7 @@ class App {
             }
             
             // 刷新数据
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            this.refreshData();
             
             Utils.showToast(window.languageManager.getText('resetStateSuccess', '应用状态已重置'), 'success');
             
