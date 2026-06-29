@@ -411,6 +411,7 @@
                 </select>
 
                 <button id="add-task-btn" class="add-task-btn desktop-only">+ 新建任务</button>
+                <button id="export-tasks-btn" class="add-task-btn desktop-only export-btn">📥 导出任务</button>
             </div>
         </header>
 
@@ -924,6 +925,91 @@
                     </div>
 
                     <div id="webdav-status" class="webdav-status" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导出任务模态框 -->
+<div id="export-modal" class="modal">
+    <div class="modal-content export-modal-content">
+        <div class="modal-header">
+            <h2>导出任务</h2>
+            <button class="modal-close" id="export-modal-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="export-form">
+                <!-- 优先级筛选 -->
+                <div class="form-group">
+                    <label for="export-priority">优先级</label>
+                    <select id="export-priority">
+                        <option value="all">全部</option>
+                        <option value="high">高</option>
+                        <option value="medium">中</option>
+                        <option value="low">低</option>
+                        <option value="none">无</option>
+                    </select>
+                </div>
+
+                <!-- 完成状态筛选 -->
+                <div class="form-group">
+                    <label for="export-status">完成状态</label>
+                    <select id="export-status">
+                        <option value="all">全部</option>
+                        <option value="completed">已完成</option>
+                        <option value="uncompleted">未完成</option>
+                    </select>
+                </div>
+
+                <!-- 年份筛选 -->
+                <div class="form-group">
+                    <label for="export-year">截止年份</label>
+                    <select id="export-year">
+                        <option value="">全部年份</option>
+                    </select>
+                </div>
+
+                <!-- 月份筛选 -->
+                <div class="form-group">
+                    <label for="export-month">截止月份</label>
+                    <select id="export-month">
+                        <option value="">全部月份</option>
+                        <option value="1">1月</option>
+                        <option value="2">2月</option>
+                        <option value="3">3月</option>
+                        <option value="4">4月</option>
+                        <option value="5">5月</option>
+                        <option value="6">6月</option>
+                        <option value="7">7月</option>
+                        <option value="8">8月</option>
+                        <option value="9">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12">12月</option>
+                    </select>
+                </div>
+
+                <!-- 分类筛选 -->
+                <div class="form-group">
+                    <label for="export-category">分类</label>
+                    <select id="export-category">
+                        <option value="all">全部分类</option>
+                    </select>
+                </div>
+
+                <!-- 标签筛选 -->
+                <div class="form-group">
+                    <label for="export-tags">标签</label>
+                    <div id="export-tags-container" class="tags-checkbox-list">
+                        <!-- 标签将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+
+                <div class="export-actions">
+                    <button id="export-confirm-btn" class="action-btn primary-btn">导出Excel</button>
+                    <button id="export-cancel-btn" class="action-btn cancel-btn">取消</button>
                 </div>
             </div>
         </div>

@@ -14,6 +14,7 @@ class SettingsUIManager {
         this.windowTopToggle = null;
         this.dataShareBtn = null;
         this.dataSyncBtn = null;
+        this.exportTasksBtn = null;
 
         // WebDAV相关元素
         this.webdavEnableToggle = null;
@@ -72,6 +73,7 @@ class SettingsUIManager {
         this.themeDarkToggle = document.getElementById('theme-dark-toggle');
         this.dataShareBtn = document.getElementById('data-share-btn');
         this.dataSyncBtn = document.getElementById('data-sync-btn');
+        this.exportTasksBtn = document.getElementById('export-tasks-btn');
 
         // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
@@ -148,6 +150,11 @@ class SettingsUIManager {
         // 数据同步按钮
         if (this.dataSyncBtn) {
             this.dataSyncBtn.addEventListener('click', () => this.openDataSync());
+        }
+
+        // 导出任务按钮
+        if (this.exportTasksBtn) {
+            this.exportTasksBtn.addEventListener('click', () => this.openExportModal());
         }
         
         // 数据文件配置事件绑定
@@ -1039,6 +1046,172 @@ class SettingsUIManager {
             shift: false,
             meta: false
         };
+    }
+
+    // ==================== 导出任务相关方法 ====================
+
+    async openExportModal() {
+        // 打开导出模态框
+        const modal = document.getElementById('export-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('show');
+
+            // 初始化导出选项
+            await this.initExportOptions();
+        }
+    }
+
+    closeExportModal() {
+        const modal = document.getElementById('export-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        }
+    }
+
+    async initExportOptions() {
+        // 初始化导出选项（分类、年份、标签）
+        try {
+            // 获取分类列表
+            const categoriesResponse = await window.pywebview.api.get_categories();
+            if (categoriesResponse.success) {
+                this.updateExportCategories(categoriesResponse.categories);
+            }
+
+            // 获取标签列表
+            const tagsResponse = await window.pywebview.api.get_all_tags();
+            if (tagsResponse.success) {
+                this.updateExportTags(tagsResponse.tags);
+            }
+
+            // 获取所有任务以提取年份
+            const tasksResponse = await window.pywebview.api.get_todos(1, 10000, null, null, null, null, null, null, null, null);
+            if (tasksResponse.success) {
+                this.updateExportYears(tasksResponse.tasks);
+            }
+
+            // 绑定导出模态框事件
+            this.bindExportModalEvents();
+        } catch (error) {
+            console.error('初始化导出选项失败:', error);
+            Utils.showToast('初始化导出选项失败', 'error');
+        }
+    }
+
+    updateExportCategories(categories) {
+        const select = document.getElementById('export-category');
+        if (!select) return;
+
+        // 保留"全部分类"选项
+        select.innerHTML = '<option value="all">全部分类</option>';
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            select.appendChild(option);
+        });
+    }
+
+    updateExportTags(tags) {
+        const container = document.getElementById('export-tags-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (!tags || tags.length === 0) {
+            container.innerHTML = '<span style="color: var(--text-secondary); font-size: 12px;">暂无标签</span>';
+            return;
+        }
+
+        tags.forEach(tag => {
+            const item = document.createElement('label');
+            item.className = 'tag-checkbox-item';
+            item.innerHTML = `
+                <input type="checkbox" value="${tag.id}" data-tag-id="${tag.id}">
+                <span>${Utils.escapeHtml(tag.name)}</span>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    updateExportYears(tasks) {
+        const select = document.getElementById('export-year');
+        if (!select) return;
+
+        // 提取所有年份
+        const years = new Set();
+        tasks.forEach(task => {
+            if (task.dueDate) {
+                const year = new Date(task.dueDate).getFullYear();
+                if (year) years.add(year);
+            }
+        });
+
+        // 按降序排列
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+        // 保留"全部年份"选项
+        select.innerHTML = '<option value="">全部年份</option>';
+        sortedYears.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year + '年';
+            select.appendChild(option);
+        });
+    }
+
+    bindExportModalEvents() {
+        const closeBtn = document.getElementById('export-modal-close');
+        const cancelBtn = document.getElementById('export-cancel-btn');
+        const confirmBtn = document.getElementById('export-confirm-btn');
+
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeExportModal();
+        }
+
+        if (cancelBtn) {
+            cancelBtn.onclick = () => this.closeExportModal();
+        }
+
+        if (confirmBtn) {
+            confirmBtn.onclick = () => this.executeExport();
+        }
+    }
+
+    async executeExport() {
+        try {
+            // 获取筛选条件
+            const priority = document.getElementById('export-priority')?.value || 'all';
+            const status = document.getElementById('export-status')?.value || 'all';
+            const year = document.getElementById('export-year')?.value || null;
+            const month = document.getElementById('export-month')?.value || null;
+            const categoryId = document.getElementById('export-category')?.value || 'all';
+
+            // 获取选中的标签
+            const tagCheckboxes = document.querySelectorAll('#export-tags-container input[type="checkbox"]:checked');
+            const tagIds = Array.from(tagCheckboxes).map(cb => cb.value);
+
+            // 调用后端API导出
+            const result = await window.pywebview.api.export_tasks_excel(
+                priority,
+                status,
+                year ? parseInt(year) : null,
+                month ? parseInt(month) : null,
+                categoryId === 'all' ? null : categoryId,
+                tagIds.length > 0 ? tagIds : null
+            );
+
+            if (result.success) {
+                Utils.showToast(result.message, 'success');
+            } else {
+                Utils.showToast(result.error || '导出失败', 'error');
+            }
+
+            this.closeExportModal();
+        } catch (error) {
+            console.error('导出任务失败:', error);
+            Utils.showToast('导出任务失败: ' + error.message, 'error');
+        }
     }
 
     // 处理按键按下

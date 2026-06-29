@@ -16,3 +16,4 @@ cryptography>=46.0.1; sys_platform != 'darwin' # 仅开启SSL功能时需要，M
 pynput>=1.8.1; sys_platform != 'darwin' # 用于Windows和Linux桌面端快捷键
 quickmachotkey>=2025.7.28; sys_platform == 'darwin' # 用于MacOS桌面端快捷键
 pygobject<=3.42.2; sys_platform == 'linux' # Linux环境系统托盘功能需要
+openpyxl>=3.0.0  # 用于导出Excel文件

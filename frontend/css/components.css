@@ -1808,3 +1808,100 @@
     height: 12px;
     font-size: 12px;
 }
+
+/* 导出模态框样式 */
+.export-modal-content {
+    max-width: 450px;
+    width: 90%;
+}
+
+.export-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.export-form .form-group {
+    margin-bottom: 0;
+}
+
+.export-form select {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+}
+
+.export-form select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.tags-checkbox-list {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tag-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    background-color: var(--bg-tertiary);
+    border: 1px solid transparent;
+}
+
+.tag-checkbox-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+.tag-checkbox-item input[type="checkbox"] {
+    display: none;
+}
+
+.tag-checkbox-item input[type="checkbox"]:checked + span {
+    color: var(--primary-color);
+}
+
+.tag-checkbox-item input[type="checkbox"]:checked ~ span {
+    color: var(--primary-color);
+}
+
+.tag-checkbox-item input[type="checkbox"]:checked {
+    background-color: white;
+    border-color: var(--primary-color);
+}
+
+.tag-checkbox-item:has(input[type="checkbox"]:checked) {
+    background-color: white;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.export-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.export-actions button {
+    flex: 1;
+}

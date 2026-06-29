@@ -12,6 +12,7 @@
     --primary-hover: #0056b3;
     --secondary-color: #6c757d;
     --success-color: #28a745;
+    --success-hover: #218838;
     --warning-color: #ffc107;
     --danger-color: #dc3545;
     --info-color: #17a2b8;
@@ -1336,6 +1337,14 @@ svg {
 
 .add-task-btn:hover {
     background-color: var(--primary-hover);
+}
+
+.export-btn {
+    background-color: var(--success-color);
+}
+
+.export-btn:hover {
+    background-color: var(--success-hover);
 }
 
 .action-buttons {
