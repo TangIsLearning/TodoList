@@ -609,7 +609,7 @@ class TodoApi:
         try:
             import webview
             active_window = webview.active_window()
-            file_types = ('Data Files (*.db)', 'All files (*.*)')
+            file_types = ('All files (*.*)',)
             selected_path = active_window.create_file_dialog(
                 webview.FileDialog.OPEN,
                 file_types=file_types
