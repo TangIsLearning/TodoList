@@ -77,7 +77,8 @@ class TimelineManager {
                 slotKey: slotKey,
                 isRecurring: task?.isRecurring,
                 parentTaskId: task?.parentTaskId,
-                dueDate: task.dueDate
+                dueDate: task.dueDate,
+                completed: task.completed
             };
         }).filter(task => task !== null); // 过滤无效项
     }
@@ -250,7 +251,7 @@ class TimelineManager {
                 } else {
                     cellTasks.forEach(task => {
                         tasksHtml += `
-                            <div class="task-card" draggable="true" data-task-id="${task.id}">
+                            <div class="task-card ${task.completed ? 'completed' : ''}" draggable="true" data-task-id="${task.id}">
                                 <span class="task-name">${this.escapeHtml(task.title)}</span>
                                 <button class="delete-task" data-task-id="${task.id}">✕</button>
                             </div>

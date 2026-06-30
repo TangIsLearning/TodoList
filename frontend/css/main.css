@@ -3191,6 +3191,11 @@ svg {
     align-items: center;
     gap: 4px;
 }
+.task-card.completed {
+    border-left: 4px solid var(--success-color);
+    text-decoration: line-through;
+    opacity: 0.7;
+}
 .task-card:active {
     cursor: grabbing;
 }
