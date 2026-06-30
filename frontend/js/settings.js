@@ -683,6 +683,7 @@ class SettingsUIManager {
             if (result.success) {
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = result.current_file;
+                    this.dataDirBtn.title = result.current_file;
                 }
             } else {
                 Utils.showToast('获取配置失败: ' + result.error, 'error');
@@ -712,6 +713,7 @@ class SettingsUIManager {
                 // 将选择的文件路径填入输入框
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = result.selected_path;
+                    this.dataDirBtn.title = result.selected_path;
                     Utils.showToast(`已选择文件: ${result.selected_path}`, 'success');
 
                     // 自动聚焦到应用按钮，方便用户快速操作

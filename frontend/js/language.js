@@ -231,8 +231,8 @@ class LanguageManager {
         
         // 搜索框占位符
         const searchInput = document.getElementById('search-input');
-        if (searchInput) searchInput.placeholder = lang.searchPlaceholder;
-        
+        if (searchInput) searchInput.title = lang.searchTitle;
+
         // 搜索清空按钮
         const searchClearBtn = document.getElementById('search-clear-btn');
         if (searchClearBtn) searchClearBtn.title = lang.searchClear;
