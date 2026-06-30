@@ -2919,6 +2919,23 @@ class TodoManager {
             const response = await window.pywebview.api.get_all_tags();
             if (response.success) {
                 this.availableTags = response.tags;
+                const showMoreTags = document.getElementById('show-more-tags');
+                const showLessTags = document.getElementById('show-less-tags');
+                if (this.availableTags.length <= this.defaultShowTags) {
+                    showMoreTags.disabled = true;
+                    showMoreTags.style.pointerEvents = 'auto';
+                    showMoreTags.style.cursor = 'not-allowed';
+                    showLessTags.disabled = true;
+                    showLessTags.style.pointerEvents = 'auto';
+                    showLessTags.style.cursor = 'not-allowed';
+                } else {
+                    showMoreTags.disabled = false;
+                    showMoreTags.style.pointerEvents = 'auto';
+                    showMoreTags.style.cursor = 'pointer';
+                    showLessTags.disabled = false;
+                    showLessTags.style.pointerEvents = 'auto';
+                    showLessTags.style.cursor = 'pointer';
+                }
                 this.renderTagsModule([]);
             }
         } catch (error) {
