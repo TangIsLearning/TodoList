@@ -140,15 +140,27 @@ class ConfigManager:
         if env_file:
             return env_file
 
-        # Linux环境appimage返回可写入数据的文件路径
+        # 打包环境（PyInstaller）下的处理
         import sys
-        is_frozen_appimage = getattr(sys, 'frozen', False) and os.environ.get('APPIMAGE') is not None
+        if getattr(sys, 'frozen', False):
+            # Windows 平台：使用 %APPDATA% 或 %LOCALAPPDATA%
+            if platform.system() == 'Windows':
+                appdata = os.environ.get('APPDATA')
+                if not appdata:
+                    appdata = os.environ.get('LOCALAPPDATA')
+                if appdata:
+                    data_dir = Path(appdata) / 'TodoList' / 'data'
+                else:
+                    # 回退到用户家目录（兼容性）
+                    data_dir = Path.home() / '.todolist' / 'data'
+                data_dir.mkdir(parents=True, exist_ok=True)
+                return str(data_dir / 'todo.db')
 
-        if is_frozen_appimage:
-            # 打包环境：使用用户家目录下的固定路径，确保可写
-            data_dir = Path.home() / '.todolist' / 'data'
-            data_dir.mkdir(parents=True, exist_ok=True)
-            return str(data_dir / 'todo.db')
+            # Linux AppImage 环境（原有逻辑）
+            if os.environ.get('APPIMAGE') is not None:
+                data_dir = Path.home() / '.todolist' / 'data'
+                data_dir.mkdir(parents=True, exist_ok=True)
+                return str(data_dir / 'todo.db')
             
         # 返回默认文件
         project_root = Path(__file__).parent.parent
