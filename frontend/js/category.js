@@ -150,6 +150,19 @@ class CategoryManager {
         // 生成HTML
         const categoriesHtml = this.generateCategoriesHtml(taskCounts, isShowMore);
         categoryList.innerHTML = categoriesHtml;
+
+        // 当分类项小于默认值时，展开更多按钮样式设置为禁用状态
+        const showMoreCategories = document.getElementById('categories-more');
+        if (this.categories.length <= this.defaultShowCategories) {
+            showMoreCategories.disabled = true;
+            showMoreCategories.style.pointerEvents = 'auto';
+            showMoreCategories.style.cursor = 'not-allowed';
+            showMoreCategories.classList.remove('selected');
+        } else {
+            showMoreCategories.disabled = false;
+            showMoreCategories.style.pointerEvents = 'auto';
+            showMoreCategories.style.cursor = 'pointer';
+        }
         
         // 设置当前分类的激活状态
         this.setActiveCategory(this.currentCategory);
