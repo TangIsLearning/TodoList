@@ -1,5 +1,6 @@
 # backend/api/mixins/config_mixin.py
 
+from typing import Any, Dict, List, Optional, Union
 import backend.globals
 from backend.utils import utils
 from backend.utils.response_wrapper import api_handler
@@ -42,7 +43,7 @@ class ConfigMixin:
     }
 
     @api_handler
-    def get_config(self, keys=None):
+    def get_config(self, keys: Optional[Union[str, List[str]]] = None) -> Dict[str, Any]:
         """
         获取配置项
         :param keys: 可选，字符串（逗号分隔）或列表，指定要获取的配置名称；不传则返回全部
@@ -63,7 +64,7 @@ class ConfigMixin:
         return result
 
     @api_handler
-    def set_config(self, key, value):
+    def set_config(self, key: str, value: Any) -> None:
         cfg = self.CONFIG_REGISTRY.get(key)
         if not cfg:
             raise Exception(f'未知配置项: {key}')

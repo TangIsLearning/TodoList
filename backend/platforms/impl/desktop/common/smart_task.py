@@ -1,5 +1,7 @@
 import re
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
 from backend.database.operations import TodoDatabase
 from backend.utils.logger import LogManager
 
@@ -11,25 +13,25 @@ background_color_warning = '#fff9e8'
 default_warning = '💡 输入任务内容... 使用 #标签 *分类 @时间'
 
 class SmartTaskInput(LogManager):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.window = None
+        self.window: Any = None
         self.is_hide = True
-        self.value = None
-        self.input_element = None
+        self.value: Any = None
+        self.input_element: Any = None
         self.db = TodoDatabase()
         self.create_window()
-        self.categories = [item['name'] for item in self.db.get_all_categories()]
-        self._hotkey_ref = None  # MacOS：必须持有快捷键引用的句柄，防止被 GC 垃圾回收
+        self.categories: List[str] = [item['name'] for item in self.db.get_all_categories()]
+        self._hotkey_ref: Any = None  # MacOS：必须持有快捷键引用的句柄，防止被 GC 垃圾回收
         self.setup_keyboard() # setup_keyboard初始化面板，置于所有属性init之后
 
-    def on_closing(self):
+    def on_closing(self) -> bool:
         """窗口关闭点击事件：仅首次关闭弹窗提醒"""
         self.window.hide()
         self.is_hide = True
         return False
 
-    def render_warning_content(self, hint_text, color, background_color):
+    def render_warning_content(self, hint_text: str, color: str, background_color: str) -> None:
         """渲染提示文本和样式"""
         import json
         js_hint = json.dumps(hint_text)
@@ -46,7 +48,7 @@ class SmartTaskInput(LogManager):
             }}
         """)
 
-    def handle_input_change(self, event):
+    def handle_input_change(self, event: Dict[str, Any]) -> None:
         """当输入框内容变化时，此函数会被触发"""
         # 1. 安全获取 target，如果不存在则返回空字典
         target = event.get('target', {})
@@ -56,7 +58,7 @@ class SmartTaskInput(LogManager):
             hint_text, color, background_color = self.generate_hint()
             self.render_warning_content(hint_text, color, background_color)
 
-    def create_window(self):
+    def create_window(self) -> None:
         """创建主窗口"""
         loading_html = """
         <!DOCTYPE html>
@@ -147,7 +149,7 @@ class SmartTaskInput(LogManager):
         if not self.is_hide:
             self.window.hide()
 
-    def handle_keydown(self, event):
+    def handle_keydown(self, event: Dict[str, Any]) -> None:
         """监听键盘事件，当按下回车键时触发"""
         # 检查按下的键是否为 'Tab'
         if event['key'] == 'Tab':
@@ -162,7 +164,7 @@ class SmartTaskInput(LogManager):
             # 获取输入框的当前值
             self.save_task()
 
-    def parse_time_string(self, time_str):
+    def parse_time_string(self, time_str: str) -> Optional[datetime]:
         """解析时间字符串"""
         now = datetime.now()
         time_str = time_str.strip()
@@ -218,7 +220,7 @@ class SmartTaskInput(LogManager):
 
         return None
 
-    def parse_input(self, text):
+    def parse_input(self, text: str) -> Dict[str, Any]:
         """解析输入内容"""
         result = {
             'title': text,
@@ -282,7 +284,7 @@ class SmartTaskInput(LogManager):
 
         return result
 
-    def generate_hint(self):
+    def generate_hint(self) -> Tuple[str, str, str]:
         """生成智能提示"""
         text = self.value
         if not text:
@@ -359,7 +361,7 @@ class SmartTaskInput(LogManager):
 
         return default_warning, font_color_other, background_color_warning
 
-    def auto_complete(self):
+    def auto_complete(self) -> Optional[str]:
         """Tab自动补全"""
         cursor_pos = len(self.value)
         text_before = self.value[:cursor_pos]
@@ -377,7 +379,7 @@ class SmartTaskInput(LogManager):
 
         return None
 
-    def save_task(self):
+    def save_task(self) -> None:
         """保存任务"""
         import time
         text = self.value.strip()
@@ -402,7 +404,7 @@ class SmartTaskInput(LogManager):
         self.is_hide = True
         self.render_warning_content(default_warning, font_color_other, background_color_warning)
 
-    def toggle_window(self):
+    def toggle_window(self) -> None:
         """切换窗口显示/隐藏"""
         if self.is_hide:
             self.window.show()
@@ -413,7 +415,7 @@ class SmartTaskInput(LogManager):
             self.window.on_top = False
             self.is_hide = True
 
-    def setup_keyboard(self):
+    def setup_keyboard(self) -> None:
         """设置全局快捷键"""
         try:
             raw_shortcut = self.db.get_setting('shortcut', '<ctrl>+<space>').strip().lower()

@@ -1,7 +1,7 @@
 # impl/desktop/win_firewall_manager.py
 import os
 import subprocess
-from typing import Tuple
+from typing import Any, Dict, Tuple
 from backend.utils.logger import LogManager
 
 def is_admin() -> bool:
@@ -19,7 +19,8 @@ def is_admin() -> bool:
 class FirewallManager(LogManager):
     """Windows防火墙管理器：用于自动添加/删除P2P服务所需的防火墙规则"""
 
-    def __init__(self, service, rule_name: str = "TodoList P2P Server", port: int = 5353):
+    def __init__(self, rule_name: str = "TodoList P2P Server",
+                 port: int = 5353) -> None:
         """初始化防火墙管理器
 
         Args:
@@ -256,7 +257,7 @@ exit /b 0
                 if 'bat_path' in locals() and os.path.exists(bat_path):
                     # 延迟删除，确保批处理文件有机会执行
                     import threading
-                    def cleanup_file():
+                    def cleanup_file() -> None:
                         import time
                         time.sleep(2)
                         try:
@@ -451,7 +452,7 @@ exit /b 0
                 if 'bat_path' in locals() and os.path.exists(bat_path):
                     # 延迟删除，确保批处理文件有机会执行
                     import threading
-                    def cleanup_file():
+                    def cleanup_file() -> None:
                         import time
                         time.sleep(3)
                         try:
@@ -462,7 +463,7 @@ exit /b 0
             except:
                 pass
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> Dict[str, Any]:
         """获取防火墙规则信息
 
         Returns:

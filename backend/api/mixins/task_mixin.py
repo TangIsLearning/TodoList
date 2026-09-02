@@ -1,8 +1,10 @@
 # backend/api/mixins/task_mixin.py
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 from backend.utils.response_wrapper import api_handler
 
-def validate_due_date(task_data):
+
+def validate_due_date(task_data: Union[Dict[str, Any], str]) -> Dict[str, Union[bool, str]]:
     """校验截止时间（完全拷贝原方法）"""
     if isinstance(task_data, dict):
         due_date_str = task_data.get('dueDate')
@@ -27,7 +29,7 @@ class TaskMixin:
     """任务核心操作 Mixin"""
 
     @api_handler
-    def add_todo(self, task_data):
+    def add_todo(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """添加新任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
@@ -39,9 +41,13 @@ class TaskMixin:
         return self.db.add_task(task_data)
 
     @api_handler
-    def get_todos(self, page=1, page_size=10, category_id=None, status=None,
-                  priority=None, due_date_filter=None, year=None, month=None,
-                  search_query=None, custom_date=None, custom_start_date=None, custom_end_date=None):
+    def get_todos(self, page: int = 1, page_size: int = 10,
+                  category_id: Optional[str] = None, status: Optional[str] = None,
+                  priority: Optional[str] = None, due_date_filter: Optional[str] = None,
+                  year: Optional[int] = None, month: Optional[int] = None,
+                  search_query: Optional[str] = None, custom_date: Optional[str] = None,
+                  custom_start_date: Optional[str] = None,
+                  custom_end_date: Optional[str] = None) -> Dict[str, Any]:
         """分页获取任务，支持多种筛选条件"""
         return self.db.get_tasks_paginated(
             page=page,
@@ -59,12 +65,12 @@ class TaskMixin:
         )
 
     @api_handler
-    def get_todo(self, task_id):
+    def get_todo(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取单个任务"""
         return self.db.get_task(task_id)
 
     @api_handler
-    def update_todo(self, task_id, task_data):
+    def update_todo(self, task_id: str, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """更新任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
@@ -72,7 +78,7 @@ class TaskMixin:
         return self.db.update_task(task_id, task_data)
 
     @api_handler
-    def update_todo_due_date(self, task_id, due_date):
+    def update_todo_due_date(self, task_id: str, due_date: str) -> Dict[str, Any]:
         """更新任务"""
         validation_result = validate_due_date(due_date)
         if not validation_result['valid']:
@@ -80,7 +86,7 @@ class TaskMixin:
         return self.db.update_task_due_date(task_id, due_date)
 
     @api_handler
-    def delete_todo(self, task_id, delete_all=False):
+    def delete_todo(self, task_id: str, delete_all: bool = False) -> None:
         """删除任务"""
         task = self.db.get_task(task_id)
         if task and (task.get('isRecurring') or task.get('parentTaskId')): # 检查是否为周期性任务
@@ -89,7 +95,7 @@ class TaskMixin:
             self.db.delete_task(task_id)
 
     @api_handler
-    def add_recurring_todo(self, task_data):
+    def add_recurring_todo(self, task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """添加周期性任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
@@ -110,7 +116,7 @@ class TaskMixin:
         return result
 
     @api_handler
-    def toggle_todo(self, task_id):
+    def toggle_todo(self, task_id: str) -> Dict[str, Any]:
         """切换任务完成状态"""
         task = self.db.get_task(task_id)
         if not task:
@@ -119,7 +125,7 @@ class TaskMixin:
         return self.db.update_task(task_id, task, False)
 
     @api_handler
-    def get_stats(self):
+    def get_stats(self) -> Dict[str, Any]:
         """任务统计"""
         tasks = self.db.get_all_tasks()
         now = datetime.now()

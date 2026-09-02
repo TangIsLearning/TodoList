@@ -11,7 +11,7 @@ from webdav3.client import Client
 from datetime import datetime, timezone
 from backend.utils.logger import LogManager
 
-def _parse_webdav_time(time_str):
+def _parse_webdav_time(time_str: str) -> float:
     """
     解析WebDAV返回的两种常见时间格式：
     - GMT格式：Mon, 02 Mar 2026 05:29:30 GMT
@@ -27,13 +27,13 @@ def _parse_webdav_time(time_str):
 class WebDAVClient(LogManager):
     """坚果云WebDAV客户端"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.url = None
-        self.client = None
-        self.username = None
-        self.password = None
-        self.remote_path = None
+        self.url: Optional[str] = None
+        self.client: Optional[Client] = None
+        self.username: Optional[str] = None
+        self.password: Optional[str] = None
+        self.remote_path: Optional[str] = None
 
     def configure(self, username: str, password: str, remote_path: str, url: str = 'https://dav.jianguoyun.com/dav') -> bool:
         """
@@ -73,7 +73,7 @@ class WebDAVClient(LogManager):
             self.client = None
             return False
     
-    def test_connection(self):
+    def test_connection(self) -> None:
         """
         测试WebDAV连接
         
@@ -105,7 +105,7 @@ class WebDAVClient(LogManager):
             if not found:
                 raise Exception(f'路径不存在')
     
-    def upload_file(self, local_file_path: str):
+    def upload_file(self, local_file_path: str) -> None:
         """
         上传本地文件到坚果云
         
@@ -130,7 +130,7 @@ class WebDAVClient(LogManager):
         self.client.upload_sync(remote_path = self.remote_path, local_path = local_file_path)
         self.get_logger.info(f"文件上传成功: {local_file_path} -> {self.remote_path}")
 
-    def download_file(self, local_file_path: str, is_overwrite: bool = False):
+    def download_file(self, local_file_path: str, is_overwrite: bool = False) -> None:
         """
         从坚果云下载文件到本地
         
@@ -174,7 +174,7 @@ class WebDAVClient(LogManager):
         self.client.download_sync(remote_path=self.remote_path, local_path=local_file_path)
         self.service.sync_reminder_to_calendar(local_modified.timestamp() + 1, remote_modified)
 
-    def _ensure_remote_directory(self, remote_dir: str):
+    def _ensure_remote_directory(self, remote_dir: str) -> None:
         """
         确保远程目录存在，如果不存在则创建
         

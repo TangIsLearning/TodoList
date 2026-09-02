@@ -4,13 +4,13 @@ P2P客户端模块 - 负责发现和接收共享数据
 import socket
 import json
 import struct
-from typing import Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from backend.utils.logger import LogManager
 
 class P2PClient(LogManager):
     """P2P客户端，用于扫描局域网并接收共享数据"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.port = 5000
 
@@ -62,7 +62,7 @@ class P2PClient(LogManager):
 
         return devices
 
-    def _check_device(self, ip: str, timeout: float, results: list, local_ip: str):
+    def _check_device(self, ip: str, timeout: float, results: List[str], local_ip: str) -> None:
         """检查设备是否开放了P2P服务"""
         try:
             # 跳过本机IP
@@ -94,7 +94,7 @@ class P2PClient(LogManager):
         except:
             return "127.0.0.1"
 
-    def receive_data(self, ip: str, timeout: int = 30) -> Optional[dict]:
+    def receive_data(self, ip: str, timeout: int = 30) -> Optional[Dict[str, Any]]:
         """从指定设备接收数据
 
         Args:
@@ -148,7 +148,7 @@ class P2PClient(LogManager):
             self.get_logger.error(f"接收数据错误: {e}")
             return None
 
-    def _send_data(self, sock: socket.socket, data: str):
+    def _send_data(self, sock: socket.socket, data: str) -> None:
         """发送数据"""
         data_bytes = data.encode('utf-8')
         length_data = struct.pack('!I', len(data_bytes))

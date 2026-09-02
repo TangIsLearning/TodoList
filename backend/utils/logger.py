@@ -3,13 +3,19 @@
 日志记录模块
 为桌面应用提供日志记录功能，支持前后端日志统一记录
 """
+from __future__ import annotations
 
 import logging
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
+from typing import TYPE_CHECKING
 
-def get_log_directory(platform_service):
+if TYPE_CHECKING:
+    from backend.platforms.interface.service import PlatformService
+
+
+def get_log_directory(platform_service: PlatformService) -> Path:
     """根据运行环境返回可写的日志目录"""
     # 1. 开发环境（未打包）
     if not getattr(sys, 'frozen', False):
@@ -19,7 +25,9 @@ def get_log_directory(platform_service):
     # 2. 打包后环境
     return platform_service.get_log_directory()
 
-def setup_logger(platform_service, name='todolist', level=logging.INFO, max_bytes=10*1024*1024, backup_count=5):
+def setup_logger(platform_service: PlatformService, name: str = 'todolist',
+                 level: int = logging.INFO, max_bytes: int = 10*1024*1024,
+                 backup_count: int = 5) -> logging.Logger:
     """配置并返回logger实例
     
     Args:
@@ -72,7 +80,7 @@ def setup_logger(platform_service, name='todolist', level=logging.INFO, max_byte
 
 # 日志基类：集成该类便于调用日志方法
 class LogManager:
-    def __init__(self):
+    def __init__(self) -> None:
         from backend.platforms.core.factory import get_platform_service
-        self.service = get_platform_service()
+        self.service: PlatformService = get_platform_service()
         self.get_logger = self.service.backend_logger()

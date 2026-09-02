@@ -46,14 +46,14 @@ from backend.platforms.core.factory import get_platform_service
 service = get_platform_service()
 backend_logger = service.backend_logger()
 
-def get_default_data_file():
+def get_default_data_file() -> str:
     """获取默认数据文件路径"""
     # 获取项目根目录
     project_root = Path(__file__).parent.parent
     return str(project_root / DEFAULT_DATA_FILE)
 
 
-def get_current_data_file():
+def get_current_data_file() -> str:
     """获取当前配置的数据文件路径
     
     优先级：
@@ -77,7 +77,7 @@ def get_current_data_file():
     return get_default_data_file()
 
 
-def set_data_file(path):
+def set_data_file(path: str) -> bool:
     """设置数据文件路径
     
     Args:

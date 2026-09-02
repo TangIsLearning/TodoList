@@ -5,13 +5,13 @@ import socket
 import threading
 import json
 import struct
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 from backend.utils.logger import LogManager
 
 class P2PServer(LogManager):
     """P2P服务器，用于在局域网内共享数据"""
 
-    def __init__(self, port: int = 5000):
+    def __init__(self, port: int = 5000) -> None:
         super().__init__()
         self.port = port
         self.server_socket: Optional[socket.socket] = None
@@ -74,7 +74,7 @@ class P2PServer(LogManager):
 
             return False, error_msg
 
-    def set_data_request_callback(self, callback: Callable):
+    def set_data_request_callback(self, callback: Callable) -> None:
         """设置数据请求回调函数
 
         Args:
@@ -109,7 +109,7 @@ class P2PServer(LogManager):
         self.get_logger.info(f"[P2P服务器] [OK] 服务器已停止")
         return True, "服务器已停止"
 
-    def _listen_for_connections(self):
+    def _listen_for_connections(self) -> None:
         """监听连接"""
         while self.is_running:
             try:
@@ -131,7 +131,7 @@ class P2PServer(LogManager):
                     self.get_logger.error(f"接受连接错误: {e}")
                 break
 
-    def _handle_client(self, client_socket: socket.socket, address):
+    def _handle_client(self, client_socket: socket.socket, address: Any) -> None:
         """处理客户端连接"""
         try:
             # 接收数据长度（4字节）
@@ -195,14 +195,14 @@ class P2PServer(LogManager):
             data.extend(chunk)
         return bytes(data)
 
-    def _send_data(self, sock: socket.socket, data: dict):
+    def _send_data(self, sock: socket.socket, data: Dict[str, Any]) -> None:
         """发送数据"""
         data_str = json.dumps(data, ensure_ascii=False)
         data_bytes = data_str.encode('utf-8')
         length_data = struct.pack('!I', len(data_bytes))
         sock.sendall(length_data + data_bytes)
 
-    def _send_response(self, sock: socket.socket, response: str):
+    def _send_response(self, sock: socket.socket, response: str) -> None:
         """发送响应"""
         response_bytes = response.encode('utf-8')
         length_data = struct.pack('!I', len(response_bytes))

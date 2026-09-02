@@ -14,10 +14,10 @@ from backend.utils.logger import LogManager
 class ConfigManager(LogManager):
     """外部配置管理器，独立于数据库"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.config_file = self._get_config_file_path()
-        self.config = self._load_config()
+        self.config_file: Path = self._get_config_file_path()
+        self.config: Dict[str, Any] = self._load_config()
     
     def _is_android(self) -> bool:
         """检测是否为Android系统"""

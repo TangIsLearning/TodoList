@@ -1,10 +1,12 @@
 # impl/desktop/linux_impl.py
 import os
 from pathlib import Path
+from typing import Any, Callable, Optional
+
 from backend.platforms.impl.desktop.common.common_impl import DesktopCommonService
 
 class LinuxService(DesktopCommonService):
-    def shortcut_handler(self, shortcut, handler):
+    def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         try:
             import backend.globals
             from pynput import keyboard
@@ -15,7 +17,7 @@ class LinuxService(DesktopCommonService):
         except Exception as e:
             self.backend_logger().error(f"【系统日志】快捷键挂载失败: {e}")
 
-    def force_kill_process_tree(self, pid):
+    def force_kill_process_tree(self, pid: int) -> None:
         """强制结束当前进程及其所有子进程的统一接口"""
         # Linux环境利用时延让 GTK 将 DBus 信号安全发出，然后强制杀死所有关联进程
         import gi
@@ -27,7 +29,7 @@ class LinuxService(DesktopCommonService):
                 Gtk.main_iteration()
             time.sleep(0.02)
 
-    def get_log_directory(self):
+    def get_log_directory(self) -> Path:
         """返回可写的日志目录的统一接口"""
         # Linux (包括 AppImage)
         # 检测是否为 AppImage 环境
@@ -48,16 +50,16 @@ class LinuxService(DesktopCommonService):
         log_dir.mkdir(parents=True, exist_ok=True)
         return log_dir
 
-    def get_app_icon(self, base_path):
+    def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""
         return base_path / 'todo_icon.png'
 
-    def is_default_hide(self):
+    def is_default_hide(self) -> bool:
         """获取是否隐藏快捷键窗口的统一接口"""
         # 隐藏将导致快捷键窗口在Linux环境无法使用
         return False
 
-    def icon_exit(self):
+    def icon_exit(self) -> None:
         """图标注销消息的统一接口"""
         # 给 Ubuntu 24.04 底层 DBus 通信留出 200 毫秒处理图标注销消息
         import time
@@ -70,7 +72,7 @@ class LinuxService(DesktopCommonService):
                 Gtk.main_iteration()
             time.sleep(0.02)
 
-    def start_prepare(self):
+    def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
         # 【针对 Ubuntu 24.04 虚拟机的环境变量优化】
         # 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
@@ -132,7 +134,7 @@ class LinuxService(DesktopCommonService):
             self.backend_logger().error(f"Linux禁用自启动失败: {e}")
             return False
 
-    def start_app(self):
+    def start_app(self) -> None:
         """启动应用的统一接口"""
         from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
         manager = SystemTrayManager()

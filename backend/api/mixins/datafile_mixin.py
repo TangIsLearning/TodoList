@@ -1,6 +1,7 @@
 # backend/api/mixins/datafile_mixin.py
 
 import os
+from typing import Any, Tuple
 from backend.database.operations import TodoDatabase
 from backend.utils.response_wrapper import api_handler
 
@@ -8,13 +9,13 @@ class DatafileMixin:
     """数据目录配置操作 Mixin"""
 
     @api_handler
-    def get_data_file_config(self):
+    def get_data_file_config(self) -> str:
         """获取数据文件配置"""
         from backend.config import get_current_data_file
         return get_current_data_file()
 
     @api_handler
-    def set_data_file_config(self, file_path):
+    def set_data_file_config(self, file_path: str) -> None:
         """设置数据文件配置"""
         from backend.config import set_data_file
 
@@ -29,7 +30,7 @@ class DatafileMixin:
         self.get_logger.info(f"数据文件已设置为: {file_path}")
 
     @api_handler
-    def validate_data_file(self, file_path):
+    def validate_data_file(self, file_path: str) -> None:
         """验证数据文件路径的有效性"""
         from pathlib import Path
 
@@ -57,7 +58,7 @@ class DatafileMixin:
                 raise Exception(f"没有在该目录创建文件的权限")
 
     @api_handler
-    def select_file_dialog(self):
+    def select_file_dialog(self) -> Tuple[Any, str]:
         """打开文件选择对话框"""
         import webview
         active_window = webview.active_window()

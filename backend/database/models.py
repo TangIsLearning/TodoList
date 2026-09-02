@@ -1,18 +1,22 @@
 """
 TodoList应用的数据模型定义
 """
+from __future__ import annotations
 
 from datetime import datetime
 import uuid
+from typing import Any, Dict, Optional
 
 
 class Task:
     """任务数据模型"""
     
-    def __init__(self, id=None, title='', description='', completed=False, 
-                 priority='none', category_id=None, due_date=None, 
-                 is_recurring=False, recurrence_type=None, recurrence_interval=1, 
-                 recurrence_count=None, parent_task_id=None):
+    def __init__(self, id: Optional[str] = None, title: str = '', description: str = '',
+                 completed: bool = False, priority: str = 'none', category_id: Optional[str] = None,
+                 due_date: Optional[datetime] = None, is_recurring: bool = False,
+                 recurrence_type: Optional[str] = None, recurrence_interval: int = 1,
+                 recurrence_count: Optional[int] = None,
+                 parent_task_id: Optional[str] = None) -> None:
         self.id = id or str(uuid.uuid4())
         self.title = title
         self.description = description
@@ -27,9 +31,8 @@ class Task:
         self.parent_task_id = parent_task_id  # 父任务ID，用于周期性任务的子任务
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
-    
-    def to_dict(self):
-        """转换为字典格式"""
+
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'title': self.title,
@@ -48,7 +51,7 @@ class Task:
         }
     
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Dict[str, Any]) -> Task:
         """从字典创建Task实例"""
         task = cls(
             id=data.get('id'),
@@ -74,13 +77,14 @@ class Task:
 class Category:
     """分类数据模型"""
     
-    def __init__(self, id=None, name='', color='#007bff'):
+    def __init__(self, id: Optional[str] = None, name: str = '',
+                 color: str = '#007bff') -> None:
         self.id = id or str(uuid.uuid4())
         self.name = name
         self.color = color
         self.created_at = datetime.now()
-    
-    def to_dict(self):
+
+    def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
         return {
             'id': self.id,
@@ -88,9 +92,9 @@ class Category:
             'color': self.color,
             'createdAt': self.created_at.isoformat()
         }
-    
+
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Dict[str, Any]) -> Category:
         """从字典创建Category实例"""
         category = cls(
             id=data.get('id'),
@@ -105,13 +109,14 @@ class Category:
 class Tag:
     """标签数据模型"""
 
-    def __init__(self, id=None, name='', color='#6c757d'):
+    def __init__(self, id: Optional[str] = None, name: str = '',
+                 color: str = '#6c757d') -> None:
         self.id = id or str(uuid.uuid4())
         self.name = name  # 标签名称，不包含#符号
         self.color = color
         self.created_at = datetime.now()
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
         return {
             'id': self.id,
@@ -121,7 +126,7 @@ class Tag:
         }
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Dict[str, Any]) -> Tag:
         """从字典创建Tag实例"""
         tag = cls(
             id=data.get('id'),

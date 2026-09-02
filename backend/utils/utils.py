@@ -2,11 +2,17 @@
 """
 工具类模块
 """
+from __future__ import annotations
+
 import sys
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-def get_app_icon():
+if TYPE_CHECKING:
+    from backend.platforms.interface.service import PlatformService
+
+def get_app_icon() -> str:
     """获取应用图标路径"""
     # 判断是否为 PyInstaller 打包后的可执行文件
     if getattr(sys, 'frozen', False):
@@ -31,7 +37,7 @@ def str_to_bool(value: str) -> bool:
         return value.lower() == "true"
     return bool(value)  # 兜底转换
 
-def get_app_path(platform_service) -> str:
+def get_app_path(platform_service: PlatformService) -> str:
     """获取应用可执行文件路径"""
     try:
         if getattr(sys, 'frozen', False):
@@ -50,7 +56,7 @@ def get_app_path(platform_service) -> str:
         platform_service.backend_logger().error(f"获取应用路径失败: {e}")
         raise
 
-def get_launch_command(platform_service) -> str:
+def get_launch_command(platform_service: PlatformService) -> str:
     """获取启动命令"""
     try:
         base_command = ''

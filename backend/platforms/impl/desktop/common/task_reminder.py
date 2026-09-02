@@ -10,6 +10,8 @@ import asyncio
 import platform
 from datetime import datetime
 from queue import Queue
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 from backend.utils import utils
 from backend.database.operations import TodoDatabase
 from backend.utils.logger import LogManager
@@ -17,22 +19,22 @@ from backend.utils.logger import LogManager
 class TaskReminder(LogManager):
     """任务到期提醒器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.running = False
         self.check_interval = 30  # 检查间隔(秒),默认30秒
-        self.notification_queue = Queue()
+        self.notification_queue: Queue = Queue()
         self.db = TodoDatabase()
-        self.notified_tasks = set()  # 已提醒的任务ID集合
-        self.scheduled_tasks = {}  # 已安排提醒的任务 {task_id: due_datetime}
-        self.check_thread = None
-        self.asyncio_thread = None
-        self.notify_thread = None
+        self.notified_tasks: Set[str] = set()  # 已提醒的任务ID集合
+        self.scheduled_tasks: Dict[str, datetime] = {}  # 已安排提醒的任务 {task_id: due_datetime}
+        self.check_thread: Optional[threading.Thread] = None
+        self.asyncio_thread: Optional[threading.Thread] = None
+        self.notify_thread: Optional[threading.Thread] = None
         self.system = platform.system()
-        self.notifier = None
+        self.notifier: Any = None
         self.loop = asyncio.new_event_loop()
 
-    def start(self, click_event):
+    def start(self, click_event: Any) -> None:
         """启动提醒服务"""
         if self.running:
             return
@@ -55,7 +57,7 @@ class TaskReminder(LogManager):
         
         self.get_logger.info("任务到期提醒服务已启动")
         
-    def stop(self):
+    def stop(self) -> None:
         if not self.running:
             return
         self.running = False
@@ -80,7 +82,7 @@ class TaskReminder(LogManager):
 
         self.get_logger.info("任务到期提醒服务已停止")
         
-    def _check_tasks(self):
+    def _check_tasks(self) -> None:
         """后台线程检查任务到期"""
         while self.running:
             try:
@@ -132,7 +134,7 @@ class TaskReminder(LogManager):
             # 等待下一次检查
             time.sleep(self.check_interval)
 
-    def _run_asyncio(self):
+    def _run_asyncio(self) -> None:
         # 专门负责运行 asyncio 循环的线程
         import asyncio
         asyncio.set_event_loop(self.loop)
@@ -145,7 +147,7 @@ class TaskReminder(LogManager):
         )
         self.loop.run_forever()
 
-    def _cleanup_completed_tasks(self, current_tasks):
+    def _cleanup_completed_tasks(self, current_tasks: List[Dict[str, Any]]) -> None:
         """清理已完成或已删除任务的记录"""
         current_task_ids = {task['id'] for task in current_tasks}
         
@@ -159,7 +161,7 @@ class TaskReminder(LogManager):
             self.notified_tasks.discard(task_id)
             self.scheduled_tasks.pop(task_id, None)
             
-    def _process_notifications(self, click_event=None):
+    def _process_notifications(self, click_event: Any = None) -> None:
         """处理提醒通知"""
         while self.running:
             try:
@@ -171,7 +173,7 @@ class TaskReminder(LogManager):
                 self.get_logger.error(f"处理通知时出错: {e}")
                 pass  # 队列为空或超时
 
-    def _build_notification(self, notification):
+    def _build_notification(self, notification: Dict[str, Any]) -> Tuple[str, str, str]:
         task_title = notification['title']
         due_date = notification['due_date']
         priority = notification['priority']
@@ -201,7 +203,7 @@ class TaskReminder(LogManager):
             title = "📝 任务到期提醒"
         return title, message, priority
 
-    async def _show_notification(self, notification, click_event):
+    async def _show_notification(self, notification: Dict[str, Any], click_event: Any) -> None:
         """显示系统通知"""
         try:
             title, message, priority = self._build_notification(notification)
@@ -218,33 +220,33 @@ class TaskReminder(LogManager):
         except Exception as e:
             self.get_logger.error(f"显示通知时出错: {e}")
 
-    def reset_notified_tasks(self):
+    def reset_notified_tasks(self) -> None:
         """重置已提醒任务列表(用于测试或重新提醒)"""
         self.notified_tasks.clear()
         self.get_logger.info("已重置已提醒任务列表")
     
-    def get_pending_tasks_count(self):
+    def get_pending_tasks_count(self) -> int:
         """获取待提醒的任务数量"""
         return len(self.scheduled_tasks) - len(self.notified_tasks)
 
 
 # 全局提醒器实例
-_reminder = None
+_reminder: Optional[TaskReminder] = None
 
-def get_reminder():
+def get_reminder() -> TaskReminder:
     """获取提醒器单例"""
     global _reminder
     if _reminder is None:
         _reminder = TaskReminder()
     return _reminder
 
-def start_reminder(click_event=None):
+def start_reminder(click_event: Any = None) -> TaskReminder:
     """启动提醒服务"""
     reminder = get_reminder()
     reminder.start(click_event)
     return reminder
 
-def stop_reminder():
+def stop_reminder() -> None:
     """停止提醒服务"""
     reminder = get_reminder()
     reminder.stop()

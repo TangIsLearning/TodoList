@@ -2,13 +2,18 @@
 TodoList应用的数据库操作
 """
 
+from __future__ import annotations
+
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import sqlite3
+from typing import Any, Dict, List, Optional, Union
+
 from backend.database.models import Tag, Task, Category
 
-def get_app_data_file():
+
+def get_app_data_file() -> Path:
     """获取应用数据文件路径"""
     try:
         from backend.config import get_current_data_file
@@ -18,7 +23,7 @@ def get_app_data_file():
         project_root = Path(__file__).parent.parent.parent
         return project_root / 'data' / 'todo.db'
 
-def _migrate_database(cursor):
+def _migrate_database(cursor: sqlite3.Cursor) -> None:
     """数据库迁移，添加新字段"""
     # 获取现有表结构
     cursor.execute("PRAGMA table_info(tasks)")
@@ -80,7 +85,7 @@ def _migrate_database(cursor):
 
 class TodoDatabase:
     """Todo数据库操作类"""
-    def __init__(self):
+    def __init__(self) -> None:
         db_file = get_app_data_file()
 
         # 确保父目录存在
@@ -90,11 +95,11 @@ class TodoDatabase:
         self.db_path = str(db_file) if isinstance(db_file, Path) else db_file
         self.init_database()
 
-    def get_connection(self):
+    def get_connection(self) -> sqlite3.Connection:
         """获取数据库连接"""
         return sqlite3.connect(self.db_path)
     
-    def init_database(self):
+    def init_database(self) -> None:
         """初始化数据库表"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -146,7 +151,7 @@ class TodoDatabase:
         conn.close()
 
     # 任务相关操作
-    def add_task(self, task_data):
+    def add_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """添加新任务"""
         task = Task(
             title=task_data.get('title', ''),
@@ -189,7 +194,7 @@ class TodoDatabase:
 
         return task.to_dict()
     
-    def get_all_tasks(self):
+    def get_all_tasks(self) -> List[Dict[str, Any]]:
         """获取所有任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -241,7 +246,7 @@ class TodoDatabase:
         
         return tasks
     
-    def find_task_by_title_exact(self, title):
+    def find_task_by_title_exact(self, title: str) -> Optional[Dict[str, Any]]:
         """通过任务标题精确查找任务（不区分大小写）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -278,7 +283,7 @@ class TodoDatabase:
             }
         return None
 
-    def search_tasks_with_subtasks(self, keyword='', limit=5):
+    def search_tasks_with_subtasks(self, keyword: str = '', limit: int = 5) -> List[Dict[str, Any]]:
         """搜索具有子任务的父任务（按标题模糊匹配，不区分大小写），返回前 limit 条。
 
         通过 task_relations 表 JOIN tasks，找出作为父任务（main_task_id）且标题匹配的任务，
@@ -326,10 +331,15 @@ class TodoDatabase:
             'subtaskCount': r[5]
         } for r in rows]
 
-    def get_tasks_paginated(self, page=1, page_size=10, category_id=None, status=None, 
-                            priority=None, due_date_filter=None, year=None, month=None,
-                            search_query=None, custom_date=None, sync_start_time=None, sync_end_time=None,
-                            custom_start_date=None, custom_end_date=None):
+    def get_tasks_paginated(self, page: int = 1, page_size: int = 10,
+                            category_id: Optional[str] = None, status: Optional[str] = None,
+                            priority: Optional[str] = None, due_date_filter: Optional[str] = None,
+                            year: Optional[int] = None, month: Optional[int] = None,
+                            search_query: Optional[str] = None, custom_date: Optional[str] = None,
+                            sync_start_time: Optional[Union[str, date]] = None,
+                            sync_end_time: Optional[Union[str, date]] = None,
+                            custom_start_date: Optional[str] = None,
+                            custom_end_date: Optional[str] = None) -> Dict[str, Any]:
         """分页查询任务，支持多种筛选条件
         
         参数:
@@ -547,7 +557,7 @@ class TodoDatabase:
             'total_pages': total_pages
         }
 
-    def get_tasks_by_ids(self, task_ids):
+    def get_tasks_by_ids(self, task_ids: List[str]) -> List[Dict[str, Any]]:
         """
         根据任务ID列表批量获取任务完整信息（含标签）
         :param task_ids: 任务ID列表
@@ -593,7 +603,7 @@ class TodoDatabase:
             tasks.append(task_dict)
         return tasks
     
-    def get_task(self, task_id):
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取单个任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -632,7 +642,7 @@ class TodoDatabase:
         conn.close()
         return task_dict
 
-    def update_task_due_date(self, task_id, due_date):
+    def update_task_due_date(self, task_id: str, due_date: str) -> Dict[str, Any]:
         """更新任务截止时间"""
         task = Task(
             due_date=datetime.fromisoformat(due_date)
@@ -652,7 +662,8 @@ class TodoDatabase:
 
         return task.to_dict()
     
-    def update_task(self, task_id, task_data, is_update_task_tags = True):
+    def update_task(self, task_id: str, task_data: Dict[str, Any],
+                    is_update_task_tags: bool = True) -> Dict[str, Any]:
         """更新任务"""
         task = Task(
             title=task_data.get('title', ''),
@@ -687,7 +698,7 @@ class TodoDatabase:
 
         return task.to_dict()
     
-    def delete_task(self, task_id):
+    def delete_task(self, task_id: str) -> None:
         """删除任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -707,7 +718,7 @@ class TodoDatabase:
         # 在标签未关联任何任务时，同步删除标签
         self.check_delete_tag()
 
-    def check_delete_tag(self):
+    def check_delete_tag(self) -> None:
         """在标签未关联任何任务时，删除标签"""
         conn = sqlite3.connect(self.db_path)
         conn.cursor()
@@ -719,7 +730,7 @@ class TodoDatabase:
         conn.close()
     
     # 分类相关操作
-    def add_category(self, category_data):
+    def add_category(self, category_data: Dict[str, Any]) -> Dict[str, Any]:
         """添加新分类"""
         category = Category(
             name=category_data.get('name', ''),
@@ -739,7 +750,7 @@ class TodoDatabase:
         
         return category.to_dict()
     
-    def get_all_categories(self):
+    def get_all_categories(self) -> List[Dict[str, Any]]:
         """获取所有分类"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -760,7 +771,7 @@ class TodoDatabase:
         
         return categories
     
-    def update_category(self, category_id, category_data):
+    def update_category(self, category_id: str, category_data: Dict[str, Any]) -> Dict[str, Any]:
         """更新分类"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -782,7 +793,7 @@ class TodoDatabase:
             'color': category_data.get('color', '#007bff')
         }
     
-    def delete_category(self, category_id):
+    def delete_category(self, category_id: str) -> None:
         """删除分类"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -796,7 +807,7 @@ class TodoDatabase:
         conn.commit()
         conn.close()
         
-    def create_recurring_tasks(self, parent_task_data):
+    def create_recurring_tasks(self, parent_task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建周期性任务系列"""
         from dateutil.relativedelta import relativedelta
         
@@ -895,7 +906,7 @@ class TodoDatabase:
         
         return tasks
     
-    def delete_recurring_task(self, task_id, delete_all=False):
+    def delete_recurring_task(self, task_id: str, delete_all: bool = False) -> None:
         """删除周期性任务"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -925,7 +936,7 @@ class TodoDatabase:
         conn.close()
 
     # 设置相关操作
-    def get_setting(self, key, default_value=None):
+    def get_setting(self, key: str, default_value: Any = None) -> Any:
         """获取单个设置值"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -941,7 +952,7 @@ class TodoDatabase:
             except json.JSONDecodeError:
                 return result[0]
 
-    def set_setting(self, key, value):
+    def set_setting(self, key: str, value: Any) -> None:
         """保存单个设置值"""
         # 将值转换为 JSON 字符串
         if isinstance(value, (dict, list, bool)):
@@ -959,14 +970,14 @@ class TodoDatabase:
             ''', (key, value_str))
             conn.commit()
 
-    def delete_setting(self, key):
+    def delete_setting(self, key: str) -> None:
         """删除单个设置"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM settings WHERE key = ?', (key,))
             conn.commit()
 
-    def get_all_settings(self):
+    def get_all_settings(self) -> Dict[str, Any]:
         """获取所有设置"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -982,7 +993,7 @@ class TodoDatabase:
 
             return settings
 
-    def reset_settings(self):
+    def reset_settings(self) -> None:
         """重置所有设置"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -991,7 +1002,7 @@ class TodoDatabase:
 
     # ==================== 标签相关操作 ====================
 
-    def parse_tags_from_text(self, text):
+    def parse_tags_from_text(self, text: str) -> List[str]:
         """从文本中解析标签（格式：#标签名）"""
         import re
         if not text:
@@ -1001,7 +1012,7 @@ class TodoDatabase:
         tags = re.findall(pattern, text)
         return list(set(tags))  # 去重
 
-    def update_task_tags(self, task_id, tag_names):
+    def update_task_tags(self, task_id: str, tag_names: List[str]) -> None:
         """更新任务的标签"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1038,7 +1049,7 @@ class TodoDatabase:
         conn.commit()
         conn.close()
 
-    def get_task_tags(self, task_id):
+    def get_task_tags(self, task_id: str) -> List[Dict[str, Any]]:
         """获取任务的所有标签"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1062,7 +1073,7 @@ class TodoDatabase:
             })
         return tags
 
-    def get_all_tags(self):
+    def get_all_tags(self) -> List[Dict[str, Any]]:
         """获取所有标签及其使用次数"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1088,7 +1099,7 @@ class TodoDatabase:
             })
         return tags
 
-    def delete_tag(self, tag_id):
+    def delete_tag(self, tag_id: str) -> bool:
         """删除标签"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1099,7 +1110,7 @@ class TodoDatabase:
         return True
 
     # ---------- 关联关系辅助方法 ----------
-    def add_task_relation(self, sub_task_id, main_task_id):
+    def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
         """添加或更新一条关联（确保单父）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1111,14 +1122,14 @@ class TodoDatabase:
         conn.commit()
         conn.close()
 
-    def _update_task_relation(self, sub_task_id, new_main_task_id):
+    def _update_task_relation(self, sub_task_id: str, new_main_task_id: Optional[str]) -> None:
         """更新任务的父任务（new_parent_id 可为 None 表示删除）"""
         if new_main_task_id is None:
             self.delete_relation_by_children(sub_task_id)
         else:
             self.add_task_relation(sub_task_id, new_main_task_id)
 
-    def delete_relation_by_children(self, task_id):
+    def delete_relation_by_children(self, task_id: str) -> None:
         """删除该任务作为子任务的关联"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1126,7 +1137,7 @@ class TodoDatabase:
         conn.commit()
         conn.close()
 
-    def delete_relations_by_parent(self, task_id):
+    def delete_relations_by_parent(self, task_id: str) -> None:
         """删除所有以 main_task_id 为父的关联"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1134,7 +1145,7 @@ class TodoDatabase:
         conn.commit()
         conn.close()
 
-    def get_children(self, task_id):
+    def get_children(self, task_id: str) -> List[Optional[Dict[str, Any]]]:
         """获取指定任务的所有直接子任务（单层查询）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1147,7 +1158,7 @@ class TodoDatabase:
             return []
         return children
 
-    def get_parent(self, task_id):
+    def get_parent(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取任务的父任务（如果有）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

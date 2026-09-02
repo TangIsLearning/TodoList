@@ -7,6 +7,7 @@ Todo List 桌面应用主程序
 import os
 import sys
 from pathlib import Path
+from typing import Any, Callable, Optional
 
 import webview
 
@@ -20,7 +21,7 @@ from backend.platforms.core.factory import get_platform_service
 service = get_platform_service()
 backend_logger = service.backend_logger()
 
-def get_resource_path(relative_path):
+def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，支持打包后的可执行文件"""
     try:
         # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
@@ -46,10 +47,14 @@ chinese_localization = {
     'global.cancel': '取消'
 }
 
-def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
+def start_app(
+    is_android: bool = False,
+    ssl_enable: bool = True,
+    start_keyboard: Optional[Callable[[], None]] = None
+) -> None:
     """启动TodoList桌面应用"""
 
-    def on_closing():
+    def on_closing() -> bool:
         """窗口关闭点击事件：仅首次关闭弹窗提醒"""
         from backend.database.operations import TodoDatabase
         settings_db = TodoDatabase()
@@ -115,7 +120,7 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
     backend.globals.window.events.closing += on_closing
 
     # 将后端耗时初始化逻辑，放到初始化回调中异步执行
-    def lazy_initialize(window):
+    def lazy_initialize(window: Any) -> None:
         backend_logger.info("异步后台：开始加载后端模块与初始化...")
 
         # 在子线程中延时或直接导入耗时模块
@@ -131,7 +136,7 @@ def start_app(is_android = False, ssl_enable = True, start_keyboard = None):
         backend_logger.info("TodoApi 实例创建成功")
 
         # 设置同步回调，当云端数据更新时刷新前端
-        def on_sync_complete():
+        def on_sync_complete() -> None:
             try:
                 if backend.globals.window:
                     js_str = """

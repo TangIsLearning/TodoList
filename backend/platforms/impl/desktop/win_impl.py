@@ -1,11 +1,13 @@
 # impl/desktop/win_impl.py
 import os
 from pathlib import Path
+from typing import Any, Callable, Optional, Tuple
+
 from backend.platforms.impl.desktop.common.common_impl import DesktopCommonService
 from backend.platforms.impl.desktop.win_firewall_manager import FirewallManager
 
 class WindowsService(DesktopCommonService):
-    def shortcut_handler(self, shortcut, handler):
+    def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         try:
             import backend.globals
             from pynput import keyboard
@@ -16,7 +18,7 @@ class WindowsService(DesktopCommonService):
         except Exception as e:
             self.backend_logger().error(f"【系统日志】快捷键挂载失败: {e}")
 
-    def force_kill_process_tree(self, pid):
+    def force_kill_process_tree(self, pid: int) -> None:
         """强制结束当前进程及其所有子进程的统一接口"""
         import subprocess
         import time
@@ -27,7 +29,7 @@ class WindowsService(DesktopCommonService):
         # 强制终止 (SIGKILL)
         subprocess.run(f'taskkill /F /T /PID {pid}', shell=True, capture_output=True)
 
-    def get_log_directory(self):
+    def get_log_directory(self) -> Path:
         """返回可写的日志目录的统一接口"""
         import sys
         # Windows: exe 同级目录（用户通常有写权限）
@@ -36,22 +38,22 @@ class WindowsService(DesktopCommonService):
         log_dir.mkdir(parents=True, exist_ok=True)
         return log_dir
 
-    def get_app_icon(self, base_path):
+    def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""
         return base_path / 'todo_icon.ico'
 
-    def start_prepare(self):
+    def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
         pass
 
-    def add_firewall_rule(self, port):
+    def add_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """添加防火墙策略规则的统一接口"""
-        firewall_manager = FirewallManager(service= self, port=port)
+        firewall_manager = FirewallManager(port=port)
         return firewall_manager.add_rule()
 
-    def remove_firewall_rule(self, port):
+    def remove_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """移除防火墙策略规则的统一接口"""
-        firewall_manager = FirewallManager(service= self, port=port)
+        firewall_manager = FirewallManager(port=port)
         return firewall_manager.remove_rule()
 
     def _enable_auto_start_impl(self) -> bool:
@@ -140,7 +142,7 @@ class WindowsService(DesktopCommonService):
             self.backend_logger().error(f"Windows禁用自启动失败: {e}")
             return False
 
-    def start_app(self):
+    def start_app(self) -> None:
         """启动应用的统一接口"""
         from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
         manager = SystemTrayManager()

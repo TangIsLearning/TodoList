@@ -1,21 +1,22 @@
 # backend/api/mixins/task_relation_mixin.py
+from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
 
 class TaskRelationMixin:
     """任务关联核心操作 Mixin"""
 
     @api_handler
-    def get_children(self, task_id):
+    def get_children(self, task_id: str) -> List[Optional[Dict[str, Any]]]:
         """获取指定任务的直接子任务列表（完整任务信息）"""
         return self.db.get_children(task_id)
 
     @api_handler
-    def get_parent(self, task_id):
+    def get_parent(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取指定任务的父任务（完整任务信息）"""
         return self.db.get_parent(task_id)
 
     @api_handler
-    def add_task_relation(self, sub_task_id, main_task_id):
+    def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
         """为单个子任务设置父任务（若已存在则更新）"""
         sub = self.db.get_task(sub_task_id)
         if not sub:
@@ -30,7 +31,7 @@ class TaskRelationMixin:
         self.db.add_task_relation(sub_task_id, main_task_id)
 
     @api_handler
-    def remove_task_relation(self, sub_task_id):
+    def remove_task_relation(self, sub_task_id: str) -> None:
         """移除单个子任务的父任务关联"""
         sub = self.db.get_task(sub_task_id)
         if not sub:
@@ -38,9 +39,10 @@ class TaskRelationMixin:
         self.db.delete_relation_by_children(sub_task_id)
 
     @api_handler
-    def search_subtasks_by_parent_name(self, parent_name, page=1, page_size=10,
-                                       category_id=None, status=None, priority=None,
-                                       due_date_filter=None):
+    def search_subtasks_by_parent_name(self, parent_name: str, page: int = 1, page_size: int = 10,
+                                       category_id: Optional[str] = None, status: Optional[str] = None,
+                                       priority: Optional[str] = None,
+                                       due_date_filter: Optional[str] = None) -> Dict[str, Any]:
         """通过父任务名称搜索其子任务（要求父任务名称完全匹配），并按当前筛选条件过滤。
 
         筛选参数与 get_todos 语义一致（参考 operations.get_tasks_paginated）：
@@ -49,7 +51,7 @@ class TaskRelationMixin:
         - priority: all|high|medium|low|none
         - due_date_filter: all|today|tomorrow|week|month|no-due-date
         """
-        from datetime import datetime, timedelta
+        from datetime import date, datetime, timedelta
         # 先查找父任务
         parent_task = self.db.find_task_by_title_exact(parent_name)
         if not parent_task:
@@ -59,7 +61,7 @@ class TaskRelationMixin:
         children = self.db.get_children(parent_task['id'])
 
         # 应用筛选条件（与 get_tasks_paginated 语义对齐）
-        def _iso_date(val):
+        def _iso_date(val: Any) -> Optional[date]:
             if not val:
                 return None
             try:
@@ -69,7 +71,7 @@ class TaskRelationMixin:
 
         today = datetime.now().date()
 
-        def _pending_overdue(task):
+        def _pending_overdue(task: Dict[str, Any]) -> Dict[str, bool]:
             d = _iso_date(task.get('dueDate'))
             if task.get('completed'):
                 return {'pending': False, 'overdue': False}
@@ -79,7 +81,7 @@ class TaskRelationMixin:
             }
 
         # 计算日期区间
-        def _tomorrow():
+        def _tomorrow() -> date:
             if today.day < 28:
                 return today.replace(day=today.day + 1)
             if today.month < 12:
@@ -162,7 +164,7 @@ class TaskRelationMixin:
         }
 
     @api_handler
-    def search_tasks_with_subtasks(self, keyword='', limit=5):
+    def search_tasks_with_subtasks(self, keyword: str = '', limit: int = 5) -> Any:
         """搜索具有子任务的父任务（按标题模糊匹配），返回前 limit 条。
 
         供前端在搜索框输入 ">" 时调用，下拉展示有子任务的父任务建议。

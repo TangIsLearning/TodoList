@@ -1,12 +1,15 @@
 """
 数据管理模块 - 负责数据库的导出和导入
 """
+from __future__ import annotations
+
 import os
 import sqlite3
 import json
 import shutil
 from pathlib import Path
 import sys
+from typing import Any, Callable, Dict, Optional
 from backend.utils.logger import LogManager
 
 # 添加backend目录到Python路径
@@ -18,7 +21,7 @@ if str(backend_dir) not in sys.path:
 class DataExportManager(LogManager):
     """数据管理器，负责数据的导出和导入"""
 
-    def __init__(self, platform_service, data_file=None):
+    def __init__(self, data_file: Optional[str] = None) -> None:
         """初始化数据管理器
         
         Args:
@@ -38,16 +41,18 @@ class DataExportManager(LogManager):
         self.db_path = str(self.data_file)
 
         # 设置SQLite文本处理，避免编码问题
-        self._text_factory = lambda x: str(x, 'utf-8', 'replace') if isinstance(x, bytes) else x
+        self._text_factory: Callable[[Any], Any] = (
+            lambda x: str(x, 'utf-8', 'replace') if isinstance(x, bytes) else x
+        )
 
     # 获取安全的数据连接
-    def _get_connection(self):
+    def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.text_factory = self._text_factory
         return conn
 
     # 简单的字符串清理
-    def _clean_str(self, s):
+    def _clean_str(self, s: Any) -> Any:
         if s is None or not isinstance(s, str):
             return s
         try:
@@ -55,7 +60,7 @@ class DataExportManager(LogManager):
         except:
             return str(s)
 
-    def export_data(self) -> dict:
+    def export_data(self) -> Optional[Dict[str, Any]]:
         """导出数据库中的所有数据
 
         Returns:
@@ -125,7 +130,7 @@ class DataExportManager(LogManager):
             self.get_logger.error(f"导出数据错误: {e}")
             return None
 
-    def import_data(self, data: dict, backup: bool = True) -> bool:
+    def import_data(self, data: Dict[str, Any], backup: bool = True) -> bool:
         """导入数据到数据库
 
         Args:
@@ -204,7 +209,7 @@ class DataExportManager(LogManager):
             self.get_logger.error(f"导入数据错误: {e}")
             return False
 
-    def get_data_summary(self) -> dict:
+    def get_data_summary(self) -> Optional[Dict[str, Any]]:
         """获取当前数据摘要
 
         Returns:
@@ -303,7 +308,7 @@ class DataExportManager(LogManager):
             self.get_logger.error(f"切换数据文件失败: {e}")
             return False
     
-    def _initialize_new_database(self):
+    def _initialize_new_database(self) -> None:
         """初始化新数据库表结构"""
         try:
             conn = sqlite3.connect(self.db_path)

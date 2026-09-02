@@ -1,10 +1,14 @@
 """
 PlatformService的公共抽象基类，请勿实例化
 """
+from __future__ import annotations
+
+from typing import Any, List, Optional, Tuple, Union
+
 from backend.platforms.interface.service import PlatformService
 
 class DesktopCommonService(PlatformService):
-    APP_NAME = 'TodoList'
+    APP_NAME: str = 'TodoList'
 
     # ---------- 系统操作钩子（子类实现） ----------
     def _enable_auto_start_impl(self) -> bool:
@@ -21,8 +25,10 @@ class DesktopCommonService(PlatformService):
         else:
             return self._disable_auto_start_impl()
 
-    def export_tasks_excel(self, db = None, priority=None, status=None, year=None, month=None,
-                          category_id=None, tag_ids=None):
+    def export_tasks_excel(self, db: Any = None, priority: Optional[str] = None,
+                          status: Optional[str] = None, year: Optional[int] = None,
+                          month: Optional[int] = None, category_id: Optional[str] = None,
+                          tag_ids: Optional[List[str]] = None) -> None:
         """导出任务到Excel文件
 
         参数:
@@ -179,24 +185,24 @@ class DesktopCommonService(PlatformService):
         else:
             raise Exception(f'无法获取活动窗口')
 
-    def is_ssl_enable(self):
+    def is_ssl_enable(self) -> bool:
         """获取是否开启ssl的统一接口"""
         return True
 
-    def is_default_hide(self):
+    def is_default_hide(self) -> bool:
         """获取是否隐藏快捷键窗口的统一接口"""
         return True
 
-    def icon_exit(self):
+    def icon_exit(self) -> None:
         """图标注销消息的统一接口"""
         pass
 
-    def start_keyboard(self):
+    def start_keyboard(self) -> None:
         """应用启用快捷键的统一接口"""
         from backend.platforms.impl.desktop.common.smart_task import SmartTaskInput
         SmartTaskInput()
 
-    def start_desktop_task_reminder(self, is_start, event=None):
+    def start_desktop_task_reminder(self, is_start: bool, event: Any = None) -> None:
         """应用启用快捷键的统一接口"""
         from backend.platforms.impl.desktop.common.task_reminder import start_reminder, stop_reminder
         if is_start:
@@ -204,40 +210,42 @@ class DesktopCommonService(PlatformService):
         else:
             stop_reminder()
 
-    def add_new_desktop_task_reminder(self):
+    def add_new_desktop_task_reminder(self) -> None:
         """应用桌面端新任务添加消息提醒的统一接口"""
         from backend.platforms.impl.desktop.common.task_reminder import get_reminder
         # 重置已提醒任务列表，确保新任务可以被提醒
         reminder = get_reminder()
         reminder.reset_notified_tasks()
 
-    def check_calendar_permission(self):
+    def check_calendar_permission(self) -> None:
         """校验日历使用权限的统一接口"""
         pass
 
-    def add_task_reminder_to_calendar(self, title, desc, start_time_ms):
+    def add_task_reminder_to_calendar(self, title: str, desc: str,
+                                      start_time_ms: Union[int, float]) -> None:
         """添加任务提醒到日历的统一接口"""
         pass
 
-    def sync_reminder_to_calendar(self, sync_start_time, sync_end_time):
+    def sync_reminder_to_calendar(self, sync_start_time: Union[int, float],
+                                  sync_end_time: Union[int, float]) -> None:
         """同步任务提醒到日历的统一接口"""
         pass
 
-    def add_firewall_rule(self, port):
+    def add_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """添加防火墙策略规则的统一接口"""
         return True, "非Windows系统，无需配置防火墙"
 
-    def remove_firewall_rule(self, port):
+    def remove_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """移除防火墙策略规则的统一接口"""
         return True, "非Windows系统，无需操作防火墙"
 
-    def frontend_logger(self):
+    def frontend_logger(self) -> Any:
         """前端日志的统一接口"""
         from backend.utils.logger import setup_logger
         # 创建默认的logger实例
         return setup_logger(self, 'frontend')
 
-    def backend_logger(self):
+    def backend_logger(self) -> Any:
         """后端日志的统一接口"""
         from backend.utils.logger import setup_logger
         # 创建默认的logger实例

@@ -5,21 +5,23 @@
 
 import sys
 import os
+from typing import Any
+
 import backend.globals
 from backend.utils.logger import LogManager
 
 class SystemTrayManager(LogManager):
     """系统托盘管理"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    def on_open(self, icon=None, item=None):
+    def on_open(self, icon: Any = None, item: Any = None) -> None:
         """显示已隐藏的窗口"""
         if backend.globals.window:
             backend.globals.window.show()
 
-    def on_exit(self, icon, item):
+    def on_exit(self, icon: Any, item: Any) -> None:
         """点击系统托盘菜单的彻底退出"""
         self.get_logger.info("开始从托盘菜单执行彻底退出流程...")
 
@@ -40,7 +42,7 @@ class SystemTrayManager(LogManager):
         except Exception as e:
             self.get_logger.error(f"icon stop error: {e}")
 
-    def start_app(self, ssl_enable):
+    def start_app(self, ssl_enable: bool) -> None:
         try:
             from backend import start
 

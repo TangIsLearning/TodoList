@@ -3,14 +3,14 @@ API 响应统一格式工具
 提供成功/失败响应构造方法以及自动处理异常的装饰器
 """
 import functools
-from typing import Any, Optional, Dict
+from typing import Any, Callable, Dict, Optional
 
 
 def success_response(
     data: Optional[Any] = None,
     message: Optional[str] = None,
-    extra: Optional[Dict] = None
-) -> Dict:
+    extra: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     构造统一成功响应
     :param data: 业务数据
@@ -26,7 +26,7 @@ def success_response(
         resp.update(extra)
     return resp
 
-def api_handler(func):
+def api_handler(func: Callable[..., Any]) -> Callable[..., Dict[str, Any]]:
     """
     统一 API 装饰器：
     - 捕获方法中的所有异常并转换为错误响应
@@ -39,7 +39,7 @@ def api_handler(func):
         - {'data': ..., ...} -> 提取 data 字段，其余作为 extra 合并
     """
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         try:
             result = func(*args, **kwargs)
 

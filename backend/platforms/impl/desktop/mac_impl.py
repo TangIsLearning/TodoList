@@ -2,11 +2,12 @@
 
 import sys
 from pathlib import Path
+from typing import Any, Callable, Optional, Tuple
+
 from backend.platforms.impl.desktop.common.common_impl import DesktopCommonService
-from typing import Tuple, Optional
 
 class MacService(DesktopCommonService):
-    def shortcut_handler(self, shortcut, handler):
+    def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         from quickmachotkey import quickHotKey, mask
         from quickmachotkey.constants import (
             kVK_ANSI_A, kVK_ANSI_B, kVK_ANSI_C, kVK_ANSI_D, kVK_ANSI_E,
@@ -127,7 +128,7 @@ class MacService(DesktopCommonService):
 
             # 使用 quickHotKey 装饰器注册
             @quickHotKey(virtualKey=virtual_key, modifierMask=modifier_mask)
-            def macos_shortcut_handler():
+            def macos_shortcut_handler() -> None:
                 self.backend_logger().info("【快捷键触发】系统 RunLoop 捕获到 Option+Space，执行 UI 切换")
                 handler()
 
@@ -138,7 +139,7 @@ class MacService(DesktopCommonService):
         except Exception as e:
             self.backend_logger().error(f"快捷键注册失败: {e}")
 
-    def force_kill_process_tree(self, pid):
+    def force_kill_process_tree(self, pid: int) -> None:
         """强制结束当前进程及其所有子进程的统一接口"""
         import subprocess
         import time
@@ -150,7 +151,7 @@ class MacService(DesktopCommonService):
         # 强制终止所有子进程，使用 pgrep -P 查找并传递给 kill -9[reference:5]
         subprocess.run(f'pgrep -P {pid} | xargs kill -9', shell=True)
 
-    def get_log_directory(self):
+    def get_log_directory(self) -> Path:
         """返回可写的日志目录的统一接口"""
         # macOS: 使用 ~/Library/Logs/TodoList
         home = Path.home()
@@ -158,16 +159,16 @@ class MacService(DesktopCommonService):
         log_dir.mkdir(parents=True, exist_ok=True)
         return log_dir
 
-    def get_app_icon(self, base_path):
+    def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""
         return base_path / 'todo_icon.icns'
 
-    def is_ssl_enable(self):
+    def is_ssl_enable(self) -> bool:
         """获取是否开启ssl的统一接口"""
         # MacOS端开启后存在不影响使用的warning
         return False
 
-    def start_prepare(self):
+    def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
         # 强制在主线程预热 TIS API，防止后台线程后续并发调用导致崩溃
         import ctypes
@@ -265,7 +266,7 @@ class MacService(DesktopCommonService):
             self.backend_logger().error(f"macOS禁用自启动失败: {e}")
             return False
 
-    def start_app(self):
+    def start_app(self) -> None:
         """启动应用的统一接口"""
         from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
         manager = SystemTrayManager()

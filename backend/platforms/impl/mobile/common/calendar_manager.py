@@ -1,17 +1,21 @@
 """
 移动端消息日历提醒功能
 """
+from __future__ import annotations
+
+from typing import Any, List, Union
 
 from jnius import autoclass, cast
 from datetime import datetime
 
 from backend.database.operations import TodoDatabase
 
-def check_permission():
+
+def check_permission() -> None:
     from android import mActivity
     # 1. 检查权限 (使用原生方法)
     perms = ["android.permission.READ_CALENDAR", "android.permission.WRITE_CALENDAR"]
-    need_request = []
+    need_request: List[str] = []
     for p in perms:
         # 这里的 checkSelfPermission 在 Activity 环境下是存在的，0 代表 PERMISSION_GRANTED
         if mActivity.checkSelfPermission(p) != 0:
@@ -33,7 +37,8 @@ def check_permission():
             )
             request_method.invoke(mActivity, cast('[Ljava.lang.String;', need_request), 123)
 
-def add_task_reminder_to_calendar(title, desc, start_time_ms, platform_service):
+def add_task_reminder_to_calendar(title: str, desc: str, start_time_ms: Union[int, float],
+                                  platform_service: Any) -> str:
     from android import mActivity
     try:
         # 1. 获取必要的原生类
@@ -82,7 +87,9 @@ def add_task_reminder_to_calendar(title, desc, start_time_ms, platform_service):
         platform_service.backend_logger().error(f"执行失败: {str(e)}")
         return f"执行失败: {str(e)}"
 
-def sync_reminder_to_calendar(sync_start_time, sync_end_time, platform_service):
+def sync_reminder_to_calendar(sync_start_time: Union[int, float],
+                              sync_end_time: Union[int, float],
+                              platform_service: Any) -> None:
     db = TodoDatabase()
     result = db.get_tasks_paginated(
         page_size=999,
