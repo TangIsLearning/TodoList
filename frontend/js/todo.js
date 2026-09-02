@@ -1025,9 +1025,6 @@ class TodoManager {
                 if (task) {
                     task.completed = response.data.completed;
                     task.updatedAt = response.data.updatedAt;
-                    this.renderTasks();
-                    this.updateStats(true);
-                    this.updateCategoryCounts(true);
 
                     // 不需要调用 renderCategories()，updateCategoryCounts() 已经更新了分类统计
                     Utils.showToast(task.completed ?
@@ -1036,6 +1033,8 @@ class TodoManager {
 
                     // 触发云端同步上传
                     this.triggerCloudUpload();
+                    // 完成任务后刷新任务列表数据
+                    this.loadTasks(true);
                 }
             },
             onError: (error) => {
