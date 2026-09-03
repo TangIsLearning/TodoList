@@ -117,14 +117,6 @@ class TodoManager {
         // 初始化标签管理模块
         await this.loadTagsModule(true);
     }
-    
-    // 触发云端同步上传
-    async triggerCloudUpload() {
-        await Utils.apiCall({
-            apiMethod: 'trigger_upload_on_change',
-            successCheck: (response) => true
-        });
-    }
 
     // 绑定事件
     bindEvents() {
@@ -948,7 +940,7 @@ class TodoManager {
                         window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
 
                     // 触发云端同步上传
-                    this.triggerCloudUpload();
+                    Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                     // 完成任务后刷新任务列表数据
                     this.loadTasks(true);
                 }
@@ -1692,7 +1684,7 @@ class TodoManager {
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
 
                 // 触发云端同步上传
-                this.triggerCloudUpload();
+                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 this.loadTagsModule(true);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
@@ -1813,7 +1805,7 @@ class TodoManager {
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
 
                 // 触发云端同步上传
-                this.triggerCloudUpload();
+                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 this.loadTagsModule(true);
             },
             onError: (error) => {
