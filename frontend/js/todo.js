@@ -60,6 +60,8 @@ class TodoManager {
         this.recurrenceType = document.getElementById('recurrence-type');
         this.datePicker = document.getElementById('task-due-date-picker');
         this.timeInput = document.getElementById('task-due-time');
+        this.clearDateBtn = document.getElementById('clear-date');
+        this.clearTimeBtn = document.getElementById('clear-time');
         // 设置日期组件
         this.pikaday = new Pikaday({
             field: this.datePicker,
@@ -216,15 +218,14 @@ class TodoManager {
         this.isRecurringCheckbox?.addEventListener('change', (e) => this.toggleRecurringOptions());
 
         // 日期时间清空按钮
-        const clearDateBtn = document.getElementById('clear-date');
-        const clearTimeBtn = document.getElementById('clear-time');
-        clearDateBtn?.addEventListener('click', () => {
-            this.clearDateInput();
+        this.clearDateBtn?.addEventListener('click', () => {
+            this.datePicker.value = '';
+            this.clearDateBtn.classList.remove('visible');
             this.addInputValueListeners();
         });
-
-        clearTimeBtn?.addEventListener('click', () => {
-            this.clearTimeInput();
+        this.clearTimeBtn?.addEventListener('click', () => {
+            this.timeInput.value = '';
+            this.clearTimeBtn.classList.remove('visible');
             this.addInputValueListeners();
         });
 
@@ -314,108 +315,51 @@ class TodoManager {
         this.timeInput.style.borderColor = hasError ? '#e74c3c' : '';
     }
     
-    // 清空日期输入
-    clearDateInput() {
-        const clearBtn = document.getElementById('clear-date');
-        
-        this.datePicker.value = '';
-        // 更新清空按钮状态
-        if (clearBtn) clearBtn.classList.remove('visible');
-    }
-    
-    // 清空时间输入
-    clearTimeInput() {
-        const clearBtn = document.getElementById('clear-time');
-        
-        this.timeInput.value = '';
-        // 更新清空按钮状态
-        if (clearBtn) clearBtn.classList.remove('visible');
-    }
-    
     // 添加输入值变化监听
     addInputValueListeners() {
-        const clearDateBtn = document.getElementById('clear-date');
-        const clearTimeBtn = document.getElementById('clear-time');
-        
-        // 实时校验函数
-        const validateDateTime = () => {
-            const dateStr = this.datePicker.value || null;
-            const timeStr = this.timeInput.value || null;
-            
-            // 执行校验
-            const validation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
-            
-            // 获取或创建错误消息容器
-            let errorContainer = document.querySelector('.datetime-error');
-            if (!errorContainer) {
-                errorContainer = document.createElement('div');
-                errorContainer.className = 'datetime-error';
-                const datetimeGroup = document.querySelector('.datetime-group');
-                if (datetimeGroup) datetimeGroup.appendChild(errorContainer);
-            }
-            
-            // 显示或隐藏错误消息
-            if (!validation.valid) {
-                errorContainer.textContent = validation.message;
-                errorContainer.style.display = 'block';
-                this.datePicker.style.borderColor = '#e74c3c';
-                this.timeInput.style.borderColor = '#e74c3c';
-            } else {
-                errorContainer.style.display = 'none';
-                this.datePicker.style.borderColor = '';
-                this.timeInput.style.borderColor = '';
-                this.toggleRecurringOptions();
-            }
+        const errorContainer = document.getElementById('datetime-error');
+
+        const setError = (valid, msg) => {
+            Object.assign(errorContainer.style, { display: valid ? 'none' : 'block' });
+            errorContainer.textContent = valid ? '' : msg;
+            const color = valid ? '' : '#e74c3c';
+            this.datePicker.style.borderColor = color;
+            this.timeInput.style.borderColor = color;
+            if (valid) this.toggleRecurringOptions();
         };
-        
-        // 监听日期输入变化
-        if (this.datePicker && clearDateBtn) {
-            const updateClearDateBtn = async () => {
-                if (this.datePicker.value) {
-                    clearDateBtn.classList.add('visible');
-                } else {
-                    clearDateBtn.classList.remove('visible');
-                }
-                // 添加日历权限检查
-                const hasPermission = localStorage.getItem('calendar_permission') === 'true';
-                if (!hasPermission && this.isMobileDevice()) {
-                    await Utils.apiCall({
-                        apiMethod: 'check_calendar_permission',
-                        successCheck: (response) => true
-                    });
-                    localStorage.setItem('calendar_permission', 'true');
-                }
-                // 执行实时校验
-                validateDateTime();
-            };
-            
-            // 初始状态
-            updateClearDateBtn();
-            
-            // 监听变化
-            this.datePicker.addEventListener('input', updateClearDateBtn);
-            this.datePicker.addEventListener('change', updateClearDateBtn);
-        }
-        
-        // 监听时间输入变化
-        if (this.timeInput && clearTimeBtn) {
-            const updateClearTimeBtn = () => {
-                if (this.timeInput.value) {
-                    clearTimeBtn.classList.add('visible');
-                } else {
-                    clearTimeBtn.classList.remove('visible');
-                }
-                // 执行实时校验
-                validateDateTime();
-            };
-            
-            // 初始状态
-            updateClearTimeBtn();
-            
-            // 监听变化
-            this.timeInput.addEventListener('input', updateClearTimeBtn);
-            this.timeInput.addEventListener('change', updateClearTimeBtn);
-        }
+
+        const validate = () => {
+            const { valid, message } = BusinessUtils.DateTimeValidator.validateDateTime(
+                this.datePicker.value || null,
+                this.timeInput.value || null
+            );
+            setError(valid, message);
+        };
+
+        const updateBtn = (input, btn) => btn.classList.toggle('visible', !!input.value);
+
+        // 日期变化处理（含权限）
+        const onDateChange = async () => {
+            updateBtn(this.datePicker, this.clearDateBtn);
+            if (!localStorage.getItem('calendar_permission') && this.isMobileDevice?.()) {
+                await Utils.apiCall({ apiMethod: 'check_calendar_permission', successCheck: () => true });
+                localStorage.setItem('calendar_permission', 'true');
+            }
+            validate();
+        };
+
+        // 时间变化处理
+        const onTimeChange = () => {
+            updateBtn(this.timeInput, this.clearTimeBtn);
+            validate();
+        };
+
+        // 初始化 + 绑定
+        [onDateChange, onTimeChange].forEach(fn => fn());
+        this.datePicker.addEventListener('input', onDateChange);
+        this.datePicker.addEventListener('change', onDateChange);
+        this.timeInput.addEventListener('input', onTimeChange);
+        this.timeInput.addEventListener('change', onTimeChange);
     }
     
     // 加载任务
