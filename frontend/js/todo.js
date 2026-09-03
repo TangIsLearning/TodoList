@@ -36,8 +36,11 @@ class TodoManager {
         // 标签相关
         this.availableTags = [];
         this.selectedTags = [];
-        this.showMoreTags = false;
+        this.isShowMoreTags = false;
         this.defaultShowTags = 5;
+        this.showMoreTags = document.getElementById('show-more-tags');
+        this.showLessTags = document.getElementById('show-less-tags');
+        this.tagSelector = document.getElementById('tags-selector');
         // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
         this.searchChips = [];
         this._searchDebounceTimer = null;
@@ -2698,9 +2701,6 @@ class TodoManager {
 
     // 渲染标签选择器
     renderTagsSelector() {
-        const selector = document.getElementById('tags-selector');
-        if (!selector) return;
-
         let html = '';
 
         // 渲染现有标签
@@ -2726,7 +2726,7 @@ class TodoManager {
             </span>
         `;
 
-        selector.innerHTML = html;
+        this.tagSelector.innerHTML = html;
 
         // 绑定事件
         this.bindTagsSelectorEvents();
@@ -2734,11 +2734,8 @@ class TodoManager {
 
     // 绑定标签选择器事件
     bindTagsSelectorEvents() {
-        const selector = document.getElementById('tags-selector');
-        if (!selector) return;
-
         // 标签点击事件（选择/取消选择）
-        selector.querySelectorAll('.tag-selector-item').forEach(item => {
+        this.tagSelector.querySelectorAll('.tag-selector-item').forEach(item => {
             item.onclick = (e) => {
                 // 如果点击的是删除按钮，不触发选择
                 if (e.target.classList.contains('tag-delete')) {
@@ -2827,8 +2824,7 @@ class TodoManager {
         if (inputContainer) {
             inputContainer.outerHTML = inputHtml;
         } else {
-            const selector = document.getElementById('tags-selector');
-            selector.insertAdjacentHTML('beforeend', inputHtml);
+            this.tagSelector.insertAdjacentHTML('beforeend', inputHtml);
         }
 
         // 绑定事件
@@ -2886,23 +2882,15 @@ class TodoManager {
             apiMethod: 'get_all_tags',
             onSuccess: (response) => {
                 this.availableTags = response.data;
-                const showMoreTags = document.getElementById('show-more-tags');
-                const showLessTags = document.getElementById('show-less-tags');
-                if (this.availableTags.length <= this.defaultShowTags) {
-                    showMoreTags.disabled = true;
-                    showMoreTags.style.pointerEvents = 'auto';
-                    showMoreTags.style.cursor = 'not-allowed';
-                    showLessTags.disabled = true;
-                    showLessTags.style.pointerEvents = 'auto';
-                    showLessTags.style.cursor = 'not-allowed';
-                } else {
-                    showMoreTags.disabled = false;
-                    showMoreTags.style.pointerEvents = 'auto';
-                    showMoreTags.style.cursor = 'pointer';
-                    showLessTags.disabled = false;
-                    showLessTags.style.pointerEvents = 'auto';
-                    showLessTags.style.cursor = 'pointer';
-                }
+                const shouldDisable = this.availableTags.length <= this.defaultShowTags;
+
+                // 批量设置两个按钮的状态
+                [this.showMoreTags, this.showLessTags].forEach(btn => {
+                    btn.disabled = shouldDisable;
+                    btn.style.pointerEvents = 'auto';
+                    btn.style.cursor = shouldDisable ? 'not-allowed' : 'pointer';
+                });
+
                 this.renderTagsModule(fromZero);
             }
         });
@@ -2929,16 +2917,14 @@ class TodoManager {
 
         // 渲染现有标签
         this.availableTags.forEach((tag, index) => {
-            const showMoreTags = document.getElementById('show-more-tags');
-            const showLessTags = document.getElementById('show-less-tags');
-            if (!this.showMoreTags && index >= this.defaultShowTags) {
+            if (!this.isShowMoreTags && index >= this.defaultShowTags) {
                 // 在判断条件是不展开全部标签情况下，超过限定数量的标签不展示
-                showMoreTags.style.display = 'none';
-                showLessTags.style.display = 'block';
+                this.showMoreTags.style.display = 'none';
+                this.showLessTags.style.display = 'block';
                 return;
             }
-            showMoreTags.style.display = 'block';
-            showLessTags.style.display = 'none';
+            this.showMoreTags.style.display = 'block';
+            this.showLessTags.style.display = 'none';
             const isSelected = selectedTagIds.includes(tag.id);
             const count = tag.taskCount || 0;
 
@@ -2988,18 +2974,10 @@ class TodoManager {
         });
     }
 
-    toggleMoreTags(fromZero = false){
-        const showMoreTags = document.getElementById('show-more-tags');
-        const showLessTags = document.getElementById('show-less-tags');
-        if (this.showMoreTags) {
-            this.showMoreTags = false;
-            showMoreTags.style.display = 'block';
-            showLessTags.style.display = 'none';
-        } else {
-            this.showMoreTags = true;
-            showMoreTags.style.display = 'none';
-            showLessTags.style.display = 'block';
-        }
+    toggleMoreTags(fromZero = false) {
+        this.isShowMoreTags = !this.isShowMoreTags;
+        this.showMoreTags.style.display = this.isShowMoreTags ? 'none' : 'block';
+        this.showLessTags.style.display = this.isShowMoreTags ? 'block' : 'none';
         this.loadTagsModule(fromZero);
     }
 }
