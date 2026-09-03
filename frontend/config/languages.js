@@ -193,6 +193,7 @@ const Languages = {
         recurrenceCountRequired: "循环次数不能为空",
         recurrenceChoose: "请选择",
         recurringEditNotice: "非周期性任务编辑模式下不支持改周期性任务",
+        recurringErrorNotice: "周期性任务，日期不能为空，否则无法确定周期开始时间",
 
         // 设置中心
         settingsWindow: "通用设置",
@@ -478,6 +479,7 @@ const Languages = {
         recurrenceCountRequired: "Cycle times cannot be empty",
         recurrenceChoose: "Please Choose",
         recurringEditNotice: "Periodic tasks cannot be edited in non-periodic mode",
+        recurringErrorNotice: "For recurring tasks, the date cannot be empty; otherwise, the cycle start time cannot be determined.",
 
         // 设置中心
         settingsWindow: "General Settings",

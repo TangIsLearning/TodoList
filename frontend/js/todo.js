@@ -52,9 +52,17 @@ class TodoManager {
         this._pendingFromZero = false;
         this._statsTagDebounceTimer = null;
         this._tagPendingFromZero = false;
+        // 表单组件
+        this.isRecurringCheckbox = document.getElementById('is-recurring');
+        this.recurringOptions = document.getElementById('recurring-options');
+        this.recurrenceToggle = document.getElementById('recurrence-toggle');;
+        this.recurrenceCount = document.getElementById('recurrence-count');
+        this.recurrenceType = document.getElementById('recurrence-type');
+        this.datePicker = document.getElementById('task-due-date-picker');
+        this.timeInput = document.getElementById('task-due-time');
         // 设置日期组件
         this.pikaday = new Pikaday({
-            field: document.getElementById('task-due-date-picker'),
+            field: this.datePicker,
             format: 'YYYY-MM-DD',
             showDaysInNextAndPreviousMonths: true,
             firstDay: 1,
@@ -205,8 +213,7 @@ class TodoManager {
         moreOptionsToggle?.addEventListener('click', () => this.toggleMoreOptions());
 
         // 周期性任务复选框
-        const isRecurringCheckbox = document.getElementById('is-recurring');
-        isRecurringCheckbox?.addEventListener('change', (e) => this.toggleRecurringOptions());
+        this.isRecurringCheckbox?.addEventListener('change', (e) => this.toggleRecurringOptions());
 
         // 日期时间清空按钮
         const clearDateBtn = document.getElementById('clear-date');
@@ -256,25 +263,14 @@ class TodoManager {
         }
         
         // 重置周期性任务选项
-        const isRecurringCheckbox = document.getElementById('is-recurring');
-        const recurringOptions = document.getElementById('recurring-options');
-        const recurrenceCount = document.getElementById('recurrence-count');
-        const recurrenceType = document.getElementById('recurrence-type');
-
-        if (isRecurringCheckbox && recurringOptions) {
-            isRecurringCheckbox.checked = false;
-            recurringOptions.style.display = 'none';
-        }
+        this.isRecurringCheckbox.checked = false;
+        this.recurringOptions.style.display = 'none';
 
         // 重置循环次数的必填状态
-        if (recurrenceCount) {
-            recurrenceCount.required = false;
-            recurrenceCount.value = '';
-            recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
-        }
-        if (recurrenceType) {
-            recurrenceType.value = '';
-        }
+        this.recurrenceCount.required = false;
+        this.recurrenceCount.value = '';
+        this.recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
+        this.recurrenceType.value = '';
     }
     
     // 为编辑模式添加周期性任务提示
@@ -289,10 +285,7 @@ class TodoManager {
                 notice.innerHTML = `⚠️ ${window.languageManager.getText('recurringEditNotice', '非周期性任务编辑模式下不支持改周期性任务')}`;
                 
                 // 插入到周期性选项区域之前
-                const recurringOptions = document.getElementById('recurring-options');
-                if (recurringOptions) {
-                    recurringSection.insertBefore(notice, recurringOptions);
-                }
+                recurringSection.insertBefore(notice, this.recurringOptions);
             }
         }
     }
@@ -305,60 +298,49 @@ class TodoManager {
     
     // 展开/收起周期性任务选项
     toggleRecurringOptions() {
-        const isRecurringCheckbox = document.getElementById('is-recurring');
-        const recurringOptions = document.getElementById('recurring-options');
-        const recurrenceCount = document.getElementById('recurrence-count');
-        const recurrenceType = document.getElementById('recurrence-type');
+        const errorContainer = document.getElementById('recurrence-error');
+        errorContainer.textContent = window.languageManager.getText('recurringErrorNotice', '周期性任务，日期不能为空，否则无法确定周期开始时间');
 
-        if (isRecurringCheckbox.checked) {
-            recurringOptions.style.display = 'block';
-            // 勾选周期性任务时，设置循环次数为必填
-            if (recurrenceCount) recurrenceCount.required = true;
-        } else {
-            recurringOptions.style.display = 'none';
-            // 取消勾选时，移除必填限制
-            if (recurrenceCount) recurrenceCount.required = false;
-        }
-        recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
+        const isChecked = this.isRecurringCheckbox.checked;
+        this.recurringOptions.style.display = isChecked ? 'block' : 'none';
+        this.recurrenceCount.required = isChecked;
+        this.datePicker.required = isChecked;
+        this.timeInput.required = isChecked;
+        this.recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
+
+        const hasError = isChecked && (!this.datePicker.value || !this.timeInput.value);
+        errorContainer.style.display = hasError ? 'block' : 'none';
+        this.datePicker.style.borderColor = hasError ? '#e74c3c' : '';
+        this.timeInput.style.borderColor = hasError ? '#e74c3c' : '';
     }
     
     // 清空日期输入
     clearDateInput() {
-        const datePicker = document.getElementById('task-due-date-picker');
         const clearBtn = document.getElementById('clear-date');
         
-        if (datePicker) {
-            datePicker.value = '';
-            
-            // 更新清空按钮状态
-            if (clearBtn) clearBtn.classList.remove('visible');
-        }
+        this.datePicker.value = '';
+        // 更新清空按钮状态
+        if (clearBtn) clearBtn.classList.remove('visible');
     }
     
     // 清空时间输入
     clearTimeInput() {
-        const timeInput = document.getElementById('task-due-time');
         const clearBtn = document.getElementById('clear-time');
         
-        if (timeInput) {
-            timeInput.value = '';
-            
-            // 更新清空按钮状态
-            if (clearBtn) clearBtn.classList.remove('visible');
-        }
+        this.timeInput.value = '';
+        // 更新清空按钮状态
+        if (clearBtn) clearBtn.classList.remove('visible');
     }
     
     // 添加输入值变化监听
     addInputValueListeners() {
-        const datePicker = document.getElementById('task-due-date-picker');
-        const timeInput = document.getElementById('task-due-time');
         const clearDateBtn = document.getElementById('clear-date');
         const clearTimeBtn = document.getElementById('clear-time');
         
         // 实时校验函数
         const validateDateTime = () => {
-            const dateStr = datePicker.value || null;
-            const timeStr = timeInput.value || null;
+            const dateStr = this.datePicker.value || null;
+            const timeStr = this.timeInput.value || null;
             
             // 执行校验
             const validation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
@@ -376,19 +358,20 @@ class TodoManager {
             if (!validation.valid) {
                 errorContainer.textContent = validation.message;
                 errorContainer.style.display = 'block';
-                datePicker.style.borderColor = '#e74c3c';
-                timeInput.style.borderColor = '#e74c3c';
+                this.datePicker.style.borderColor = '#e74c3c';
+                this.timeInput.style.borderColor = '#e74c3c';
             } else {
                 errorContainer.style.display = 'none';
-                datePicker.style.borderColor = '';
-                timeInput.style.borderColor = '';
+                this.datePicker.style.borderColor = '';
+                this.timeInput.style.borderColor = '';
+                this.toggleRecurringOptions();
             }
         };
         
         // 监听日期输入变化
-        if (datePicker && clearDateBtn) {
+        if (this.datePicker && clearDateBtn) {
             const updateClearDateBtn = async () => {
-                if (datePicker.value) {
+                if (this.datePicker.value) {
                     clearDateBtn.classList.add('visible');
                 } else {
                     clearDateBtn.classList.remove('visible');
@@ -410,14 +393,14 @@ class TodoManager {
             updateClearDateBtn();
             
             // 监听变化
-            datePicker.addEventListener('input', updateClearDateBtn);
-            datePicker.addEventListener('change', updateClearDateBtn);
+            this.datePicker.addEventListener('input', updateClearDateBtn);
+            this.datePicker.addEventListener('change', updateClearDateBtn);
         }
         
         // 监听时间输入变化
-        if (timeInput && clearTimeBtn) {
+        if (this.timeInput && clearTimeBtn) {
             const updateClearTimeBtn = () => {
-                if (timeInput.value) {
+                if (this.timeInput.value) {
                     clearTimeBtn.classList.add('visible');
                 } else {
                     clearTimeBtn.classList.remove('visible');
@@ -430,8 +413,8 @@ class TodoManager {
             updateClearTimeBtn();
             
             // 监听变化
-            timeInput.addEventListener('input', updateClearTimeBtn);
-            timeInput.addEventListener('change', updateClearTimeBtn);
+            this.timeInput.addEventListener('input', updateClearTimeBtn);
+            this.timeInput.addEventListener('change', updateClearTimeBtn);
         }
     }
     
@@ -1062,7 +1045,7 @@ class TodoManager {
         this.removeRecurringEditNotice();
         
         // 截止日期默认为空，不设置默认值
-        document.getElementById('task-due-time').value = '';
+        this.timeInput.value = '';
 
         // 重置已选标签
         this.selectedTags = [];
@@ -1543,8 +1526,8 @@ class TodoManager {
         // 如果有截止日期，自动展开更多选项
         if (task.dueDate) {
             const [datePart, timePart] = task.dueDate.split('T');
-            document.getElementById('task-due-date-picker').value = datePart;
-            document.getElementById('task-due-time').value = timePart;
+            this.datePicker.value = datePart;
+            this.timeInput.value = timePart;
             
             // 自动展开更多选项
             const moreOptionsContent = document.getElementById('more-options-content');
@@ -1597,59 +1580,38 @@ class TodoManager {
     
     // 禁用周期性任务选项
     disableRecurringOptions() {
-        const recurrenceToggle = document.getElementById('recurrence-toggle');
-        const isRecurringCheckbox = document.getElementById('is-recurring');
-        const recurringOptions = document.getElementById('recurring-options');
-        const recurrenceType = document.getElementById('recurrence-type');
-        const recurrenceCount = document.getElementById('recurrence-count');
-
         // 禁用复选框和相关选项
-        if (isRecurringCheckbox) {
-            isRecurringCheckbox.disabled = true;
-            isRecurringCheckbox.checked = false;
-            isRecurringCheckbox.title = '编辑模式下不支持创建周期性任务';
-            recurrenceToggle.style.display = 'none';
-            isRecurringCheckbox.style.display = 'none';
-        }
-        
+        this.isRecurringCheckbox.disabled = true;
+        this.isRecurringCheckbox.checked = false;
+        this.isRecurringCheckbox.title = '编辑模式下不支持创建周期性任务';
+        this.recurrenceToggle.style.display = 'none';
+        this.isRecurringCheckbox.style.display = 'none';
+
         // 隐藏周期性选项区域
-        if (recurringOptions) recurringOptions.style.display = 'none';
+        this.recurringOptions.style.display = 'none';
 
         // 重置相关字段
-        if (recurrenceType) {
-            recurrenceType.value = '';
-            recurrenceType.disabled = true;
-        }
-        
-        if (recurrenceCount) {
-            recurrenceCount.value = '';
-            recurrenceCount.disabled = true;
-        }
+        this.recurrenceType.value = '';
+        this.recurrenceType.disabled = true;
+        this.recurrenceCount.value = '';
+        this.recurrenceCount.disabled = true;
     }
     
     // 启用周期性任务选项
     enableRecurringOptions() {
-        const recurrenceToggle = document.getElementById('recurrence-toggle');
-        const isRecurringCheckbox = document.getElementById('is-recurring');
-        const recurrenceType = document.getElementById('recurrence-type');
-        const recurrenceCount = document.getElementById('recurrence-count');
-
         // 启用复选框
-        if (isRecurringCheckbox) {
-            isRecurringCheckbox.disabled = false;
-            isRecurringCheckbox.checked = false;
-            isRecurringCheckbox.title = '';
-            recurrenceToggle.style.display = 'flex';
-            isRecurringCheckbox.style.display = 'block';
-        }
-        
+        this.isRecurringCheckbox.disabled = false;
+        this.isRecurringCheckbox.checked = false;
+        this.isRecurringCheckbox.title = '';
+        this.recurrenceToggle.style.display = 'flex';
+        this.isRecurringCheckbox.style.display = 'block';
+
         // 启用其他字段
-        if (recurrenceType) recurrenceType.disabled = false;
-        if (recurrenceCount) recurrenceCount.disabled = false;
+        this.recurrenceType.disabled = false;
+        this.recurrenceCount.disabled = false;
 
         // 确保周期性选项区域是隐藏的（默认状态）
-        const recurringOptions = document.getElementById('recurring-options');
-        if (recurringOptions) recurringOptions.style.display = 'none';
+        this.recurringOptions.style.display = 'none';
     }
     
     // 加载分类选项
@@ -1681,8 +1643,8 @@ class TodoManager {
         const editingId = taskForm.dataset.editingId;
         const isEdit = editingId && editingId !== '';
 
-        const dateStr = document.getElementById('task-due-date-picker').value || null;
-        const timeStr = document.getElementById('task-due-time').value || null;
+        const dateStr = this.datePicker.value || null;
+        const timeStr = this.timeInput.value || null;
         
         // 校验截止时间
         const dateTimeValidation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
@@ -1708,10 +1670,10 @@ class TodoManager {
         // 编辑模式下强制清除周期性任务相关数据
         if (!isEdit) {
             // 只有在新建模式下才允许设置周期性任务
-            taskData.isRecurring = document.getElementById('is-recurring').checked;
-            taskData.recurrenceType = document.getElementById('recurrence-type').value || null;
-            taskData.recurrenceCount = document.getElementById('recurrence-count').value ?
-                parseInt(document.getElementById('recurrence-count').value) : null;
+            taskData.isRecurring = this.isRecurringCheckbox.checked;
+            taskData.recurrenceType = this.recurrenceType.value || null;
+            taskData.recurrenceCount = this.recurrenceCount.value ?
+                parseInt(this.recurrenceCount.value) : null;
 
             // 验证周期性任务的必填项
             if (taskData.isRecurring) {

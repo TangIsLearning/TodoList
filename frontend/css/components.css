@@ -429,7 +429,7 @@
 }
 
 /* 日期时间校验错误消息样式 */
-.datetime-error {
+.datetime-error, .recurrence-error {
     color: var(--danger-color);
     font-size: var(--font-size-sm);
     margin-top: var(--spacing-xs);
@@ -441,7 +441,7 @@
     animation: fadeIn 0.3s ease-in-out;
 }
 
-.datetime-error.show {
+.datetime-error.show, .recurrence-error.show {
     display: block;
 }
 

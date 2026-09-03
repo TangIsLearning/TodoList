@@ -577,10 +577,14 @@
                             </div>
                         </div>
 
-                        <label for="is-recurring" class="recurrence-toggle">
-                            <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务</span>
-                            <input type="checkbox" id="is-recurring">
-                        </label>
+                        <div class="recurrence-group">
+                            <label for="is-recurring" class="recurrence-toggle">
+                                <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务</span>
+                                <input type="checkbox" id="is-recurring">
+                            </label>
+                            <div id="recurrence-error" class="recurrence-error" style="display: none;"></div>
+                        </div>
+
                         <div id="recurring-options" class="recurring-options" style="display: none;">
                             <div class="form-row">
                                 <div class="form-group">

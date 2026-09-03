@@ -116,7 +116,7 @@
         padding: var(--spacing-xs) !important;
     }
 
-    .datetime-error {
+    .datetime-error, .recurrence-error {
         font-size: var(--font-size-xs) !important;
     }
 
