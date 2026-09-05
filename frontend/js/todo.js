@@ -203,29 +203,9 @@ class TodoManager {
         this.searchClearBtn?.addEventListener('click', () => this.clearSearch());
 
         // 筛选器
-        this.priorityFilterSelect?.addEventListener('change', async (e) => {
-            this.priorityFilter = e.target.value;
-            this.currentPage = 1;
-            this.customDateFilter = null; // 清除自定义日期筛选
-            this.resetInfiniteScroll(); // 重置无限下拉状态
-            await this.loadTasks();
-        });
-
-        this.statusFilterSelect?.addEventListener('change', async (e) => {
-            this.statusFilter = e.target.value;
-            this.currentPage = 1;
-            this.customDateFilter = null; // 清除自定义日期筛选
-            this.resetInfiniteScroll(); // 重置无限下拉状态
-            await this.loadTasks();
-        });
-
-        this.dueDateFilterSelect?.addEventListener('change', async (e) => {
-            this.dueDateFilter = e.target.value;
-            this.currentPage = 1;
-            this.customDateFilter = null; // 清除自定义日期筛选
-            this.resetInfiniteScroll(); // 重置无限下拉状态
-            await this.loadTasks();
-        });
+        this.priorityFilterSelect?.addEventListener('change', (e) => this.onFilterChange('priorityFilter', e.target.value));
+        this.statusFilterSelect?.addEventListener('change', (e) => this.onFilterChange('statusFilter', e.target.value));
+        this.dueDateFilterSelect?.addEventListener('change', (e) => this.onFilterChange('dueDateFilter', e.target.value));
 
         // 添加任务按钮
         this.addTaskBtn?.addEventListener('click', () => this.showAddTaskModal());
@@ -265,6 +245,15 @@ class TodoManager {
         this.nextBtn?.addEventListener('click', () => this.goToPage(this.currentPage + 1));
         this.lastBtn?.addEventListener('click', () => this.goToPage(this.totalPages));
         this.pageSizeSelect?.addEventListener('change', (e) => this.changePageSize(e.target.value));
+    }
+
+    // 通用筛选器处理
+    async onFilterChange(filterType, value) {
+        this[filterType] = value;
+        this.currentPage = 1;
+        this.customDateFilter = null;
+        this.resetInfiniteScroll();
+        await this.loadTasks();
     }
     
     // 展开/收起更多选项
