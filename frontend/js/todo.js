@@ -12,12 +12,6 @@ class TodoManager {
         this.sortBy = 'created_at'; // 使用默认排序逻辑
         this.sortOrder = 'desc';
         this.customDateFilter = null; // 自定义日期筛选（用于日历视图）
-        // 任务列表相关
-        this.tasksList = document.getElementById('tasks-list');
-        this.pagination = document.getElementById('pagination');
-        this.noMoreTask = document.getElementById('no-more-tasks');
-        this.loadingMoreTask = document.getElementById('loading-more');
-        this.tasksContainer = document.getElementById('tasks-view');
         // 父任务选择器状态
         this.parentTaskState = {
             currentPage: 1,
@@ -34,31 +28,19 @@ class TodoManager {
         this.pageSize = 10;
         this.totalTasks = 0;
         this.totalPages = 0;
-        this.firstBtn = document.getElementById('pagination-first');
-        this.prevBtn = document.getElementById('pagination-prev');
-        this.nextBtn = document.getElementById('pagination-next');
-        this.lastBtn = document.getElementById('pagination-last');
-        this.pageSizeSelect = document.getElementById('page-size-select');
         // 无限下拉相关
         this.isLoadingMore = false;
         this.hasMoreTasks = true;
         this.scrollThreshold = 300; // 距离底部300px时开始加载
         this.scrollListener = null;
-        this.dropdown = document.getElementById('subtask-suggestions');
         // 标签相关
         this.availableTags = [];
         this.selectedTags = [];
         this.isShowMoreTags = false;
         this.defaultShowTags = 5;
-        this.showMoreTags = document.getElementById('show-more-tags');
-        this.showLessTags = document.getElementById('show-less-tags');
-        this.tagSelector = document.getElementById('tags-selector');
         // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
         this.searchChips = [];
         this._searchDebounceTimer = null;
-        this.searchInput = document.getElementById('search-input');
-        this.searchTagWrapper = document.getElementById('search-tag-wrapper');
-        this.searchClearBtn = document.getElementById('search-clear-btn');
         // 子任务搜索建议下拉（输入 ">" 触发）
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
@@ -70,27 +52,8 @@ class TodoManager {
         this._pendingFromZero = false;
         this._statsTagDebounceTimer = null;
         this._tagPendingFromZero = false;
-        // 表单组件
-        this.isRecurringCheckbox = document.getElementById('is-recurring');
-        this.recurringOptions = document.getElementById('recurring-options');
-        this.recurrenceToggle = document.getElementById('recurrence-toggle');;
-        this.recurrenceCount = document.getElementById('recurrence-count');
-        this.recurrenceType = document.getElementById('recurrence-type');
-        this.datePicker = document.getElementById('task-due-date-picker');
-        this.timeInput = document.getElementById('task-due-time');
-        this.clearDateBtn = document.getElementById('clear-date');
-        this.clearTimeBtn = document.getElementById('clear-time');
-        this.modalTitle = document.getElementById('modal-title');
-        this.taskForm = document.getElementById('task-form');
-        this.taskTitle = document.getElementById('task-title');
-        this.taskDescription = document.getElementById('task-description');
-        this.taskPrioritySelect = document.getElementById('task-priority');
-        this.taskCategorySelect = document.getElementById('task-category');
-        this.taskParent = document.getElementById('task-parent');
-        this.taskParentInput = document.getElementById('task-parent-input');
-        this.taskParentDropdown = document.getElementById('parent-task-dropdown');
-        this.moreOptionsToggle = document.getElementById('more-options-toggle');
-        this.moreOptionsContent = document.getElementById('more-options-content');
+        // DOM 元素缓存与统一管理
+        this.cacheDomRefs();
         // 设置日期组件
         this.pikaday = new Pikaday({
             field: this.datePicker,
@@ -146,6 +109,76 @@ class TodoManager {
         await this.loadTagsModule(true);
     }
 
+    // 统一缓存所有 DOM 节点
+    cacheDomRefs() {
+        const dom = {
+            tasksList: 'tasks-list',
+            pagination: 'pagination',
+            noMoreTask: 'no-more-tasks',
+            loadingMoreTask: 'loading-more',
+            tasksContainer: 'tasks-view',
+            firstBtn: 'pagination-first',
+            prevBtn: 'pagination-prev',
+            nextBtn: 'pagination-next',
+            lastBtn: 'pagination-last',
+            pageSizeSelect: 'page-size-select',
+            dropdown: 'subtask-suggestions',
+            showMoreTags: 'show-more-tags',
+            showLessTags: 'show-less-tags',
+            tagSelector: 'tags-selector',
+            searchInput: 'search-input',
+            searchTagWrapper: 'search-tag-wrapper',
+            searchClearBtn: 'search-clear-btn',
+            isRecurringCheckbox: 'is-recurring',
+            recurringOptions: 'recurring-options',
+            recurrenceToggle: 'recurrence-toggle',
+            recurrenceCount: 'recurrence-count',
+            recurrenceType: 'recurrence-type',
+            datePicker: 'task-due-date-picker',
+            timeInput: 'task-due-time',
+            clearDateBtn: 'clear-date',
+            clearTimeBtn: 'clear-time',
+            modalTitle: 'modal-title',
+            taskForm: 'task-form',
+            taskTitle: 'task-title',
+            taskDescription: 'task-description',
+            taskPrioritySelect: 'task-priority',
+            taskCategorySelect: 'task-category',
+            taskParent: 'task-parent',
+            taskParentInput: 'task-parent-input',
+            taskParentDropdown: 'parent-task-dropdown',
+            moreOptionsToggle: 'more-options-toggle',
+            moreOptionsContent: 'more-options-content',
+            searchBtn: 'search-btn',
+            priorityFilterSelect: 'priority-filter',
+            statusFilterSelect: 'status-filter',
+            dueDateFilterSelect: 'due-date-filter',
+            addTaskBtn: 'add-task-btn',
+            addTaskFab: 'add-task-fab',
+            taskModalClose: 'modal-close',
+            taskCancelBtn: 'cancel-btn',
+            showMoreTagsSpan: 'show-tags',
+            recurrenceError: 'recurrence-error',
+            datetimeError: 'datetime-error',
+            emptyState: 'empty-state',
+            parentTaskCombobox: 'parent-task-combobox',
+            loadMoreParentTask: 'load-more-btn',
+            paginationShow: 'pagination-showing',
+            paginationNum: 'pagination-numbers',
+            totalUncompletedTasksStats: 'total-uncompleted-tasks',
+            todayCompletedTasksStats: 'today-completed-tasks',
+            completionRateStats: 'completion-rate',
+            overDueDateStats: 'over-due-date-tasks',
+            dateRangeStats: 'stats-date-range',
+            addTagBtn: 'add-tag-btn',
+            tagsSection: 'tags-section',
+            tagsList: 'tags-list',
+        };
+        Object.entries(dom).forEach(([key, id]) => {
+            this[key] = document.getElementById(id);
+        });
+    }
+
     // 绑定事件
     bindEvents() {
         // 监听窗口大小变化，切换分页/无限下拉模式
@@ -160,8 +193,7 @@ class TodoManager {
         // 搜索（标签 chips 输入模式）
         this.initSearchTagInput();
 
-        const searchBtn = document.getElementById('search-btn');
-        searchBtn?.addEventListener('click', () => {
+        this.searchBtn?.addEventListener('click', () => {
             // 若输入框中是完整的 #标签，先提交为 chip
             this.commitInputAsChipIfTag();
             this.syncSearchQuery(0);
@@ -171,11 +203,7 @@ class TodoManager {
         this.searchClearBtn?.addEventListener('click', () => this.clearSearch());
 
         // 筛选器
-        const priorityFilter = document.getElementById('priority-filter');
-        const statusFilter = document.getElementById('status-filter');
-        const dueDateFilter = document.getElementById('due-date-filter');
-        
-        priorityFilter?.addEventListener('change', async (e) => {
+        this.priorityFilterSelect?.addEventListener('change', async (e) => {
             this.priorityFilter = e.target.value;
             this.currentPage = 1;
             this.customDateFilter = null; // 清除自定义日期筛选
@@ -183,7 +211,7 @@ class TodoManager {
             await this.loadTasks();
         });
 
-        statusFilter?.addEventListener('change', async (e) => {
+        this.statusFilterSelect?.addEventListener('change', async (e) => {
             this.statusFilter = e.target.value;
             this.currentPage = 1;
             this.customDateFilter = null; // 清除自定义日期筛选
@@ -191,7 +219,7 @@ class TodoManager {
             await this.loadTasks();
         });
 
-        dueDateFilter?.addEventListener('change', async (e) => {
+        this.dueDateFilterSelect?.addEventListener('change', async (e) => {
             this.dueDateFilter = e.target.value;
             this.currentPage = 1;
             this.customDateFilter = null; // 清除自定义日期筛选
@@ -199,22 +227,16 @@ class TodoManager {
             await this.loadTasks();
         });
 
-        // 添加任务按钮(桌面端)
-        const addTaskBtn = document.getElementById('add-task-btn');
-        addTaskBtn?.addEventListener('click', () => this.showAddTaskModal());
-
-        // 添加任务悬浮按钮(移动端)
-        const addTaskFab = document.getElementById('add-task-fab');
-        addTaskFab?.addEventListener('click', () => this.showAddTaskModal());
+        // 添加任务按钮
+        this.addTaskBtn?.addEventListener('click', () => this.showAddTaskModal());
+        this.addTaskFab?.addEventListener('click', () => this.showAddTaskModal());
 
         // 任务表单
         this.taskForm?.addEventListener('submit', (e) => this.handleTaskSubmit(e));
 
         // 模态框关闭按钮
-        const modalClose = document.getElementById('modal-close');
-        const cancelBtn = document.getElementById('cancel-btn');
-        modalClose?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
-        cancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
+        this.taskModalClose?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
+        this.taskCancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
 
         // 更多选项展开/收起按钮
         this.moreOptionsToggle?.addEventListener('click', () => this.toggleMoreOptions());
@@ -235,8 +257,7 @@ class TodoManager {
         });
 
         // 展示更多/更少标签
-        const showMoreTags = document.getElementById('show-tags');
-        showMoreTags?.addEventListener('click', () => this.toggleMoreTags());
+        this.showMoreTagsSpan?.addEventListener('click', () => this.toggleMoreTags());
 
         // 绑定分页相关的监听事件
         this.firstBtn?.addEventListener('click', () => this.goToPage(1));
@@ -301,8 +322,8 @@ class TodoManager {
     
     // 展开/收起周期性任务选项
     toggleRecurringOptions() {
-        const errorContainer = document.getElementById('recurrence-error');
-        errorContainer.textContent = window.languageManager.getText('recurringErrorNotice', '周期性任务，日期不能为空，否则无法确定周期开始时间');
+        this.recurrenceError.textContent =
+            window.languageManager.getText('recurringErrorNotice', '周期性任务，日期不能为空，否则无法确定周期开始时间');
 
         const isChecked = this.isRecurringCheckbox.checked;
         this.recurringOptions.style.display = isChecked ? 'block' : 'none';
@@ -312,18 +333,16 @@ class TodoManager {
         this.recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
 
         const hasError = isChecked && (!this.datePicker.value || !this.timeInput.value);
-        errorContainer.style.display = hasError ? 'block' : 'none';
+        this.recurrenceError.style.display = hasError ? 'block' : 'none';
         this.datePicker.style.borderColor = hasError ? '#e74c3c' : '';
         this.timeInput.style.borderColor = hasError ? '#e74c3c' : '';
     }
     
     // 添加输入值变化监听
     addInputValueListeners() {
-        const errorContainer = document.getElementById('datetime-error');
-
         const setError = (valid, msg) => {
-            Object.assign(errorContainer.style, { display: valid ? 'none' : 'block' });
-            errorContainer.textContent = valid ? '' : msg;
+            Object.assign(this.datetimeError.style, { display: valid ? 'none' : 'block' });
+            this.datetimeError.textContent = valid ? '' : msg;
             const color = valid ? '' : '#e74c3c';
             this.datePicker.style.borderColor = color;
             this.timeInput.style.borderColor = color;
@@ -414,10 +433,8 @@ class TodoManager {
                     this.renderTasks();
                     this.renderPagination();
                     // 隐藏无限下拉相关
-                    const loadingMoreEl = document.getElementById('loading-more');
-                    const noMoreEl = document.getElementById('no-more-tasks');
-                    if (loadingMoreEl) loadingMoreEl.style.display = 'none';
-                    if (noMoreEl) noMoreEl.style.display = 'none';
+                    if (this.loadingMoreTask) this.loadingMoreTask.style.display = 'none';
+                    if (this.noMoreTask) this.noMoreTask.style.display = 'none';
                 } else {
                     // 小屏幕：使用无限下拉模式
                     this.renderTasks();
@@ -441,17 +458,12 @@ class TodoManager {
     
     // 渲染任务列表
     async renderTasks() {
-        const emptyState = document.getElementById('empty-state');
-
-        // 不再需要前端过滤，因为后端已经处理了筛选
-        const filteredTasks = this.tasks;
-
         // 更新日历视图数据
         if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
 
-        if (filteredTasks.length === 0) {
+        if (this.tasks.length === 0) {
             this.tasksList.style.setProperty('display', 'none', 'important');
-            emptyState.style.display = 'block';
+            this.emptyState.style.display = 'block';
             // 隐藏分页
             this.pagination.style.display = 'none';
             return;
@@ -460,10 +472,7 @@ class TodoManager {
         // 根据屏幕尺寸设置display样式 (大于480px使用表格布局)
         const isLargeScreen = window.innerWidth > 480;
         this.tasksList.style.display = isLargeScreen ? 'table' : 'flex';
-        emptyState.style.display = 'none';
-
-        // 不再需要前端排序，后端已排序
-        const sortedTasks = filteredTasks;
+        this.emptyState.style.display = 'none';
 
         // 生成HTML
         let html = '';
@@ -483,7 +492,7 @@ class TodoManager {
             `;
         }
 
-        html += sortedTasks.map(task => this.createTaskElement(task)).join('');
+        html += this.tasks.map(task => this.createTaskElement(task)).join('');
         this.tasksList.innerHTML = html;
 
         // 绑定任务事件
@@ -1011,11 +1020,6 @@ class TodoManager {
     
     // 初始化父任务选择器
     initParentTaskCombobox() {
-        const combobox = document.getElementById('parent-task-combobox');
-        const loadMoreBtn = document.getElementById('load-more-btn');
-        
-        if (!combobox || !this.taskParentInput || !this.taskParentDropdown) return;
-        
         // 点击输入框打开下拉
         this.taskParentInput.addEventListener('focus', async (e) => {
             this.parentTaskState.isOpen = true;
@@ -1049,14 +1053,14 @@ class TodoManager {
         
         // 点击其他地方关闭
         document.addEventListener('click', (e) => {
-            if (!combobox.contains(e.target)) {
+            if (!this.parentTaskCombobox.contains(e.target)) {
                 this.taskParentDropdown.style.display = 'none';
                 this.parentTaskState.isOpen = false;
             }
         });
         
         // 加载更多
-        loadMoreBtn.addEventListener('click', async (e) => {
+        this.loadMoreParentTask.addEventListener('click', async (e) => {
             e.stopPropagation();
             await this.loadParentTasks(false);
         });
@@ -1834,9 +1838,6 @@ class TodoManager {
 
     // 渲染分页组件
     renderPagination() {
-        const showingEl = document.getElementById('pagination-showing');
-        const numbersDiv = document.getElementById('pagination-numbers');
-
         // 如果是日历视图，隐藏分页
         if (window.calendarManager && window.calendarManager.currentView === 'calendar') {
             this.pagination.style.display = 'none';
@@ -1854,7 +1855,8 @@ class TodoManager {
         // 更新显示信息
         const start = (this.currentPage - 1) * this.pageSize + 1;
         const end = Math.min(this.currentPage * this.pageSize, this.totalTasks);
-        showingEl.textContent = `${window.languageManager.getText('paginationShowing', '显示')} ${start}-${end} ${window.languageManager.getText('paginationOf', '共')} ${this.totalTasks} ${window.languageManager.getText('paginationItems', '条')}`;
+        this.paginationShow.textContent =
+            `${window.languageManager.getText('paginationShowing', '显示')} ${start}-${end} ${window.languageManager.getText('paginationOf', '共')} ${this.totalTasks} ${window.languageManager.getText('paginationItems', '条')}`;
 
         // 更新每页数量选择器
         this.pageSizeSelect.value = this.pageSize;
@@ -1902,10 +1904,9 @@ class TodoManager {
             }
         }
         
-        numbersDiv.innerHTML = pageNumbers;
-        
         // 绑定页码点击事件
-        numbersDiv.querySelectorAll('.btn').forEach(btn => {
+        this.paginationNum.innerHTML = pageNumbers;
+        this.paginationNum.querySelectorAll('.btn').forEach(btn => {
             btn.onclick = () => {
                 const page = parseInt(btn.dataset.page);
                 this.goToPage(page);
@@ -1947,46 +1948,27 @@ class TodoManager {
             this._pendingFromZero = false;
             this._statsDebounceTimer = null;
 
-            this.updateStatsDateRange();
+            const now = new Date();
+            const dateRangeText = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+            this.dateRangeStats.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
+
             Utils.apiCall({
                 apiMethod: 'get_stats',
                 onSuccess: (response) => {
-                    const totalUncompletedTasksEl = document.getElementById('total-uncompleted-tasks');
-                    const todayCompletedTasksEl = document.getElementById('today-completed-tasks');
-                    const completionRateEl = document.getElementById('completion-rate');
-                    const overDueDateEl = document.getElementById('over-due-date-tasks');
-
-                    if (!totalUncompletedTasksEl || !todayCompletedTasksEl || !completionRateEl || !overDueDateEl) return;
-
                     const totalUncompleted = response.data.uncompleted;
                     const todayCompleted = response.data.today_completed;
                     const rate = response.data.completion_rate;
                     const overDueDate = response.data.over_due || 0;
 
-                    overDueDateEl.style.color = overDueDate == 0 ? 'var(--text-primary)' : 'red';
+                    this.overDueDateStats.style.color = overDueDate == 0 ? 'var(--text-primary)' : 'red';
 
-                    Utils.animateNumber(totalUncompletedTasksEl, totalUncompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(todayCompletedTasksEl, todayCompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(completionRateEl, rate, { duration: 600, suffix: '%', decimals: 1, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(overDueDateEl, overDueDate, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
+                    Utils.animateNumber(this.totalUncompletedTasksStats, totalUncompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
+                    Utils.animateNumber(this.todayCompletedTasksStats, todayCompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
+                    Utils.animateNumber(this.completionRateStats, rate, { duration: 600, suffix: '%', decimals: 1, easing: 'easeOutCubic', fromZero: shouldFromZero });
+                    Utils.animateNumber(this.overDueDateStats, overDueDate, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
                 }
             });
         }, 200);
-    }
-
-    // 更新统计日期范围显示
-    updateStatsDateRange() {
-        const dateRangeEl = document.getElementById('stats-date-range');
-        if (!dateRangeEl) return;
-
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-        const day = now.getDate();
-
-        let dateRangeText = `${year}-${month}-${day}`;
-
-        dateRangeEl.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
     }
 
     // ===== 搜索标签 chips 相关 =====
@@ -2787,15 +2769,11 @@ class TodoManager {
     // 渲染标签管理模块
     // 选中态以搜索 chips 为唯一数据源（type 为 'tag' 的 chip）
     renderTagsModule(fromZero = false) {
-        const tagsSection = document.getElementById('tags-section');
         if (this.availableTags.length <= 0) {
-            tagsSection.style.display = 'none';
+            this.tagsSection.style.display = 'none';
             return;
         }
-        tagsSection.style.display = 'block';
-
-        const tagsList = document.getElementById('tags-list');
-        if (!tagsList) return;
+        this.tagsSection.style.display = 'block';
 
         const selectedTagIds = this.searchChips
             .filter(c => c.type === 'tag' && c.tagId)
@@ -2826,10 +2804,10 @@ class TodoManager {
             `;
         });
 
-        tagsList.innerHTML = html;
+        this.tagsList.innerHTML = html;
 
         // 搜索内容的变更由 chips 相关方法负责，这里只负责渲染标签列表与事件绑定
-        this.bindTagModuleEvents(tagsList);
+        this.bindTagModuleEvents(this.tagsList);
 
         if (fromZero) this._tagPendingFromZero = true;
 
