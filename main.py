@@ -33,7 +33,6 @@ os.chdir(str(data_dir))
 from backend.platforms.core.factory import get_platform_service
 service = get_platform_service()
 backend_logger = service.backend_logger()
-service.start_prepare()
 
 if __name__ == '__main__':
     try:
@@ -43,6 +42,7 @@ if __name__ == '__main__':
         backend_logger.info("从 main.py 启动 TodoList 应用")
         backend_logger.info("=" * 60)
 
+        service.start_prepare()
         service.start_app()
 
     except ImportError as e:

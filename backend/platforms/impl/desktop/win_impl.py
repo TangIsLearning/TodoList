@@ -7,6 +7,10 @@ from backend.platforms.impl.desktop.common.common_impl import DesktopCommonServi
 from backend.platforms.impl.desktop.win_firewall_manager import FirewallManager
 
 class WindowsService(DesktopCommonService):
+    def __init__(self):
+        super().__init__()
+        self._mutex_handle = None  # 用于保存互斥体句柄
+
     def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         try:
             import backend.globals
@@ -22,6 +26,10 @@ class WindowsService(DesktopCommonService):
         """强制结束当前进程及其所有子进程的统一接口"""
         import subprocess
         import time
+        import win32api
+
+        if self._mutex_handle:
+            win32api.CloseHandle(self._mutex_handle)
         # --- Windows ---
         # 优雅终止 (SIGTERM)
         subprocess.run(f'taskkill /PID {pid} /T', shell=True)
@@ -42,9 +50,49 @@ class WindowsService(DesktopCommonService):
         """获取应用图标的统一接口"""
         return base_path / 'todo_icon.ico'
 
+    def activate_existing_window(self) -> bool:
+        # 使用窗口标题查找，确保与创建时一致
+        import win32gui
+        import win32con
+        hwnd = win32gui.FindWindow(None, self.APP_NAME)
+        if hwnd:
+            # 1. 如果窗口不可见（被 hide），则显示它
+            if not win32gui.IsWindowVisible(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+            # 2. 如果窗口被最小化，则还原
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            # 3. 将窗口置于前台
+            win32gui.SetForegroundWindow(hwnd)
+            # 4. （可选）强制置顶一次，避免被其他窗口遮挡
+            win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
+                                  win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+            win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0,
+                                  win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+            return True
+        return False
+
     def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
-        pass
+        import sys
+        import win32event
+        import win32api
+        import winerror
+
+        try:
+            mutex = win32event.CreateMutex(None, False, self.APP_NAME)
+            last_error = win32api.GetLastError()
+            if last_error == winerror.ERROR_ALREADY_EXISTS:
+                self.backend_logger().info("检测到已有实例，尝试激活窗口...")
+                self.activate_existing_window()
+                sys.exit(0)
+            else:
+                # 首次启动，保存互斥体句柄
+                self._mutex_handle = mutex
+                self.backend_logger().info("首次启动，已创建互斥体并保存句柄")
+        except Exception as e:
+            self.backend_logger().error(f"互斥体操作失败: {e}")
+            # 如果创建失败，仍然允许启动，但可能导致多实例
 
     def add_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """添加防火墙策略规则的统一接口"""
