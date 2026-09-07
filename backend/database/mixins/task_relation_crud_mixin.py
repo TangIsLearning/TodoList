@@ -16,13 +16,6 @@ class TaskRelationCrudMixin:
         conn.commit()
         conn.close()
 
-    def _update_task_relation(self, sub_task_id: str, new_main_task_id: Optional[str]) -> None:
-        """更新任务的父任务（new_parent_id 可为 None 表示删除）"""
-        if new_main_task_id is None:
-            self.delete_relation_by_children(sub_task_id)
-        else:
-            self.add_task_relation(sub_task_id, new_main_task_id)
-
     def delete_relation_by_children(self, task_id: str) -> None:
         """删除该任务作为子任务的关联"""
         conn = sqlite3.connect(self.db_path)
