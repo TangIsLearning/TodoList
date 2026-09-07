@@ -1099,6 +1099,35 @@ class TodoDatabase:
             })
         return tags
 
+    def update_tag(self, tag_id: str, tag_data: Dict[str, Any]) -> Dict[str, Any]:
+        """更新标签（如重命名标签名称）"""
+        new_name = (tag_data.get('name') or '').strip()
+        if not new_name:
+            raise ValueError('标签名称不能为空')
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # 重名校验（排除自身）
+        cursor.execute('SELECT id FROM tags WHERE name = ? AND id != ?', (new_name, tag_id))
+        if cursor.fetchone():
+            conn.close()
+            raise ValueError('标签名称已存在')
+
+        # 获取当前标签信息，未传颜色时保持不变
+        cursor.execute('SELECT color FROM tags WHERE id = ?', (tag_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            raise ValueError('标签不存在')
+        color = tag_data.get('color') or row[0]
+
+        cursor.execute('UPDATE tags SET name = ?, color = ? WHERE id = ?', (new_name, color, tag_id))
+        conn.commit()
+        conn.close()
+
+        return {'id': tag_id, 'name': new_name, 'color': color}
+
     def delete_tag(self, tag_id: str) -> bool:
         """删除标签"""
         conn = sqlite3.connect(self.db_path)

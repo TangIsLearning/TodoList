@@ -2633,10 +2633,12 @@ class TodoManager {
         this.renderTagsSelector();
     }
 
-    // 删除标签
-    async deleteTag(tagId) {
+    // 删除标签（tagName 用于展示更明确的确认文案）
+    async deleteTag(tagId, tagName = null) {
+        const tag = this.availableTags.find(t => t.id === tagId);
+        const name = tagName || (tag && tag.name) || '';
         Utils.confirmDialog(
-            '确定要删除这个标签吗？',
+            name ? `确定要删除标签“${name}”吗？` : '确定要删除这个标签吗？',
             async () => {
                 await Utils.apiCall({
                     apiMethod: 'delete_tag',
@@ -2646,6 +2648,8 @@ class TodoManager {
                         // 从已选标签中移除
                         const index = this.selectedTags.indexOf(tagId);
                         if (index !== -1) this.selectedTags.splice(index, 1);
+                        // 若该标签在搜索选中态中，同步移除
+                        this.removeSearchChipByTagId(tagId);
                         // 重新加载标签
                         this.loadTagsSelector();
                         this.loadTagsModule(true);
@@ -2782,6 +2786,10 @@ class TodoManager {
             this.showLessTags.style.display = 'none';
             const isSelected = selectedTagIds.includes(tag.id);
             const count = tag.taskCount || 0;
+            // 标签存在引用（count>0）时可编辑名称；无引用（count=0）时可删除
+            const action = count > 0
+                ? { type: 'edit', icon: '✏️', title: '编辑标签' }
+                : { type: 'delete', icon: '🗑️', title: '删除标签' };
 
             html += `
                 <span class="tag-module-item ${isSelected ? 'selected' : ''}"
@@ -2789,6 +2797,8 @@ class TodoManager {
                       style="background-color: ${tag.color};">
                     #${Utils.escapeHtml(tag.name)}
                     <span id="${tag.id}" class="tag-count">${count}</span>
+                    <span class="tag-action-icon" data-tag-action="${action.type}"
+                          title="${action.title}">${action.icon}</span>
                 </span>
             `;
         });
@@ -2819,13 +2829,135 @@ class TodoManager {
         }, 200);
     }
 
-    // 标签管理模块绑定事件：点击切换对应的搜索 chip
+    // 标签管理模块绑定事件：
+    // 点击标签本体切换对应的搜索 chip；悬浮操作图标用于编辑/删除标签
     bindTagModuleEvents(tagsList) {
         tagsList.querySelectorAll('.tag-module-item').forEach(item => {
-            item.onclick = (e) => {
+            // 悬浮在标签上的编辑/删除图标
+            const actionEl = item.querySelector('.tag-action-icon');
+            if (actionEl) {
+                actionEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const tagId = item.dataset.tagId;
+                    const tag = this.availableTags.find(t => t.id === tagId);
+                    if (!tag) return;
+                    if (actionEl.dataset.tagAction === 'delete') {
+                        // 无引用标签：删除前弹窗确认，避免误操作
+                        this.deleteTag(tagId, tag.name);
+                    } else if (actionEl.dataset.tagAction === 'edit') {
+                        // 有引用标签：内联编辑标签名称
+                        this.startRenameTag(tagId);
+                    }
+                });
+            }
+
+            // 点击标签本体 -> 切换对应的搜索 chip（点击操作图标时不触发筛选）
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.tag-action-icon')) return;
                 const tagId = item.dataset.tagId;
                 this.toggleTagChip(tagId);
-            };
+            });
+        });
+    }
+
+    // 开始内联编辑标签名称
+    startRenameTag(tagId) {
+        let item = this.tagsList.querySelector(`.tag-module-item[data-tag-id="${tagId}"]`);
+        const tag = this.availableTags.find(t => t.id === tagId);
+        if (!item || !tag) return;
+
+        // 若已有其他标签正处于编辑状态，先退出恢复原状（重渲染后重新获取目标节点）
+        const editing = this.tagsList.querySelector('.tag-module-item.editing');
+        if (editing && editing !== item) {
+            this.renderTagsModule();
+            item = this.tagsList.querySelector(`.tag-module-item[data-tag-id="${tagId}"]`);
+            if (!item) return;
+        }
+
+        item.classList.add('editing');
+        item.innerHTML = '';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tag-edit-input';
+        input.value = tag.name;
+        input.maxLength = 20;
+        input.placeholder = '标签名';
+        item.appendChild(input);
+
+        let finished = false;
+        const finish = (callback) => {
+            if (finished) return;
+            finished = true;
+            input.removeEventListener('keydown', handleKeydown);
+            input.removeEventListener('blur', handleBlur);
+            callback();
+        };
+        const handleKeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                finish(() => this.commitTagRename(tagId, input.value.trim()));
+            } else if (e.key === 'Escape') {
+                finish(() => this.renderTagsModule());
+            }
+        };
+        const handleBlur = () => finish(() => this.renderTagsModule());
+
+        input.addEventListener('keydown', handleKeydown);
+        input.addEventListener('blur', handleBlur);
+        input.focus();
+        input.select();
+    }
+
+    // 提交标签重命名
+    async commitTagRename(tagId, newName) {
+        if (!newName) {
+            Utils.showToast(window.languageManager.getText('errorTagNameRequired', '请输入标签名'), 'warning');
+            this.renderTagsModule();
+            return;
+        }
+
+        // 重名校验（排除自身）
+        if (this.availableTags.some(t => t.id !== tagId && t.name === newName)) {
+            Utils.showToast(window.languageManager.getText('errorTagExisted', '标签已存在'), 'warning');
+            this.renderTagsModule();
+            return;
+        }
+
+        Utils.setLoading(true, '更新中...');
+        await Utils.apiCall({
+            apiMethod: 'update_tag',
+            apiArgs: [tagId, { name: newName }],
+            onSuccess: () => {
+                Utils.showToast(window.languageManager.getText('tagUpdated', '标签更新成功'), 'success');
+
+                // 同步本地标签名称及搜索 chip 的显示文本
+                const localTag = this.availableTags.find(t => t.id === tagId);
+                if (localTag) localTag.name = newName;
+                let chipRenamed = false;
+                this.searchChips.forEach(c => {
+                    if (c.type === 'tag' && c.tagId === tagId) {
+                        c.value = newName;
+                        chipRenamed = true;
+                    }
+                });
+
+                // 刷新标签列表，并重新加载任务以更新任务中展示的标签名称
+                this.loadTagsModule(true);
+                if (chipRenamed) {
+                    // 有选中该标签：同步搜索条件（含新标签名）后刷新任务
+                    this.renderSearchChips();
+                    this.syncSearchQuery(0);
+                } else {
+                    this.loadTasks();
+                }
+            },
+            onError: (error) => {
+                Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
+                // 退出编辑态，恢复原标签列表
+                this.renderTagsModule();
+            },
+            onFinally: () => Utils.setLoading(false)
         });
     }
 

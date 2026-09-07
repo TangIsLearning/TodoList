@@ -738,4 +738,12 @@
     .mobile-shown-item {
         display: flex !important;
     }
+
+    .tag-module-item .tag-count {
+        display: none;
+    }
+
+    .tag-module-item .tag-action-icon {
+        display: inline-flex;
+    }
 }

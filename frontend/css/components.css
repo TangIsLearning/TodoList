@@ -780,6 +780,49 @@
     background-color: rgba(0, 0, 0, 0.2);
 }
 
+/* 侧边栏标签模块：hover 时将最右侧计数切换为编辑/删除图标 */
+.tag-module-item .tag-action-icon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.tag-module-item:hover .tag-count {
+    display: none;
+}
+
+.tag-module-item:hover .tag-action-icon {
+    display: inline-flex;
+}
+
+.tag-module-item .tag-action-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 侧边栏标签模块：内联编辑输入框 */
+.tag-module-item.editing {
+    padding: 2px 6px;
+    cursor: text;
+}
+
+.tag-module-item .tag-edit-input {
+    width: 90px;
+    padding: 2px 6px;
+    margin: 0;
+    border: 1px solid var(--primary-color);
+    border-radius: 10px;
+    font-size: var(--font-size-xs);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+    height: auto !important;
+    box-shadow: none;
+}
 
 .tag-add-btn:hover {
     background-color: var(--border-color);

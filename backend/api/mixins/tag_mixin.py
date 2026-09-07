@@ -14,3 +14,8 @@ class TagMixin:
     def delete_tag(self, tag_id: str) -> None:
         """删除标签"""
         self.db.delete_tag(tag_id)
+
+    @api_handler
+    def update_tag(self, tag_id: str, tag_data: Dict[str, Any]) -> tuple[Dict[str, Any], str]:
+        """更新标签（如重命名标签名称）"""
+        return self.db.update_tag(tag_id, tag_data), "标签更新成功"
