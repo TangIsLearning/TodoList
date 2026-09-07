@@ -103,6 +103,7 @@ base_hiddenimports = [
     'backend.database.mixins.setting_crud_mixin',
     'backend.database.data_export',
     'backend.database.models',
+    'backend.database.utils',
     'backend.api.todo_api',
     'backend.api.mixins.category_api_mixin',
     'backend.api.mixins.config_api_mixin',
