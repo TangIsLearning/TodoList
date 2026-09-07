@@ -1,8 +1,8 @@
-# backend/api/mixins/category_mixin.py
+# backend/api/mixins/category_api_mixin.py
 from typing import Any, Dict, List, Tuple
 from backend.utils.response_wrapper import api_handler
 
-class CategoryMixin:
+class CategoryApiMixin:
     """分类核心操作 Mixin"""
 
     @api_handler

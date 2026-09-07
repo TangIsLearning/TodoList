@@ -1,8 +1,8 @@
-# backend/api/mixins/utility_mixin.py
+# backend/api/mixins/utility_api_mixin.py
 from typing import Any, List, Optional
 from backend.utils.response_wrapper import api_handler
 
-class UtilityMixin:
+class UtilityApiMixin:
     """工具方法 Mixin"""
 
     @api_handler

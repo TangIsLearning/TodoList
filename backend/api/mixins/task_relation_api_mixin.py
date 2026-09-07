@@ -1,8 +1,8 @@
-# backend/api/mixins/task_relation_mixin.py
+# backend/api/mixins/task_relation_api_mixin.py
 from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
 
-class TaskRelationMixin:
+class TaskRelationApiMixin:
     """任务关联核心操作 Mixin"""
 
     @api_handler

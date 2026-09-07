@@ -1,8 +1,8 @@
-# backend/api/mixins/tag_mixin.py
+# backend/api/mixins/tag_api_mixin.py
 from typing import Any, Dict, List
 from backend.utils.response_wrapper import api_handler
 
-class TagMixin:
+class TagApiMixin:
     """标签核心操作 Mixin"""
 
     @api_handler

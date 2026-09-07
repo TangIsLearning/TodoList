@@ -1,8 +1,8 @@
-# backend/api/mixins/p2p_mixin.py
+# backend/api/mixins/p2p_api_mixin.py
 from typing import Any, Dict
 from backend.utils.response_wrapper import api_handler
 
-class P2PMixin:
+class P2PApiMixin:
     """P2P服务核心操作 Mixin"""
 
     @api_handler

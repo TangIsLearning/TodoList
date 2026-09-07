@@ -1,8 +1,8 @@
-# backend/api/mixins/webdav_mixin.py
+# backend/api/mixins/webdav_api_mixin.py
 from typing import Any, Dict
 from backend.utils.response_wrapper import api_handler
 
-class WebDAVMixin:
+class WebDavApiMixin:
     """WebDAV同步核心操作 Mixin"""
 
     @api_handler

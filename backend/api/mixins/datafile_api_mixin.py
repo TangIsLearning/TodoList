@@ -1,11 +1,11 @@
-# backend/api/mixins/datafile_mixin.py
+# backend/api/mixins/datafile_api_mixin.py
 
 import os
 from typing import Any, Tuple
 from backend.database.operations import TodoDatabase
 from backend.utils.response_wrapper import api_handler
 
-class DatafileMixin:
+class DatafileApiMixin:
     """数据目录配置操作 Mixin"""
 
     @api_handler

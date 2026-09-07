@@ -10,15 +10,7 @@ from backend.database.operations import TodoDatabase
 from backend.database.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient
-from backend.api.mixins.category_mixin import CategoryMixin
-from backend.api.mixins.config_mixin import ConfigMixin
-from backend.api.mixins.datafile_mixin import DatafileMixin
-from backend.api.mixins.p2p_mixin import P2PMixin
-from backend.api.mixins.tag_mixin import TagMixin
-from backend.api.mixins.task_mixin import TaskMixin
-from backend.api.mixins.task_relation_mixin import TaskRelationMixin
-from backend.api.mixins.utility_mixin import UtilityMixin
-from backend.api.mixins.webdav_mixin import WebDAVMixin
+from backend.api.mixins import AllApiMixins
 from backend.utils.logger import LogManager
 
 # 确保能找到database模块
@@ -27,10 +19,7 @@ backend_dir = current_dir.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-class TodoApi(
-    CategoryMixin, ConfigMixin, DatafileMixin, P2PMixin, TagMixin,
-    TaskMixin, TaskRelationMixin, UtilityMixin, WebDAVMixin, LogManager
-):
+class TodoApi(AllApiMixins, LogManager):
     """TodoList应用的API类，提供前后端通信接口"""
     
     def __init__(self, is_android: bool, sync_manager: Any) -> None:

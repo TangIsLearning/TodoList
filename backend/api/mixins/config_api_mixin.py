@@ -1,11 +1,11 @@
-# backend/api/mixins/config_mixin.py
+# backend/api/mixins/config_api_mixin.py
 
 from typing import Any, Dict, List, Optional, Union
 import backend.globals
 from backend.utils import utils
 from backend.utils.response_wrapper import api_handler
 
-class ConfigMixin:
+class ConfigApiMixin:
     """配置操作 Mixin"""
     CONFIG_REGISTRY = {
         'window_on_top': {

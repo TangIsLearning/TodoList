@@ -1,4 +1,4 @@
-# backend/api/mixins/task_mixin.py
+# backend/api/mixins/task_api_mixin.py
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from backend.utils.response_wrapper import api_handler
@@ -25,7 +25,7 @@ def validate_due_date(task_data: Union[Dict[str, Any], str]) -> Dict[str, Union[
     except ValueError:
         return { 'valid': False, 'message': '截止时间格式无效'}
 
-class TaskMixin:
+class TaskApiMixin:
     """任务核心操作 Mixin"""
 
     @api_handler
