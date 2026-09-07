@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
-from backend.database.operations import TodoDatabase
+from backend.database.todo_database import TodoDatabase
 from backend.database.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient

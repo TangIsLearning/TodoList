@@ -56,7 +56,7 @@ def start_app(
 
     def on_closing() -> bool:
         """窗口关闭点击事件：仅首次关闭弹窗提醒"""
-        from backend.database.operations import TodoDatabase
+        from backend.database.todo_database import TodoDatabase
         settings_db = TodoDatabase()
         confirm_close = settings_db.get_setting('confirm_close', True)
         if is_android:

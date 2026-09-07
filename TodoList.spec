@@ -95,7 +95,7 @@ base_hiddenimports = [
     'pystray',
     'desktop_notifier.resources',
     'desktop_notifier.main',
-    'backend.database.operations',
+    'backend.database.todo_database',
     'backend.database.mixins.task_crud_mixin',
     'backend.database.mixins.category_crud_mixin',
     'backend.database.mixins.tag_crud_mixin',

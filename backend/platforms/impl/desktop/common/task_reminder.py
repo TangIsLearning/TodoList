@@ -13,7 +13,7 @@ from queue import Queue
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from backend.utils import utils
-from backend.database.operations import TodoDatabase
+from backend.database.todo_database import TodoDatabase
 from backend.utils.logger import LogManager
 
 class TaskReminder(LogManager):

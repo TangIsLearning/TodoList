@@ -8,7 +8,7 @@ from typing import Any, List, Union
 from jnius import autoclass, cast
 from datetime import datetime
 
-from backend.database.operations import TodoDatabase
+from backend.database.todo_database import TodoDatabase
 
 
 def check_permission() -> None:

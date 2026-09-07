@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.database.operations import TodoDatabase
+from backend.database.todo_database import TodoDatabase
 from backend.utils.logger import LogManager
 
 font_color_other = '#b85c00'
