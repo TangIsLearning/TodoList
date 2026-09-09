@@ -223,6 +223,7 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/dark-mode.css">
     <link rel="stylesheet" href="css/pikaday.css">
+    <link rel="stylesheet" href="css/stats.css">
 </head>
 <body>
 <!-- 骨架屏 -->
@@ -378,6 +379,7 @@
                     <option value="list">📋 列表视图</option>
                     <option value="calendar">📅 日历视图</option>
                     <option value="timeline">⌛ 时间轴视图</option>
+                    <option value="stats">📊 统计视图</option>
                 </select>
 
                 <select id="priority-filter" class="priority-filter">
@@ -487,6 +489,43 @@
             <div class="timeline-container" id="timelineContainer">
                 <div class="timeline-grid" id="timelineGrid"></div>
             </div>
+        </div>
+
+        <!-- 统计视图 -->
+        <div class="stats-view" id="stats-view" style="display: none;">
+            <div class="stats-toolbar">
+                <div class="stats-toolbar__item">
+                    <label class="stats-label" for="stats-basis-select">统计口径</label>
+                    <select id="stats-basis-select" class="stats-select">
+                        <option value="created">创建时间</option>
+                        <option value="due">截止时间</option>
+                        <option value="completed">完成时间（仅已完成）</option>
+                    </select>
+                </div>
+                <div class="stats-toolbar__item">
+                    <label class="stats-label" for="stats-scope-select">时间范围</label>
+                    <select id="stats-scope-select" class="stats-select">
+                        <option value="all">全部时间</option>
+                        <option value="year">按年份</option>
+                        <option value="month">按月份</option>
+                        <option value="week">按周</option>
+                    </select>
+                </div>
+                <div class="stats-toolbar__item stats-period-item" id="stats-year-item" style="display: none;">
+                    <label class="stats-label" for="stats-year-select">年份</label>
+                    <select id="stats-year-select" class="stats-select"></select>
+                </div>
+                <div class="stats-toolbar__item stats-period-item" id="stats-month-item" style="display: none;">
+                    <label class="stats-label" for="stats-month-select">月份</label>
+                    <select id="stats-month-select" class="stats-select"></select>
+                </div>
+                <div class="stats-toolbar__item stats-period-item" id="stats-week-item" style="display: none;">
+                    <label class="stats-label" for="stats-week-select">周</label>
+                    <select id="stats-week-select" class="stats-select"></select>
+                </div>
+                <div class="stats-toolbar__hint" id="stats-toolbar-hint"></div>
+            </div>
+            <div class="stats-content" id="stats-content"></div>
         </div>
     </main>
 </div>
@@ -1153,5 +1192,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/features/settings.js"></script>
 <script src="js/main.js"></script>
 <script src="js/features/timeline.js"></script>
+<script src="js/features/stats.js"></script>
 </body>
 </html>

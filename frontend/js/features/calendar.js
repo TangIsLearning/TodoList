@@ -36,6 +36,7 @@ class CalendarManager {
         const nextMonthFilter = document.getElementById('filter-next-month');
         const groupDividerFilter = document.getElementById('filter-group-divider');
         const timelineView = document.getElementById('timeline-view');
+        const statsView = document.getElementById('stats-view');
         const moreMenuIcon = document.getElementById('more-menu-view-icon');
         const moreMenuText = document.getElementById('more-menu-view-text');
         let filterPageSize;
@@ -47,6 +48,8 @@ class CalendarManager {
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
                 calendarView.style.display = 'flex';
+                statsView.style.display = 'none';
+                document.body.classList.remove('stats-mode');
                 dueDateFilter.disabled = true;
                 dueDateFilter.style.pointerEvents = 'auto';
                 dueDateFilter.style.cursor = 'not-allowed';
@@ -70,6 +73,8 @@ class CalendarManager {
                 tasksView.style.display = 'none';
                 pagination.style.display = 'none';
                 calendarView.style.display = 'none';
+                statsView.style.display = 'none';
+                document.body.classList.remove('stats-mode');
                 dueDateFilter.disabled = true;
                 dueDateFilter.style.pointerEvents = 'auto';
                 dueDateFilter.style.cursor = 'not-allowed';
@@ -90,6 +95,8 @@ class CalendarManager {
                 tasksView.style.display = 'block';
                 pagination.style.display = 'flex';
                 calendarView.style.display = 'none';
+                statsView.style.display = 'none';
+                document.body.classList.remove('stats-mode');
                 dueDateFilter.disabled = false;
                 dueDateFilter.style.pointerEvents = 'auto';
                 dueDateFilter.style.cursor = 'default';
@@ -106,6 +113,27 @@ class CalendarManager {
                 window.todoManager.customDateFilter = null; // 清除自定义日期筛选
                 window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
                 await window.todoManager.loadTasks();
+                break;
+            case 'stats':
+                // 切换到统计视图
+                timelineView.style.display = 'none';
+                tasksView.style.display = 'none';
+                pagination.style.display = 'none';
+                calendarView.style.display = 'none';
+                statsView.style.display = 'block';
+                dueDateFilter.disabled = true;
+                dueDateFilter.style.pointerEvents = 'auto';
+                dueDateFilter.style.cursor = 'not-allowed';
+                prevMonthFilter.style.display = 'none';
+                nextMonthFilter.style.display = 'none';
+                groupDividerFilter.style.display = 'block';
+                moreMenuIcon.textContent = '📊';
+                moreMenuText.textContent = '切换统计视图';
+                this.currentView = 'stats';
+                document.body.classList.add('stats-mode');
+                // 通知统计管理器加载数据
+                if (window.statsManager) window.statsManager.onViewEnter();
+                break;
         }
     }
 

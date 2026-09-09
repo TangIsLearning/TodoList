@@ -171,7 +171,8 @@ class App {
             { name: 'CategoryManager', instance: window.categoryManager },
             { name: 'TodoManager', instance: window.todoManager },
             { name: 'CalendarManager', instance: window.calendarManager },
-            { name: 'TimelineManager', instance: window.timelineManager }
+            { name: 'TimelineManager', instance: window.timelineManager },
+            { name: 'StatsManager', instance: window.statsManager }
         ];
 
         // 先等待 pywebview 加载完成

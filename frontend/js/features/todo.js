@@ -438,6 +438,9 @@ class TodoManager {
 
                 // 同步分类筛选状态
                 if (window.categoryManager) window.categoryManager.setActiveCategory(this.currentFilter);
+
+                // 若统计视图正处于前台，按当前 分类+标签 chips 同步刷新统计
+                this._syncStatsFilterIfVisible();
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
@@ -1827,8 +1830,8 @@ class TodoManager {
 
     // 渲染分页组件
     renderPagination() {
-        // 如果是日历视图，隐藏分页
-        if (window.calendarManager && window.calendarManager.currentView === 'calendar') {
+        // 仅列表视图显示分页；日历/时间轴/统计等视图加载任务后隐藏，避免分页错位显示
+        if (window.calendarManager && window.calendarManager.currentView !== 'list') {
             this.pagination.style.display = 'none';
             return;
         }
@@ -2170,6 +2173,15 @@ class TodoManager {
         this.updateSearchClearButton();
         this.refreshTagModuleSelection();
         this.scheduleSearch(delay);
+    }
+
+    // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
+    // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
+    _syncStatsFilterIfVisible() {
+        const cm = window.calendarManager;
+        if (cm && cm.currentView === 'stats' && window.statsManager) {
+            window.statsManager.reloadStatsIfVisible();
+        }
     }
 
     // 防抖触发搜索任务加载

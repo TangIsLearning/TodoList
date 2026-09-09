@@ -8,6 +8,7 @@ from .category_api_mixin import CategoryApiMixin
 from .config_api_mixin import ConfigApiMixin
 from .datafile_api_mixin import DatafileApiMixin
 from .p2p_api_mixin import P2PApiMixin
+from .statistics_api_mixin import StatisticsApiMixin
 from .tag_api_mixin import TagApiMixin
 from .task_api_mixin import TaskApiMixin
 from .task_relation_api_mixin import TaskRelationApiMixin
@@ -20,6 +21,7 @@ class AllApiMixins(
     ConfigApiMixin,
     DatafileApiMixin,
     P2PApiMixin,
+    StatisticsApiMixin,
     TagApiMixin,
     TaskApiMixin,
     TaskRelationApiMixin,
@@ -35,6 +37,7 @@ __all__ = [
     'ConfigApiMixin',
     'DatafileApiMixin',
     'P2PApiMixin',
+    'StatisticsApiMixin',
     'TagApiMixin',
     'TaskApiMixin',
     'TaskRelationApiMixin',

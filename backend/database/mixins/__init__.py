@@ -9,6 +9,7 @@ from .category_crud_mixin import CategoryCrudMixin
 from .tag_crud_mixin import TagCrudMixin
 from .task_relation_crud_mixin import TaskRelationCrudMixin
 from .setting_crud_mixin import SettingCrudMixin
+from .statistics_crud_mixin import StatisticsCrudMixin
 
 # 定义一个组合所有 Crud 能力的基类（空类，仅用于继承）
 class AllCrudMixins(
@@ -16,7 +17,8 @@ class AllCrudMixins(
     CategoryCrudMixin,
     TagCrudMixin,
     TaskRelationCrudMixin,
-    SettingCrudMixin
+    SettingCrudMixin,
+    StatisticsCrudMixin
 ):
     """聚合所有 Crud 功能 Mixin，便于 TodoDatabase 单一继承"""
     pass
@@ -27,5 +29,6 @@ __all__ = [
     'TagCrudMixin',
     'TaskRelationCrudMixin',
     'SettingCrudMixin',
+    'StatisticsCrudMixin',
     'AllCrudMixins'
 ]
