@@ -11,6 +11,7 @@ background_color_error = '#ff6b6b'
 background_color_success = '#4CAF50'
 background_color_warning = '#fff9e8'
 default_warning = '💡 输入任务内容... 使用 #标签 *分类 @时间'
+app_name_keyboard: str = 'TodoList_Keyboard'
 
 class SmartTaskInput(LogManager):
     def __init__(self) -> None:
@@ -131,7 +132,7 @@ class SmartTaskInput(LogManager):
         self.is_hide = self.service.is_default_hide()
 
         self.window = webview.create_window(
-            'TodoList',
+            app_name_keyboard,
             html=loading_html,  # 【关键】改用 html= 启动，不传递文件路径
             js_api=None,  # 此时先不绑定 API，等全加载完后再载入
             width=760,

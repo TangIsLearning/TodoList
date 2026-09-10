@@ -72,6 +72,44 @@ class WindowsService(DesktopCommonService):
             return True
         return False
 
+    def hide_taskbar_icon(self, window: Any) -> None:
+        """将快捷键窗口从 Windows 任务栏中隐藏，任务栏只保留主窗口"""
+        try:
+            native = getattr(window, 'native', None)
+            if native is None:
+                return
+
+            # 注意：native.Handle 是 pythonnet 的 IntPtr，ctypes 无法直接识别，必须先转成 int
+            hwnd = native.Handle.ToInt32()
+            if not hwnd:
+                return
+
+            import ctypes
+
+            GWL_EXSTYLE = -20
+            WS_EX_TOOLWINDOW = 0x00000080
+            WS_EX_APPWINDOW = 0x00040000
+
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            SWP_FRAMECHANGED = 0x0020
+
+            user32 = ctypes.windll.user32
+            ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            # 添加 WS_EX_TOOLWINDOW 并移除 WS_EX_APPWINDOW，使窗口不在任务栏显示
+            ex_style = (ex_style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style)
+            # 通知系统窗口扩展样式已变更
+            user32.SetWindowPos(
+                hwnd, 0, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+            )
+            self.backend_logger().info("快捷键窗口已从任务栏隐藏，仅保留主窗口任务栏图标")
+        except Exception as e:
+            self.backend_logger().error(f"隐藏快捷键窗口任务栏图标失败: {e}")
+
     def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
         import sys

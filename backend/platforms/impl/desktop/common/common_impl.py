@@ -197,10 +197,16 @@ class DesktopCommonService(PlatformService):
         """图标注销消息的统一接口"""
         pass
 
+    def hide_taskbar_icon(self, window: Any) -> None:
+        """将快捷键窗口从系统任务栏隐藏的统一接口（默认空实现，由各平台按需覆盖）"""
+        pass
+
     def start_keyboard(self) -> None:
         """应用启用快捷键的统一接口"""
         from backend.platforms.impl.desktop.common.smart_task import SmartTaskInput
-        SmartTaskInput()
+        sti = SmartTaskInput()
+        # 平台特定处理：Windows 下将快捷键窗口从任务栏隐藏，只保留主窗口任务栏图标
+        self.hide_taskbar_icon(sti.window)
 
     def start_desktop_task_reminder(self, is_start: bool, event: Any = None) -> None:
         """应用启用快捷键的统一接口"""
