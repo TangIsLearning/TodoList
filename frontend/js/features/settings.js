@@ -213,7 +213,7 @@ class SettingsUIManager {
     
     async updateCurrentState() {
         // 更新窗口置顶状态
-        this.updateWindowOnTopState();
+        await this.updateWindowOnTopState();
         
         // 更新主题选择
         await BusinessUtils.ThemeManager.init();
@@ -453,23 +453,21 @@ class SettingsUIManager {
     async updateWindowOnTopState() {
         if (!this.windowTopToggle) return;
 
-        let onTop = localStorage.getItem('todolist_windowOnTop');
-        if (onTop) {
-            this.windowTopToggle.checked = onTop === 'true';
-            this.onTop = this.windowTopToggle.checked;
-            return;
-        }
-
+        // 以数据库设置为唯一来源，localStorage 仅作缓存（接口失败时兜底），
+        // 避免 localStorage 残留的旧值覆盖真实设置，出现"界面显示未置顶、窗口实际置顶"的假象
         await Utils.apiCall({
             apiMethod: 'get_config',
             apiArgs: ['window_on_top'],
             onSuccess: (response) => {
-                this.windowTopToggle.checked = response.data.window_on_top;
-                this.onTop = this.windowTopToggle.checked;
+                const onTop = response.data.window_on_top === true;
+                this.windowTopToggle.checked = onTop;
+                this.onTop = onTop;
+                localStorage.setItem('todolist_windowOnTop', onTop.toString());
             },
             onError: (error) => {
-                this.windowTopToggle.checked = false;
-                this.onTop = this.windowTopToggle.checked;
+                const cached = localStorage.getItem('todolist_windowOnTop') === 'true';
+                this.windowTopToggle.checked = cached;
+                this.onTop = cached;
             }
         });
     }
@@ -614,8 +612,8 @@ class SettingsUIManager {
     
     async restoreSettings() {
         try {
-            // 恢复窗口置顶状态
-            this.onTop = localStorage.getItem('todolist_windowOnTop') === 'true';
+            // 恢复窗口置顶状态（以数据库为准，接口内部会同步 localStorage 缓存）
+            await this.updateWindowOnTopState();
             
             // 恢复主题设置
             await BusinessUtils.ThemeManager.init();

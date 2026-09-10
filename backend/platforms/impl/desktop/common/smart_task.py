@@ -141,6 +141,9 @@ class SmartTaskInput(LogManager):
             resizable=True,
             frameless=True,
             easy_drag=True,
+            # 【关键】创建时即置顶且此后不再切换：避免在全局热键线程反复修改 TopMost
+            # 状态位，与 UI 线程的 Show()/Activate() 竞争，导致快捷键窗口偶发落到主窗口下面
+            on_top=True,
             hidden=self.is_hide
         )
         self.window.events.closing += self.on_closing
@@ -148,7 +151,9 @@ class SmartTaskInput(LogManager):
         self.input_element.events.input += self.handle_input_change
         self.input_element.events.keydown += self.handle_keydown
         if not self.is_hide:
+            # 初始为显示状态时主动隐藏，同时同步 is_hide，避免状态与实际可见性不一致
             self.window.hide()
+            self.is_hide = True
 
     def handle_keydown(self, event: Dict[str, Any]) -> None:
         """监听键盘事件，当按下回车键时触发"""
@@ -385,7 +390,9 @@ class SmartTaskInput(LogManager):
         import time
         text = self.value.strip()
         if not text:
+            # 关键：隐藏窗口时必须同步 is_hide，否则下次快捷键会把“显示”误判成“隐藏”，导致窗口不弹出
             self.window.hide()
+            self.is_hide = True
             return
 
         parsed = self.parse_input(text)
@@ -406,14 +413,17 @@ class SmartTaskInput(LogManager):
         self.render_warning_content(default_warning, font_color_other, background_color_warning)
 
     def toggle_window(self) -> None:
-        """切换窗口显示/隐藏"""
+        """切换窗口显示/隐藏
+
+        注意：快捷键窗口的置顶(on_top)已在创建时一次性设为 True，此处不再切换。
+        本方法运行在全局热键监听线程，而 pywebview 的 on_top 赋值（i.TopMost）并未
+        marshal 到 UI 线程，反复赋值会与 show()/Activate() 竞争。
+        """
         if self.is_hide:
             self.window.show()
-            self.window.on_top = True
             self.is_hide = False
         else:
             self.window.hide()
-            self.window.on_top = False
             self.is_hide = True
 
     def setup_keyboard(self) -> None:
