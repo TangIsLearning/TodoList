@@ -42,7 +42,8 @@ class TaskRelationApiMixin:
     def search_subtasks_by_parent_name(self, parent_name: str, page: int = 1, page_size: int = 10,
                                        category_id: Optional[str] = None, status: Optional[str] = None,
                                        priority: Optional[str] = None,
-                                       due_date_filter: Optional[str] = None) -> Dict[str, Any]:
+                                       due_date_filter: Optional[str] = None,
+                                       parent_id: Optional[str] = None) -> Dict[str, Any]:
         """通过父任务名称搜索其子任务（要求父任务名称完全匹配），并按当前筛选条件过滤。
 
         筛选参数与 get_todos 语义一致（参考 operations.get_tasks_paginated）：
@@ -50,10 +51,17 @@ class TaskRelationApiMixin:
         - status: all|completed|uncompleted|pending|overdue
         - priority: all|high|medium|low|none
         - due_date_filter: all|today|tomorrow|week|month|no-due-date
+
+        parent_id: 父任务ID。存在同名任务时按名称解析会产生歧义，因此前端应优先传入
+        精确的父任务ID；仅当未提供时才回退到按名称解析。
         """
         from datetime import date, datetime, timedelta
-        # 先查找父任务
-        parent_task = self.db.find_task_by_title_exact(parent_name)
+        # 优先按精确ID查找父任务；否则按名称解析
+        parent_task = self.db.get_task(parent_id) if parent_id else None
+        if not parent_task:
+            # 回退：按名称解析时优先选择"确有子任务"的同名父任务，避免命中同名的空任务
+            parent_task = self.db.find_parent_task_by_title(parent_name) \
+                or self.db.find_task_by_title_exact(parent_name)
         if not parent_task:
             return {'tasks': [], 'total': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
 

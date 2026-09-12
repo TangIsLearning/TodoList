@@ -55,3 +55,74 @@ class TaskRelationCrudMixin:
         if row:
             return self.get_task(row[0])
         return None
+
+    def find_parent_task_by_title(self, title: str) -> Optional[Dict[str, Any]]:
+        """按标题精确查找"确有子任务关联"的父任务（不区分大小写）。
+
+        当存在多个同名任务时，仅凭标题无法确定用户所指的父任务；
+        这里优先返回在 task_relations 中确实挂有子任务的那条，避免解析到同名的空任务。
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT r.main_task_id, COUNT(r.sub_task_id) AS sub_count
+            FROM task_relations r
+            JOIN tasks t ON t.id = r.main_task_id
+            WHERE t.title = ? COLLATE NOCASE
+            GROUP BY r.main_task_id
+            ORDER BY sub_count DESC
+            LIMIT 1
+        ''', (title,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return self.get_task(row[0])
+        return None
+
+    def search_tasks_with_subtasks(self, keyword: str = '', limit: int = 5) -> List[Dict[str, Any]]:
+        """搜索具有子任务的父任务（按标题模糊匹配，不区分大小写），返回前 limit 条。
+
+        通过 task_relations 表 JOIN tasks，找出作为父任务（main_task_id）且标题匹配的任务，
+        并统计其子任务数量。关键字中的 % 与 _ 会被转义为字面量，不会被当作 LIKE 通配符。
+
+        返回:
+            [{id, title, priority, dueDate, completed, subtaskCount}, ...]
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        base_sql = '''
+            SELECT t.id, t.title, t.priority, t.due_date, t.completed, COUNT(r.sub_task_id) AS sub_count
+            FROM task_relations r
+            JOIN tasks t ON t.id = r.main_task_id
+        '''
+        if keyword:
+            # 转义 LIKE 通配符，避免关键字中的 %/_ 被当通配符
+            esc = '\\'
+            escaped = keyword.replace(esc, esc + esc).replace('%', esc + '%').replace('_', esc + '_')
+            like = f'%{escaped}%'
+            cursor.execute(
+                base_sql +
+                ' WHERE t.title COLLATE NOCASE LIKE ? ESCAPE ?'
+                ' GROUP BY r.main_task_id'
+                ' ORDER BY sub_count DESC, t.updated_at DESC'
+                ' LIMIT ?',
+                (like, esc, limit)
+            )
+        else:
+            cursor.execute(
+                base_sql +
+                ' GROUP BY r.main_task_id'
+                ' ORDER BY sub_count DESC, t.updated_at DESC'
+                ' LIMIT ?',
+                (limit,)
+            )
+        rows = cursor.fetchall()
+        conn.close()
+        return [{
+            'id': r[0],
+            'title': r[1],
+            'priority': r[2],
+            'dueDate': r[3],
+            'completed': bool(r[4]),
+            'subtaskCount': r[5]
+        } for r in rows]

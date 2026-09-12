@@ -45,6 +45,8 @@ class TodoManager {
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
         this._subtaskSuggestIndex = -1;
+        // 当前子任务搜索对应的父任务（存在同名任务时用于精确传递父任务ID）
+        this.subtaskParent = { id: null, title: null };
         // 日期范围缓存
         this.currentDateRange = null;
         // 统计数据更新防抖
@@ -373,34 +375,41 @@ class TodoManager {
         this.timeInput.addEventListener('input', onTimeChange);
         this.timeInput.addEventListener('change', onTimeChange);
     }
-    
-    // 加载任务
-    async loadTasks(fromZero = false) {
-        Utils.setLoading(true, '加载任务...');
-        const isLoadSubtasks = this.searchQuery && this.searchQuery.startsWith('>') && this.searchQuery.substring(1).trim();
+
+    // 构建任务列表查询参数（子任务搜索 / 普通搜索共用，保证分页与首屏一致）
+    buildListQuery(page) {
         const categoryIdArg = this.currentFilter === 'all' ? null : this.currentFilter;
         const statusArg = this.statusFilter === 'all' ? null : this.statusFilter;
         const priorityArg = this.priorityFilter === 'all' ? null : this.priorityFilter;
         const dueDateArg = this.dueDateFilter === 'all' ? null : this.dueDateFilter;
-        let apiMethod;
-        let apiArgs;
+
+        const isLoadSubtasks = this.searchQuery && this.searchQuery.startsWith('>') && this.searchQuery.substring(1).trim();
         if (isLoadSubtasks) {
-            apiMethod = 'search_subtasks_by_parent_name';
             // 参数顺序需与后端 TodoApi.search_subtasks_by_parent_name 签名对齐：
-            // (parent_name, page, page_size, category_id, status, priority, due_date_filter)
-            apiArgs = [
-                this.searchQuery.substring(1).trim(),
-                this.currentPage,
-                this.pageSize,
-                categoryIdArg,
-                statusArg,
-                priorityArg,
-                dueDateArg
-            ];
-        } else {
-            apiMethod = 'get_todos';
-            apiArgs = [
-                this.currentPage,
+            // (parent_name, page, page_size, category_id, status, priority, due_date_filter, parent_id)
+            const parentName = this.searchQuery.substring(1).trim();
+            // 仅当搜索文本仍与所选父任务标题完全一致时，才使用精确ID；
+            // 用户手动改写搜索文本后自动回退为按名称解析。
+            const parentId = (this.subtaskParent.id && this.subtaskParent.title
+                && parentName === this.subtaskParent.title) ? this.subtaskParent.id : null;
+            return {
+                apiMethod: 'search_subtasks_by_parent_name',
+                apiArgs: [
+                    parentName,
+                    page,
+                    this.pageSize,
+                    categoryIdArg,
+                    statusArg,
+                    priorityArg,
+                    dueDateArg,
+                    parentId
+                ]
+            };
+        }
+        return {
+            apiMethod: 'get_todos',
+            apiArgs: [
+                page,
                 this.pageSize,
                 categoryIdArg,
                 statusArg,
@@ -410,8 +419,14 @@ class TodoManager {
                 null,  // month
                 this.searchQuery || null,
                 this.customDateFilter || null
-            ];
-        }
+            ]
+        };
+    }
+
+    // 加载任务
+    async loadTasks(fromZero = false) {
+        Utils.setLoading(true, '加载任务...');
+        const { apiMethod, apiArgs } = this.buildListQuery(this.currentPage);
         await Utils.apiCall({
             apiMethod: apiMethod,
             apiArgs: apiArgs,
@@ -1218,10 +1233,12 @@ class TodoManager {
                 
                 if (countValue > 0) {
                     const taskTitle = el.dataset.taskTitle;
+                    const taskId = el.dataset.taskId;
                     if (taskTitle) {
                         // 进入子任务搜索模式：清空 chips 并透传 ">父任务名"
                         this.searchChips = [];
                         this.renderSearchChips();
+                        this.setSubtaskParent(taskId, taskTitle);
                         this.searchInput.value = `>${taskTitle}`;
                         this.syncSearchQuery(0);
                     }
@@ -1635,40 +1652,55 @@ class TodoManager {
         await Utils.apiCall({
             apiMethod: apiMethod,
             apiArgs: apiArgs,
-            onSuccess: (response) => {
+            onSuccess: async (response) => {
                 const message = isEdit ? window.languageManager.getText('taskUpdated', '任务更新成功') :
                     window.languageManager.getText('taskCreated', '任务创建成功');
 
                 const taskId = isEdit ? editingId : response.data.id;
 
                 // 处理父任务关联
-                if (isEdit) {
-                    // 编辑模式下需要处理父任务的更新/删除
-                    // 获取当前父任务
-                    Utils.apiCall({
-                        apiMethod: 'get_parent',
-                        apiArgs: [taskId],
-                        onSuccess: (response) => {
-                            const parent = response.data;
-                            const currentParentId = parent ? parent.id : null;
-                            // 父任务发生了变化：先删除旧关联，再添加新关联
-                            if (currentParentId) Utils.apiCall({apiMethod: 'remove_task_relation', apiArgs: [taskId], successCheck: (response) => true})
-                            if (parentTaskId) Utils.apiCall({apiMethod: 'add_task_relation', apiArgs: [taskId, parentTaskId], successCheck: (response) => true})
-                        },
-                        onError: (error) => {
-                            Utils.showToast(window.languageManager.getText('updateParentRelationFailed', '更新父任务关联失败'), 'warning');
+                try {
+                    if (isEdit) {
+                        // 先读取当前父任务
+                        let currentParentId = null;
+                        await Utils.apiCall({
+                            apiMethod: 'get_parent',
+                            apiArgs: [taskId],
+                            onSuccess: (res) => {
+                                currentParentId = res.data ? res.data.id : null;
+                            }
+                        });
+
+                        // 仅在父任务确实发生变化时才更新关联，且顺序执行：
+                        // 先解除旧关联，再建立新关联（并发执行会因先增后删而丢失新关联）
+                        if (currentParentId !== parentTaskId) {
+                            if (currentParentId) {
+                                await Utils.apiCall({
+                                    apiMethod: 'remove_task_relation',
+                                    apiArgs: [taskId],
+                                    successCheck: () => true
+                                });
+                            }
+                            if (parentTaskId) {
+                                await Utils.apiCall({
+                                    apiMethod: 'add_task_relation',
+                                    apiArgs: [taskId, parentTaskId],
+                                    successCheck: () => true,
+                                    onError: () => Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning')
+                                });
+                            }
                         }
-                    });
-                } else if (parentTaskId) {
-                    // 新建模式下直接添加关联
-                    Utils.apiCall({
-                        apiMethod: 'add_task_relation',
-                        apiArgs: [taskId, parentTaskId],
-                        successCheck: (response) => true,
-                        onError: (error) => {
-                            Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning');
-                        }
-                    });
+                    } else if (parentTaskId) {
+                        // 新建模式下直接添加关联
+                        await Utils.apiCall({
+                            apiMethod: 'add_task_relation',
+                            apiArgs: [taskId, parentTaskId],
+                            successCheck: () => true,
+                            onError: () => Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning')
+                        });
+                    }
+                } catch (error) {
+                    Utils.showToast(window.languageManager.getText('updateParentRelationFailed', '更新父任务关联失败'), 'warning');
                 }
 
                 Utils.showToast(message, 'success');
@@ -1995,6 +2027,8 @@ class TodoManager {
             if (this.isSubtaskSuggestMode(this.searchInput.value)) {
                 this.scheduleSubtaskSuggestions(250);
             } else {
+                // 退出 ">" 子任务搜索模式，清除记录的父任务
+                this.setSubtaskParent(null, null);
                 this.hideSubtaskSuggestions();
                 this.scheduleSearch(300);
             }
@@ -2041,7 +2075,7 @@ class TodoManager {
                 const item = this._subtaskSuggestItems[this._subtaskSuggestIndex];
                 if (item) {
                     e.preventDefault();
-                    this.selectSubtaskSuggestion(item.title);
+                    this.selectSubtaskSuggestion(item.title, item.id);
                     return;
                 }
             }
@@ -2290,7 +2324,7 @@ class TodoManager {
 
             // mousedown 阻止默认行为，防止输入框失焦导致下拉先被关闭
             item.addEventListener('mousedown', (e) => e.preventDefault());
-            item.addEventListener('click', () => this.selectSubtaskSuggestion(task.title));
+            item.addEventListener('click', () => this.selectSubtaskSuggestion(task.title, task.id));
 
             item.appendChild(titleEl);
             item.appendChild(countEl);
@@ -2307,8 +2341,18 @@ class TodoManager {
         if (active) active.scrollIntoView({ block: 'nearest' });
     }
 
+    // 记录当前子任务搜索对应的父任务（id 用于精确查询，title 用于校验搜索文本是否被改写）
+    setSubtaskParent(id, title) {
+        this.subtaskParent = {
+            id: id || null,
+            title: (title || '').trim() || null
+        };
+    }
+
     // 选中某条建议：填充 ">+精确标题" 并触发现有子任务搜索流程
-    selectSubtaskSuggestion(title) {
+    // id 为父任务精确ID，用于避免同名任务导致按标题解析到错误的父任务
+    selectSubtaskSuggestion(title, id = null) {
+        this.setSubtaskParent(id, title);
         this.searchInput.value = '>' + title;
         this.hideSubtaskSuggestions();
         this.syncSearchQuery(0);
@@ -2343,6 +2387,7 @@ class TodoManager {
             this._searchDebounceTimer = null;
         }
         this.hideSubtaskSuggestions();
+        this.setSubtaskParent(null, null);
         this.searchChips = [];
         this.renderSearchChips();
         this.searchInput.value = '';
@@ -2434,20 +2479,10 @@ class TodoManager {
         this.isLoadingMore = true;
         this.showLoadingMore();
         const nextPage = this.currentPage + 1;
+        const { apiMethod, apiArgs } = this.buildListQuery(nextPage);
         await Utils.apiCall({
-            apiMethod: 'get_todos',
-            apiArgs: [
-                nextPage,
-                this.pageSize,
-                this.currentFilter === 'all' ? null : this.currentFilter,
-                this.statusFilter === 'all' ? null : this.statusFilter,
-                this.priorityFilter === 'all' ? null : this.priorityFilter,
-                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-                null,
-                null,
-                this.searchQuery || null,
-                this.customDateFilter || null
-            ],
+            apiMethod: apiMethod,
+            apiArgs: apiArgs,
             onSuccess: (response) => {
                 if (response.data.tasks.length > 0) {
                     // 将新任务追加到现有任务列表
