@@ -5,6 +5,19 @@ from backend.utils.response_wrapper import api_handler
 class P2PApiMixin:
     """P2P服务核心操作 Mixin"""
 
+    @staticmethod
+    def _build_received_summary(data: Any) -> Any:
+        """构建供前端展示的接收数据摘要
+
+        附件实体文件（base64）体积可能很大，不返回给前端，仅返回文件数量；
+        导入时由后端缓存的完整数据补全，避免大字符串在 JS 桥接中反复传递。
+        """
+        if not isinstance(data, dict):
+            return data
+        summary = {k: v for k, v in data.items() if k != 'attachment_files'}
+        summary['attachment_file_count'] = len(data.get('attachment_files') or {})
+        return summary
+
     @api_handler
     def p2p_start_server(self) -> Dict[str, Any]:
         """启动P2P服务器"""
@@ -35,6 +48,13 @@ class P2PApiMixin:
     def p2p_stop_server(self) -> None:
         """停止P2P服务器"""
         self._p2p_server.stop()
+        # 清空缓存的共享数据，避免停止后仍响应旧数据（可能包含较大附件）
+        self._exported_data = None
+
+    @api_handler
+    def p2p_clear_received_data(self) -> None:
+        """清空已接收的缓存数据（取消导入时释放内存）"""
+        self._received_data = None
 
     @api_handler
     def p2p_scan_devices(self) -> Any:
@@ -47,20 +67,25 @@ class P2PApiMixin:
         self._received_data = self._p2p_client.receive_data(ip)
         if not self._received_data:
             raise Exception(f'接收数据失败')
-        return self._received_data
+        return self._build_received_summary(self._received_data)
 
     @api_handler
     def p2p_get_received_data(self) -> Any:
         """获取接收到的数据"""
-        return self._received_data
+        return self._build_received_summary(self._received_data)
 
     @api_handler
-    def p2p_export_data(self) -> Any:
-        """导出当前数据"""
-        self._exported_data = self._data_manager.export_data()
+    def p2p_export_data(self, include_attachments: bool = False) -> Any:
+        """导出当前数据
+
+        Args:
+            include_attachments: 是否同时打包附件数据（元信息 + 实体文件），
+                默认 False，即不传输任何附件数据
+        """
+        self._exported_data = self._data_manager.export_data(include_attachments=include_attachments)
         if not self._exported_data:
             raise Exception(f'导出数据失败')
-        return self._exported_data
+        return self._build_received_summary(self._exported_data)
 
     @api_handler
     def p2p_get_data_summary(self) -> Any:
@@ -78,8 +103,13 @@ class P2PApiMixin:
     @api_handler
     def p2p_import_data(self, data: Any) -> None:
         """导入数据"""
+        merged = data if isinstance(data, dict) else {}
+        cached = self._received_data if isinstance(self._received_data, dict) else {}
+        # 前端传入的是摘要（不含附件实体文件），此处补全后端缓存的实体文件
+        if 'attachment_files' not in merged and cached.get('attachment_files'):
+            merged = {**merged, 'attachment_files': cached['attachment_files']}
         # 在安卓设备上由于可能存在权限问题，因而不做备份操作
-        success = self._data_manager.import_data(data, backup=(not self.is_android))
+        success = self._data_manager.import_data(merged, backup=(not self.is_android))
         if not success:
             raise Exception(f'数据导入失败')
         # 导入成功后刷新前端缓存

@@ -77,46 +77,64 @@ def get_current_data_file() -> str:
     return get_default_data_file()
 
 
+def get_current_storage_dir() -> str:
+    """获取当前配置的存储目录（存储根目录）
+
+    优先级：
+    1. 从外部配置文件获取用户设置的存储目录
+    2. 环境变量
+    3. 默认目录
+    """
+    try:
+        from backend.config_manager import get_storage_dir
+        return str(get_storage_dir())
+    except Exception as e:
+        backend_logger.error(f"警告：从外部配置获取存储目录失败: {e}")
+
+    env_dir = os.environ.get('TODO_STORAGE_DIR')
+    if env_dir:
+        return env_dir
+
+    return str(Path(get_default_data_file()).parent)
+
+
 def set_data_file(path: str) -> bool:
-    """设置数据文件路径
-    
+    """【兼容旧接口】设置数据存储目录
+
     Args:
-        path (str): 新的数据文件路径
+        path (str): 存储目录路径（旧版本传入的是 db 文件路径，会自动取其父目录）
     """
     # 验证路径有效性
     if not path or not isinstance(path, str):
-        raise ValueError("数据文件路径不能为空")
-    
+        raise ValueError("存储目录不能为空")
+
     path_obj = Path(path)
-    
-    # 检查扩展名
-    if path_obj.suffix.lower() not in ['.db']:
-        raise ValueError("仅支持 .db 文件")
-    
-    # 检查路径是否存在，不存在则创建父目录
-    if not path_obj.parent.exists():
+    # 兼容旧接口：如果传入的是 db 文件路径，则取其父目录作为存储目录
+    if path_obj.suffix.lower() == '.db':
+        path_obj = path_obj.parent
+
+    # 检查路径是否存在，不存在则创建目录
+    if not path_obj.exists():
         try:
-            path_obj.parent.mkdir(parents=True, exist_ok=True)
+            path_obj.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            raise ValueError(f"无法创建目录 {path_obj.parent}: {e}")
-    
+            raise ValueError(f"无法创建目录 {path_obj}: {e}")
+
     # 检查是否有读写权限
-    if path_obj.exists() and not os.access(path, os.R_OK | os.W_OK):
-        raise PermissionError(f"没有对文件 {path} 的读写权限")
-    elif not path_obj.exists() and not os.access(path_obj.parent, os.W_OK):
-        raise PermissionError(f"没有在目录 {path_obj.parent} 创建文件的权限")
-    
+    if not os.access(str(path_obj), os.R_OK | os.W_OK):
+        raise PermissionError(f"没有对目录 {path_obj} 的读写权限")
+
     # 保存到外部配置文件
     try:
-        from backend.config_manager import set_data_file as set_external_data_file
-        success = set_external_data_file(path)
+        from backend.config_manager import set_storage_dir as set_external_storage_dir
+        success = set_external_storage_dir(str(path_obj))
         if success:
-            backend_logger.info(f"数据文件配置已保存到外部配置文件: {path}")
+            backend_logger.info(f"存储目录配置已保存到外部配置文件: {path_obj}")
             return True
         else:
             raise Exception("外部配置保存失败")
     except Exception as e:
-        backend_logger.error(f"警告：保存数据文件配置到外部配置失败: {e}")
+        backend_logger.error(f"警告：保存存储目录配置到外部配置失败: {e}")
         # 如果外部配置保存失败，回退到环境变量
-        os.environ['TODO_DATA_FILE'] = path
+        os.environ['TODO_STORAGE_DIR'] = str(path_obj)
         return True

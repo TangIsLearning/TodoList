@@ -543,6 +543,35 @@ input:checked + .slider:before {
     flex: 1;
 }
 
+/* 数据传输可选配置项（如是否传输附件） */
+.transfer-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.transfer-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+.transfer-option-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+}
+
 /* 主内容区 */
 .main-content {
     flex: 1;

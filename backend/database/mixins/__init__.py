@@ -7,6 +7,7 @@ Crud Mixins 集合
 from .task_crud_mixin import TaskCrudMixin
 from .category_crud_mixin import CategoryCrudMixin
 from .tag_crud_mixin import TagCrudMixin
+from .attachment_crud_mixin import AttachmentCrudMixin
 from .task_relation_crud_mixin import TaskRelationCrudMixin
 from .setting_crud_mixin import SettingCrudMixin
 from .statistics_crud_mixin import StatisticsCrudMixin
@@ -16,6 +17,7 @@ class AllCrudMixins(
     TaskCrudMixin,
     CategoryCrudMixin,
     TagCrudMixin,
+    AttachmentCrudMixin,
     TaskRelationCrudMixin,
     SettingCrudMixin,
     StatisticsCrudMixin
@@ -27,6 +29,7 @@ __all__ = [
     'TaskCrudMixin',
     'CategoryCrudMixin',
     'TagCrudMixin',
+    'AttachmentCrudMixin',
     'TaskRelationCrudMixin',
     'SettingCrudMixin',
     'StatisticsCrudMixin',

@@ -94,7 +94,8 @@ class TaskCrudMixin:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
-                'tags': self.get_task_tags(row[0])  # 添加标签信息
+                'tags': self.get_task_tags(row[0]),  # 添加标签信息
+                'attachments': self.get_task_attachments(row[0])  # 添加附件信息
             }
             tasks.append(task_dict)
 
@@ -133,7 +134,8 @@ class TaskCrudMixin:
             'parentTaskId': row[11],
             'createdAt': row[12],
             'updatedAt': row[13],
-            'tags': self.get_task_tags(task_id)  # 添加标签信息
+            'tags': self.get_task_tags(task_id),  # 添加标签信息
+            'attachments': self.get_task_attachments(task_id)  # 添加附件信息
         }
 
         conn.close()
@@ -208,6 +210,7 @@ class TaskCrudMixin:
 
         cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
         cursor.execute('DELETE FROM task_tags WHERE task_id = ?', (task_id,))
+        cursor.execute('DELETE FROM attachments WHERE task_id = ?', (task_id,))
 
         conn.commit()
         conn.close()
@@ -429,7 +432,8 @@ class TaskCrudMixin:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
-                'tags': self.get_task_tags(row[0])  # 添加标签信息
+                'tags': self.get_task_tags(row[0]),  # 添加标签信息
+                'attachments': self.get_task_attachments(row[0])  # 添加附件信息
             }
             tasks.append(task_dict)
 
@@ -484,7 +488,8 @@ class TaskCrudMixin:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
-                'tags': self.get_task_tags(row[0])
+                'tags': self.get_task_tags(row[0]),
+                'attachments': self.get_task_attachments(row[0])
             }
             tasks.append(task_dict)
         return tasks
@@ -522,7 +527,8 @@ class TaskCrudMixin:
                 'parentTaskId': row[11],
                 'createdAt': row[12],
                 'updatedAt': row[13],
-                'tags': self.get_task_tags(row[0])
+                'tags': self.get_task_tags(row[0]),
+                'attachments': self.get_task_attachments(row[0])
             }
         return None
 
@@ -672,6 +678,18 @@ class TaskCrudMixin:
         conn.close()
 
         return tasks
+
+    def get_recurring_family_ids(self, task_id: str) -> List[str]:
+        """获取周期性任务族（父任务 + 全部子任务）的ID列表"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT parent_task_id FROM tasks WHERE id = ?', (task_id,))
+        row = cursor.fetchone()
+        parent_id = row[0] if row and row[0] else task_id
+        cursor.execute('SELECT id FROM tasks WHERE id = ? OR parent_task_id = ?', (parent_id, parent_id))
+        ids = [r[0] for r in cursor.fetchall()]
+        conn.close()
+        return ids
 
     def delete_recurring_task(self, task_id: str, delete_all: bool = False) -> None:
         """删除周期性任务"""

@@ -69,3 +69,24 @@ def migrate_database(cursor: sqlite3.Cursor) -> None:
                 )
             ''')
         cursor.execute('CREATE INDEX idx_task_relations_parent ON task_relations(main_task_id)')
+
+    # 新增 attachments 表（附件仅存储元信息，文件本身存储在磁盘）
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='attachments'")
+    if not cursor.fetchone():
+        cursor.execute('''
+            CREATE TABLE attachments (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'file',
+                name TEXT NOT NULL,
+                file_path TEXT,
+                url TEXT,
+                size INTEGER,
+                mime_type TEXT,
+                is_image INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
+            )
+        ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id)')

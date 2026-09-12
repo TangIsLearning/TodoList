@@ -1124,3 +1124,116 @@
 .export-actions button {
     flex: 1;
 }
+
+/* ==================== 任务附件 ==================== */
+
+.attachment-group .attachment-count {
+    float: right;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+.attachment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.attachment-empty {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm) 0;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+}
+
+.attachment-item-icon {
+    flex: 0 0 auto;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+}
+
+.attachment-item-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.attachment-size {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.attachment-remove {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.attachment-remove:hover {
+    background-color: var(--danger-color);
+    color: var(--text-white);
+}
+
+.attachment-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.attachment-actions .btn {
+    flex: 1;
+}
+
+/* 任务详情中的附件 */
+.detail-attachment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-attachment-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--primary-color);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    text-decoration: none;
+    padding: 2px 0;
+    transition: var(--transition-fast);
+}
+
+.detail-attachment-link:hover {
+    text-decoration: underline;
+}
+
+.detail-attachment-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

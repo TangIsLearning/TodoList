@@ -641,16 +641,16 @@ class SettingsUIManager {
     }
     
     async browseFile() {
-        // 浏览选择文件
+        // 浏览选择目录
         this.setDirectoryButtonsDisabled(true);
         await Utils.apiCall({
-            apiMethod: 'select_file_dialog',
+            apiMethod: 'select_directory_dialog',
             onSuccess: (response) => {
                 const selectedPath = response.data;
                 if (selectedPath && this.dataDirBtn) {
                     this.dataDirBtn.textContent = selectedPath;
                     this.dataDirBtn.title = selectedPath;
-                    Utils.showToast(`已选择文件: ${selectedPath}`, 'success');
+                    Utils.showToast(`已选择目录: ${selectedPath}`, 'success');
 
                     // 自动聚焦到应用按钮，方便用户快速操作
                     setTimeout(() => {
@@ -661,7 +661,7 @@ class SettingsUIManager {
                 }
             },
             onError: (error) => {
-                Utils.showToast('浏览文件时发生错误: ' + error.message, 'error');
+                Utils.showToast('浏览目录时发生错误: ' + error.message, 'error');
             },
             onFinally: () => this.setDirectoryButtonsDisabled(false)
         });

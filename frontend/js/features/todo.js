@@ -54,6 +54,8 @@ class TodoManager {
         this._tagPendingFromZero = false;
         // DOM 元素缓存与统一管理
         this.cacheDomRefs();
+        // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
+        this.attachmentManager = new AttachmentManager(this);
         // 设置日期组件
         this.pikaday = new Pikaday({
             field: this.datePicker,
@@ -1007,6 +1009,9 @@ class TodoManager {
         // 加载标签选择器
         this.loadTagsSelector();
 
+        // 重置附件
+        this.attachmentManager?.reset();
+
         Utils.ModalManager.show('task-modal');
     }
     
@@ -1297,6 +1302,11 @@ class TodoManager {
             }
         });
 
+        // 附件信息
+        const attachmentsInfo = this.attachmentManager
+            ? this.attachmentManager.buildDetailHtml(task)
+            : '';
+
         const detailContent = `
             <div style="padding: 20px;">
                 <div style="margin-bottom: 20px;">
@@ -1349,6 +1359,8 @@ class TodoManager {
                         </div>
                     </div>
 
+                    ${attachmentsInfo}
+
                     ${childrenInfo}
 
                     <div>
@@ -1387,6 +1399,9 @@ class TodoManager {
                 this.viewTaskDetails(targetTaskId);
             };
         });
+
+        // 绑定附件点击事件（图片预览 / 文件打开 / 链接跳转）
+        this.attachmentManager?.bindDetailEvents(task);
     }
 
     // 加载分类名称(用于详情对话框)
@@ -1466,6 +1481,9 @@ class TodoManager {
 
         // 加载标签选择器
         this.loadTagsSelector();
+
+        // 加载已有附件
+        this.attachmentManager?.loadFromTask(task);
 
         Utils.ModalManager.show('task-modal');
     }
@@ -1569,7 +1587,8 @@ class TodoManager {
             priority: this.taskPrioritySelect.value,
             categoryId: this.taskCategorySelect.value || null,
             dueDate: isoDateStr || null,
-            tags: this.getSelectedTagsNames()
+            tags: this.getSelectedTagsNames(),
+            attachments: this.attachmentManager ? this.attachmentManager.getAttachments() : []
         };
         
         // 编辑模式下强制清除周期性任务相关数据

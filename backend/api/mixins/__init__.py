@@ -7,6 +7,7 @@ API Mixins 集合
 from .category_api_mixin import CategoryApiMixin
 from .config_api_mixin import ConfigApiMixin
 from .datafile_api_mixin import DatafileApiMixin
+from .attachment_api_mixin import AttachmentApiMixin
 from .p2p_api_mixin import P2PApiMixin
 from .statistics_api_mixin import StatisticsApiMixin
 from .tag_api_mixin import TagApiMixin
@@ -20,6 +21,7 @@ class AllApiMixins(
     CategoryApiMixin,
     ConfigApiMixin,
     DatafileApiMixin,
+    AttachmentApiMixin,
     P2PApiMixin,
     StatisticsApiMixin,
     TagApiMixin,
@@ -36,6 +38,7 @@ __all__ = [
     'CategoryApiMixin',
     'ConfigApiMixin',
     'DatafileApiMixin',
+    'AttachmentApiMixin',
     'P2PApiMixin',
     'StatisticsApiMixin',
     'TagApiMixin',

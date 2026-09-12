@@ -106,6 +106,66 @@ class Category:
         return category
 
 
+class Attachment:
+    """附件数据模型
+
+    数据库仅存储附件的存储信息（相对路径 / 在线链接），不存储文件内容。
+    - type = 'file' 时使用 file_path（相对于附件根目录的相对路径）
+    - type = 'link' 时使用 url（在线链接地址）
+    """
+
+    def __init__(self, id: Optional[str] = None, task_id: str = '', type: str = 'file',
+                 name: str = '', file_path: Optional[str] = None, url: Optional[str] = None,
+                 size: Optional[int] = None, mime_type: Optional[str] = None,
+                 is_image: bool = False) -> None:
+        self.id = id or str(uuid.uuid4())
+        self.task_id = task_id
+        self.type = type  # 'file' | 'link'
+        self.name = name
+        self.file_path = file_path
+        self.url = url
+        self.size = size
+        self.mime_type = mime_type
+        self.is_image = is_image
+        self.created_at = datetime.now()
+        self.updated_at = datetime.now()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'taskId': self.task_id,
+            'type': self.type,
+            'name': self.name,
+            'filePath': self.file_path,
+            'url': self.url,
+            'size': self.size,
+            'mimeType': self.mime_type,
+            'isImage': bool(self.is_image),
+            'createdAt': self.created_at.isoformat(),
+            'updatedAt': self.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Attachment:
+        attachment = cls(
+            id=data.get('id'),
+            task_id=data.get('taskId', ''),
+            type=data.get('type', 'file'),
+            name=data.get('name', ''),
+            # 兼容 filePath / relativePath 两种键名（附件服务 save_file 返回的是 relativePath）
+            file_path=data.get('filePath') or data.get('relativePath'),
+            url=data.get('url'),
+            size=data.get('size'),
+            mime_type=data.get('mimeType'),
+            is_image=data.get('isImage', False)
+        )
+        if data.get('createdAt'):
+            attachment.created_at = datetime.fromisoformat(data['createdAt'])
+        if data.get('updatedAt'):
+            attachment.updated_at = datetime.fromisoformat(data['updatedAt'])
+        return attachment
+
+
 class Tag:
     """标签数据模型"""
 

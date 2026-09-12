@@ -102,7 +102,7 @@ class DesktopCommonService(PlatformService):
         )
 
         # 写入表头
-        headers = ["任务名称", "父任务", "任务完成状态", "任务优先级", "任务完成截止时间", "任务所属分类", "任务关联标签"]
+        headers = ["任务名称", "父任务", "任务完成状态", "任务优先级", "任务完成截止时间", "任务所属分类", "任务关联标签", "任务附件"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = header_font
@@ -119,6 +119,10 @@ class DesktopCommonService(PlatformService):
             # 获取任务标签
             task_tags = db.get_task_tags(task['id'])
             tag_names = ', '.join([t['name'] for t in task_tags])
+
+            # 获取任务附件（仅导出名称，实体文件路径不导出）
+            task_attachments = db.get_task_attachments(task['id']) if hasattr(db, 'get_task_attachments') else []
+            attachment_names = ', '.join([a.get('name', '') for a in task_attachments if a.get('name')])
 
             # 获取分类名称
             category_name = category_map.get(task.get('categoryId'), '无分类')
@@ -145,7 +149,8 @@ class DesktopCommonService(PlatformService):
                 priority_map.get(task.get('priority'), '无'),
                 due_date_str,
                 category_name,
-                tag_names
+                tag_names,
+                attachment_names
             ]
 
             for col, value in enumerate(row_data, 1):
@@ -154,7 +159,7 @@ class DesktopCommonService(PlatformService):
                 cell.alignment = Alignment(vertical="center")
 
         # 设置列宽
-        column_widths = [30, 20, 15, 12, 20, 15, 25]
+        column_widths = [30, 20, 15, 12, 20, 15, 25, 30]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 

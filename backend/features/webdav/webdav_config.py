@@ -8,6 +8,21 @@ from backend.config_manager import get_config_manager
 # WebDAV配置常量
 WEBDAV_CONFIG_KEY = 'webdav_config'
 
+def normalize_remote_dir(remote_path: str) -> str:
+    """将远程配置标准化为「同步目录」
+
+    - 兼容旧版本：此前 remote_path 指向的是 db 文件路径（如 /todo/todo.db），
+      这里自动取其父目录作为同步目录。
+    """
+    import os
+    raw = (remote_path or '').strip()
+    if not raw:
+        return ''
+    if raw.lower().endswith('.db'):
+        raw = os.path.dirname(raw)
+    return raw.strip().strip('/')
+
+
 def get_webdav_config() -> Dict[str, Any]:
     """获取WebDAV配置"""
     config = get_config_manager().get(WEBDAV_CONFIG_KEY, {})
@@ -17,7 +32,7 @@ def get_webdav_config() -> Dict[str, Any]:
         'url': config.get('url', 'https://dav.jianguoyun.com/dav'),
         'username': config.get('username', ''),
         'password': config.get('password', ''),
-        'remote_path': config.get('remote_path', ''),
+        'remote_path': normalize_remote_dir(config.get('remote_path', '')),
         'auto_sync': config.get('auto_sync', True),
         'sync_interval': config.get('sync_interval', 15),  # 默认 15s
         'first_sync_mode': config.get('first_sync_mode', 'remote_overwrite')  # 默认远程覆盖本地
@@ -36,9 +51,9 @@ def set_webdav_config(config: Dict[str, Any]) -> bool:
         url = config.get('url', '')
         username = config.get('username', '')
         password = config.get('password', '')
-        remote_path = config.get('remote_path', '')
+        remote_path = normalize_remote_dir(config.get('remote_path', ''))
         if not url or not username or not password or not remote_path:
-            raise ValueError("启用WebDAV时，服务器地址、用户名、密码和远程文件路径不能为空")
+            raise ValueError("启用WebDAV时，服务器地址、用户名、密码和远程同步目录不能为空")
 
     # 设置默认值
     webdav_config = {
@@ -47,7 +62,7 @@ def set_webdav_config(config: Dict[str, Any]) -> bool:
         'url': str(config.get('url', 'https://dav.jianguoyun.com/dav')),
         'username': str(config.get('username', '')),
         'password': str(config.get('password', '')),
-        'remote_path': str(config.get('remote_path', '')),
+        'remote_path': normalize_remote_dir(str(config.get('remote_path', ''))),
         'auto_sync': bool(config.get('auto_sync', True)),
         'sync_interval': int(config.get('sync_interval', 15)),
         'first_sync_mode': str(config.get('first_sync_mode', 'remote_overwrite'))  # local_overwrite | remote_overwrite

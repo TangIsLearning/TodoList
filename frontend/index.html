@@ -600,6 +600,27 @@
                             </div>
                         </div>
 
+                        <!-- 附件 -->
+                        <div class="form-group attachment-group">
+                            <label>附件
+                                <span style="color: #666; font-size: 12px;">
+                                    （可选，最多 5 个，单个 10MB 以内）
+                                </span>
+                                <span id="attachment-count" class="attachment-count">0/5</span>
+                            </label>
+                            <div id="attachment-list" class="attachment-list">
+                                <div class="attachment-empty">暂无附件</div>
+                            </div>
+                            <div class="attachment-actions">
+                                <button type="button" id="attachment-add-file-btn" class="btn btn--tertiary-color">
+                                    📎 上传文件
+                                </button>
+                                <button type="button" id="attachment-add-link-btn" class="btn btn--tertiary-color">
+                                    🔗 添加链接
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="form-group datetime-group">
                             <label>截止日期和时间 <span
                                     style="color: #666; font-size: 12px;">（可选）</span></label>
@@ -653,6 +674,30 @@
         <div class="modal-footer">
             <button type="button" id="cancel-btn" class="btn btn--tertiary-color btn--padding-md">取消</button>
             <button type="submit" form="task-form" id="save-btn" class="btn btn--primary-color btn--padding-md">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 附件-在线链接添加弹窗 -->
+<div id="attachment-link-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>添加在线链接</h2>
+            <button class="btn btn--colorless btn--font-size-lg" id="attachment-link-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="attachment-link-name">链接名称 <span style="color: #666; font-size: 12px;">（可选，默认使用链接地址）</span></label>
+                <input type="text" id="attachment-link-name" maxlength="100" placeholder="请输入链接名称">
+            </div>
+            <div class="form-group">
+                <label for="attachment-link-url">链接地址 *</label>
+                <input type="text" id="attachment-link-url" placeholder="https://example.com">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="attachment-link-cancel" class="btn btn--tertiary-color btn--padding-md">取消</button>
+            <button type="button" id="attachment-link-save" class="btn btn--primary-color btn--padding-md">添加</button>
         </div>
     </div>
 </div>
@@ -796,7 +841,7 @@
                 <!-- 数据目录配置 -->
                 <div class="setting-item-config mobile-unshown-item data-storage">
                     <div class="config-item">
-                        <label class="data-label">存储路径</label>
+                        <label class="data-label">存储目录</label>
                         <button id="data-dir-btn" class="setting-config-text">浏览</button>
                         <button id="apply-dir-btn" class="btn btn--primary-color setting-config-btn">应用</button>
                     </div>
@@ -883,6 +928,10 @@
 
                 <div class="panel-section">
                     <h3>共享设置</h3>
+                    <label class="transfer-option">
+                        <input type="checkbox" id="include-attachments-checkbox">
+                        <span class="transfer-option-text" id="include-attachments-text">同时传输附件文件（体积较大，耗时更久）</span>
+                    </label>
                     <button id="start-share-btn" class="btn btn--primary-color btn--width-100">启动共享</button>
                     <button id="stop-share-btn" class="btn btn--danger-color btn--width-100" style="display: none;">停止共享</button>
                     <div class="edit-notice">⚠️ 开启/停止共享涉及配置防火墙，需要管理员权限</div>
@@ -979,8 +1028,8 @@
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">路径*</label>
-                        <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程文件路径">
+                        <label class="data-label">同步目录*</label>
+                        <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程同步目录，如 /todolist">
                     </div>
 
                     <div class="config-item">
@@ -1185,6 +1234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/utils/utils.js"></script>
 <script src="js/utils/business-utils.js"></script>
 <script src="js/features/language.js"></script>
+<script src="js/features/attachment.js"></script>
 <script src="js/features/todo.js"></script>
 <script src="js/features/category.js"></script>
 <script src="js/features/calendar.js"></script>

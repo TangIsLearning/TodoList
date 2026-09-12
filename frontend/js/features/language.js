@@ -452,6 +452,9 @@ class LanguageManager {
         const recurrenceCountInput = document.getElementById('recurrence-count');
         if (recurrenceCountInput) recurrenceCountInput.placeholder = lang.recurrenceCountRequired;
 
+        // 附件
+        this.updateAttachmentTexts(lang);
+
         // 模态框按钮
         const cancelBtn = document.getElementById('cancel-btn');
         const saveBtn = document.getElementById('save-btn');
@@ -465,6 +468,41 @@ class LanguageManager {
         this.updateConfirmDialog(lang);
     }
     
+    // 更新附件相关文本
+    updateAttachmentTexts(lang) {
+        // 表单附件标签（保留计数元素的现有值）
+        const attachmentLabel = document.querySelector('.attachment-group label');
+        if (attachmentLabel) {
+            const hintEl = attachmentLabel.querySelector('span:not(.attachment-count)');
+            if (hintEl) hintEl.textContent = lang.attachmentOptionalHint;
+            attachmentLabel.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                    node.textContent = `${lang.attachment} `;
+                }
+            });
+        }
+
+        // 附件操作按钮
+        const addFileBtn = document.getElementById('attachment-add-file-btn');
+        if (addFileBtn) addFileBtn.textContent = `📎 ${lang.attachmentUploadFile}`;
+        const addLinkBtn = document.getElementById('attachment-add-link-btn');
+        if (addLinkBtn) addLinkBtn.textContent = `🔗 ${lang.attachmentAddLink}`;
+
+        // 在线链接弹窗
+        const linkTitle = document.querySelector('#attachment-link-modal h2');
+        if (linkTitle) linkTitle.textContent = lang.attachmentAddLinkTitle;
+        const linkNameLabel = document.querySelector('label[for="attachment-link-name"]');
+        if (linkNameLabel) {
+            linkNameLabel.innerHTML = `${lang.attachmentLinkName} <span style="color: #666; font-size: 12px;">${lang.attachmentLinkNameHint}</span>`;
+        }
+        const linkUrlLabel = document.querySelector('label[for="attachment-link-url"]');
+        if (linkUrlLabel) linkUrlLabel.textContent = `${lang.attachmentLinkUrl} *`;
+        const linkCancelBtn = document.getElementById('attachment-link-cancel');
+        if (linkCancelBtn) linkCancelBtn.textContent = lang.cancel;
+        const linkSaveBtn = document.getElementById('attachment-link-save');
+        if (linkSaveBtn) linkSaveBtn.textContent = lang.attachmentAdd;
+    }
+
     // 更新分类模态框
     updateCategoryModal(lang) {
         const categoryModalTitle = document.getElementById('category-modal-title');

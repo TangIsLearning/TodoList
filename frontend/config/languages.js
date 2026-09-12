@@ -42,6 +42,27 @@ const Languages = {
         noTaskTags: "无标签",
         noTaskDescription: "无描述",
 
+        // 任务附件
+        taskAttachments: "附件",
+        noTaskAttachments: "无附件",
+        attachment: "附件",
+        attachmentEmpty: "暂无附件",
+        attachmentUploadFile: "上传文件",
+        attachmentAddLink: "添加链接",
+        attachmentMaxReached: "最多只能添加 {count} 个附件",
+        attachmentTooLarge: "单个附件不能超过 10MB，已忽略 {count} 个文件",
+        attachmentLinkRequired: "请输入链接地址",
+        attachmentLinkInvalid: "链接地址格式不正确",
+        attachmentOpenFailed: "打开附件失败",
+        attachmentOpenFallback: "无法直接打开附件，已为你打开文件所在目录，请手动打开",
+        attachmentRevealFailed: "无法打开文件所在目录",
+        attachmentOptionalHint: "（可选，最多 5 个，单个 10MB 以内）",
+        attachmentAddLinkTitle: "添加在线链接",
+        attachmentLinkName: "链接名称",
+        attachmentLinkNameHint: "（可选，默认使用链接地址）",
+        attachmentLinkUrl: "链接地址",
+        attachmentAdd: "添加",
+
         // 优先级
         priorityHigh: "高优先级",
         priorityMedium: "中优先级", 
@@ -166,6 +187,9 @@ const Languages = {
         dataImportedSuccess: "数据导入成功",
         dataImportedFailed: "数据导入失败",
         retrieveDataFailed: "无法获取接收到的数据",
+        transferIncludeAttachments: "同时传输附件文件（体积较大，耗时更久）",
+        attachmentRecords: "附件记录数",
+        attachmentFiles: "附件文件数",
         loadCategoriesFailed: "加载分类失败",
         errorCategoryNameRequired: "请输入分类名称",
         errorCategoryExisted: "分类名称已存在",
@@ -219,7 +243,7 @@ const Languages = {
         settingsConnectSuccess: "连接成功！可以正常使用云端同步功能！",
         settingsConnectionFailed: "连接失败",
         settingsImportWarning: "注意：当前操作将覆盖本地所有数据。建议先备份重要数据。是否继续？",
-        settingsStorageWarning: "注意：这将影响所有数据的读写操作，当前数据会被移动到新文件。建议先备份重要数据。是否继续？",
+        settingsStorageWarning: "注意：这将影响所有数据的读写操作，当前数据会被迁移到新的存储目录。建议先备份重要数据。是否继续？",
         settingsSyncModeLocalWarning: "注意：当前操作将直接触发一次本地数据强制覆盖远程文件数据。建议先备份重要数据。是否继续？",
         settingsSyncModeRemoteWarning: "注意：当前操作将直接触发一次远程数据强制覆盖本地文件数据。建议先备份重要数据。是否继续？",
         settingsSyncCloseWarning: "注意：当前操作将导致无法同步云端数据，是否继续？",
@@ -236,7 +260,7 @@ const Languages = {
         statementText: "仅供使用，勿商用",
 
         // 数据存储路径
-        dataStoragePath: "存储路径",
+        dataStoragePath: "存储目录",
 
         // 确认对话框
         confirmDeleteTask: "确定要删除任务",
@@ -327,6 +351,27 @@ const Languages = {
         // 任务详情
         noTaskTags: "(none)",
         noTaskDescription: "(none)",
+
+        // 任务附件
+        taskAttachments: "Attachments",
+        noTaskAttachments: "No attachments",
+        attachment: "Attachment",
+        attachmentEmpty: "No attachments",
+        attachmentUploadFile: "Upload File",
+        attachmentAddLink: "Add Link",
+        attachmentMaxReached: "You can add at most {count} attachments",
+        attachmentTooLarge: "Each attachment cannot exceed 10MB, {count} file(s) ignored",
+        attachmentLinkRequired: "Please enter the link URL",
+        attachmentLinkInvalid: "Invalid link URL",
+        attachmentOpenFailed: "Failed to open attachment",
+        attachmentOpenFallback: "Unable to open the attachment directly. Its folder has been opened, please open the file manually.",
+        attachmentRevealFailed: "Failed to open the containing folder",
+        attachmentOptionalHint: "(optional, max 5, each within 10MB)",
+        attachmentAddLinkTitle: "Add Link",
+        attachmentLinkName: "Link Name",
+        attachmentLinkNameHint: "(optional, defaults to the URL)",
+        attachmentLinkUrl: "Link URL",
+        attachmentAdd: "Add",
 
         // 优先级
         priorityHigh: "High Priority",
@@ -452,6 +497,9 @@ const Languages = {
         dataImportedSuccess: "Data imported successfully",
         dataImportedFailed: "Data import failed",
         retrieveDataFailed: "Unable to retrieve received data",
+        transferIncludeAttachments: "Also transfer attachment files (larger and slower)",
+        attachmentRecords: "Attachment records",
+        attachmentFiles: "Attachment files",
         loadCategoriesFailed: "Failed to load categories",
         errorCategoryNameRequired: "Please enter a category name",
         errorCategoryExisted: "Category name already exists",
@@ -522,7 +570,7 @@ const Languages = {
         statementText: "Personal use only, not for commercial use.",
 
         // 数据存储路径
-        dataStoragePath: "Storage Path",
+        dataStoragePath: "Storage Directory",
 
         // 确认对话框
         confirmDeleteTask: "Are you sure you want to delete task",

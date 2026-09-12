@@ -68,7 +68,7 @@ class DataSyncManager(LogManager):
         self.sync_timer.start()
 
     def _prepare_sync(self) -> Tuple[WebDAVClient, str]:
-        """准备同步环境，返回 (WebDAV客户端, 本地文件路径)"""
+        """准备同步环境，返回 (WebDAV客户端, 本地应用数据目录)"""
         if self.is_syncing:
             raise Exception('同步正在进行中')
         if not is_webdav_enabled():
@@ -80,16 +80,17 @@ class DataSyncManager(LogManager):
         if not client.configure(config['username'], config['password'], config['remote_path'], url):
             raise Exception('WebDAV客户端配置失败')
 
-        from backend.config import get_current_data_file
-        local_file = get_current_data_file()
-        return client, local_file
+        # 本地应用数据目录：<存储目录>/todolist（包含 todo.db 与 attachment）
+        from backend.config_manager import get_app_dir
+        local_dir = str(get_app_dir())
+        return client, local_dir
 
     def sync_from_cloud(self, is_overwrite: bool = False) -> None:
-        client, local_file = self._prepare_sync()
+        client, local_dir = self._prepare_sync()
         self.is_syncing = True
         try:
             self.get_logger.info("开始从云端同步数据...")
-            client.download_file(local_file, is_overwrite)
+            client.download_app_dir(local_dir, is_overwrite)
             self.last_sync_time = datetime.now()
             self.get_logger.info("云端数据同步成功")
             if self.on_sync_callback:
@@ -101,17 +102,36 @@ class DataSyncManager(LogManager):
             self.is_syncing = False
 
     def sync_to_cloud(self) -> None:
-        client, local_file = self._prepare_sync()
+        client, local_dir = self._prepare_sync()
         self.is_syncing = True
         try:
             self.get_logger.info("开始上传数据到云端...")
-            if not os.path.exists(local_file):
-                raise Exception(f'本地数据文件不存在: {local_file}')
-            client.upload_file(local_file)
+            if not os.path.exists(local_dir):
+                raise Exception(f'本地数据目录不存在: {local_dir}')
+            client.upload_app_dir(local_dir)
             self.last_sync_time = datetime.now()
             self.get_logger.info("数据上传到云端成功")
         finally:
             self.is_syncing = False
+
+    def download_attachment(self, relative_path: str, local_file: str) -> None:
+        """按需下载单个附件（移动端查看附件时使用）
+
+        Args:
+            relative_path: 附件相对路径（attachment/YYYY/YYYYMM/YYYYMMDD/xxx）
+            local_file: 本地下载目标路径
+        """
+        if not is_webdav_enabled():
+            raise Exception('WebDAV未启用')
+
+        client = get_webdav_client()
+        config = get_webdav_config()
+        url = config.get('url', 'https://dav.jianguoyun.com/dav')
+        if not client.configure(config['username'], config['password'], config['remote_path'], url):
+            raise Exception('WebDAV客户端配置失败')
+
+        remote_path = client.build_remote_path(relative_path)
+        client.download_file(remote_path, local_file, is_overwrite=True, compare_version=False)
 
     def trigger_upload_on_change(self) -> None:
         """在数据变更时触发上传"""

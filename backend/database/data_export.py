@@ -9,7 +9,7 @@ import json
 import shutil
 from pathlib import Path
 import sys
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from backend.utils.logger import LogManager
 
 # 添加backend目录到Python路径
@@ -51,6 +51,26 @@ class DataExportManager(LogManager):
         conn.text_factory = self._text_factory
         return conn
 
+    @staticmethod
+    def _ensure_attachments_table(cursor: sqlite3.Cursor) -> None:
+        """确保 attachments 表存在"""
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS attachments (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'file',
+                name TEXT NOT NULL,
+                file_path TEXT,
+                url TEXT,
+                size INTEGER,
+                mime_type TEXT,
+                is_image INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
+            )
+        ''')
+
     # 简单的字符串清理
     def _clean_str(self, s: Any) -> Any:
         if s is None or not isinstance(s, str):
@@ -60,11 +80,17 @@ class DataExportManager(LogManager):
         except:
             return str(s)
 
-    def export_data(self) -> Optional[Dict[str, Any]]:
+    def export_data(self, include_attachments: bool = True) -> Optional[Dict[str, Any]]:
         """导出数据库中的所有数据
 
+        Args:
+            include_attachments: 是否导出附件数据（元信息 + 实体文件）。
+                为 False 时不导出任何附件数据。
+
         Returns:
-            包含所有数据的字典，结构为 {'tasks': [...], 'categories': [...], 'settings': {...}}
+            包含所有数据的字典，结构为
+            {'tasks': [...], 'categories': [...], 'attachments': [...],
+             'attachment_files': {...}, 'settings': {...}}
         """
         try:
             self.get_logger.info("路径查询：%s", self.db_path)
@@ -114,21 +140,75 @@ class DataExportManager(LogManager):
                 except:
                     settings[row[0]] = row[1]
 
+            # 导出附件元信息（可选，实体文件随后单独打包）
+            attachments: List[Dict[str, Any]] = []
+            if include_attachments:
+                try:
+                    cursor.execute('''
+                        SELECT id, task_id, type, name, file_path, url, size, mime_type,
+                               is_image, created_at, updated_at
+                        FROM attachments
+                    ''')
+                    for row in cursor.fetchall():
+                        attachments.append({
+                            'id': row[0],
+                            'task_id': row[1],
+                            'type': row[2],
+                            'name': row[3],
+                            'file_path': row[4],
+                            'url': row[5],
+                            'size': row[6],
+                            'mime_type': row[7],
+                            'is_image': row[8],
+                            'created_at': row[9],
+                            'updated_at': row[10]
+                        })
+                except sqlite3.OperationalError:
+                    attachments = []
+
             conn.close()
 
             self.get_logger.info("导出数据无异常")
 
-            return {
+            result: Dict[str, Any] = {
                 'version': '1.0',
                 'export_time': str(Path(self.db_path).stat().st_mtime),
                 'tasks': tasks,
                 'categories': categories,
-                'settings': settings
+                'attachments': attachments,
+                'settings': settings,
+                'include_attachments': include_attachments
             }
+            if include_attachments:
+                # 打包附件实体文件（base64），供接收端按原相对路径还原
+                result['attachment_files'] = self._collect_attachment_files(attachments)
+            return result
 
         except Exception as e:
             self.get_logger.error(f"导出数据错误: {e}")
             return None
+
+    def _collect_attachment_files(self, attachments: List[Dict[str, Any]]) -> Dict[str, str]:
+        """打包附件实体文件为 base64（仅 file 类型且本地存在的文件）"""
+        try:
+            from backend.features.attachment.attachment_service import get_attachment_service
+            rel_paths = [
+                a.get('file_path') for a in (attachments or [])
+                if a.get('type', 'file') == 'file' and a.get('file_path')
+            ]
+            return get_attachment_service().collect_files(rel_paths)
+        except Exception as e:
+            self.get_logger.error(f"打包附件实体文件失败: {e}")
+            return {}
+
+    def _restore_attachment_files(self, files: Dict[str, str]) -> int:
+        """还原附件实体文件到本地附件存储目录"""
+        try:
+            from backend.features.attachment.attachment_service import get_attachment_service
+            return get_attachment_service().restore_files(files)
+        except Exception as e:
+            self.get_logger.error(f"还原附件实体文件失败: {e}")
+            return 0
 
     def import_data(self, data: Dict[str, Any], backup: bool = True) -> bool:
         """导入数据到数据库
@@ -150,6 +230,9 @@ class DataExportManager(LogManager):
             cursor = conn.cursor()
 
             # 清空现有数据
+            self._ensure_attachments_table(cursor)
+            cursor.execute('DELETE FROM attachments')
+            cursor.execute('DELETE FROM task_tags')
             cursor.execute('DELETE FROM tasks')
             cursor.execute('DELETE FROM categories')
             cursor.execute('DELETE FROM settings')
@@ -199,8 +282,40 @@ class DataExportManager(LogManager):
                     VALUES (?, ?, CURRENT_TIMESTAMP)
                 ''', (key, value_str))
 
+            # 导入附件元信息（仅在有对应任务时导入，避免产生孤儿数据）
+            for attachment in data.get('attachments', []) or []:
+                if not attachment.get('task_id'):
+                    continue
+                cursor.execute('SELECT id FROM tasks WHERE id = ?', (attachment['task_id'],))
+                if not cursor.fetchone():
+                    continue
+                cursor.execute('''
+                    INSERT OR REPLACE INTO attachments
+                        (id, task_id, type, name, file_path, url, size, mime_type,
+                         is_image, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    attachment.get('id'),
+                    attachment.get('task_id'),
+                    attachment.get('type', 'file'),
+                    self._clean_str(attachment.get('name')),
+                    attachment.get('file_path'),
+                    attachment.get('url'),
+                    attachment.get('size'),
+                    attachment.get('mime_type'),
+                    attachment.get('is_image', 0),
+                    attachment.get('created_at'),
+                    attachment.get('updated_at')
+                ))
+
             conn.commit()
             conn.close()
+
+            # 还原附件实体文件（如传输方携带附件；未携带则不做任何处理）
+            attachment_files = data.get('attachment_files') or {}
+            if attachment_files:
+                restored = self._restore_attachment_files(attachment_files)
+                self.get_logger.info(f"已还原 {restored} 个附件实体文件")
 
             self.get_logger.info("数据导入成功")
             return True
@@ -377,7 +492,10 @@ class DataExportManager(LogManager):
                         FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
                     )
                 ''')
-            
+
+            # 创建附件表
+            self._ensure_attachments_table(cursor)
+
             conn.commit()
             conn.close()
             

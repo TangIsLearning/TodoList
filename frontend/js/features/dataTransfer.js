@@ -43,6 +43,8 @@ class DataTransfer {
         this.sharePort = document.getElementById('share-port');
         this.shareDataSummary = document.getElementById('share-data-summary');
         this.scanDevicesBtn = document.getElementById('scan-devices-btn');
+        this.includeAttachmentsCheckbox = document.getElementById('include-attachments-checkbox');
+        this.includeAttachmentsText = document.getElementById('include-attachments-text');
         this.deviceListSection = document.getElementById('device-list-section');
         this.deviceList = document.getElementById('device-list');
         this.receiveDataPreviewSection = document.getElementById('receive-data-preview-section');
@@ -81,11 +83,21 @@ class DataTransfer {
 
     openModal() {
         if (this.modal) {
+            this.applyLanguage();
             this.modal.style.display = 'flex';
             this.loadDataSummary();
         } else {
             logger.error('模态框未找到！');
             Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
+        }
+    }
+
+    // 应用多语言文案
+    applyLanguage() {
+        if (this.includeAttachmentsText) {
+            this.includeAttachmentsText.textContent = window.languageManager.getText(
+                'transferIncludeAttachments', '同时传输附件文件（体积较大，耗时更久）'
+            );
         }
     }
 
@@ -134,8 +146,11 @@ class DataTransfer {
     }
 
     async startSharing() {
+        // 是否同时传输附件（元信息 + 实体文件），由用户勾选决定
+        const includeAttachments = !!this.includeAttachmentsCheckbox?.checked;
         await Utils.apiCall({
             apiMethod: 'p2p_export_data',
+            apiArgs: [includeAttachments],
             onSuccess: (response) => {
                 this.sharedData = response.data;
 
@@ -252,6 +267,8 @@ class DataTransfer {
     displayReceivedData(data) {
         const tasks = data.tasks || [];
         const categories = data.categories || [];
+        const attachmentCount = (data.attachments || []).length;
+        const attachmentFileCount = data.attachment_file_count || 0;
 
         this.receiveDataSummary.innerHTML = `
             <p><strong>版本:</strong> ${data.version || '未知'}</p>
@@ -259,6 +276,8 @@ class DataTransfer {
             <p><strong>任务数:</strong> ${tasks.length}</p>
             <p><strong>分类数:</strong> ${categories.length}</p>
             <p><strong>设置项:</strong> ${Object.keys(data.settings || {}).length}</p>
+            <p><strong>${window.languageManager.getText('attachmentRecords', '附件记录数')}:</strong> ${attachmentCount}</p>
+            <p><strong>${window.languageManager.getText('attachmentFiles', '附件文件数')}:</strong> ${attachmentFileCount}</p>
         `;
 
         this.scanDevicesBtn.click();
@@ -303,6 +322,8 @@ class DataTransfer {
     cancelImport() {
         this.receiveDataPreviewSection.style.display = 'none';
         this.importWarning.style.display = 'none';
+        // 释放后端缓存的接收数据（可能包含较大的附件实体文件）
+        Utils.apiCall({ apiMethod: 'p2p_clear_received_data' });
     }
 }
 
