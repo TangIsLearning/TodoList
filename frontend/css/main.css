@@ -1325,7 +1325,6 @@ input:checked + .slider:before {
 
 /* 数据目录配置样式 */
 .setting-item-config {
-    display: flex;
     margin-bottom: var(--spacing-sm);
 }
 
