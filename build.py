@@ -7,6 +7,7 @@ import os
 import sys
 import shutil
 import subprocess
+import platform
 from pathlib import Path
 
 def create_icon():
@@ -203,8 +204,25 @@ def create_dmg():
         print(f"⚠️ 制作 DMG 时出错: {e}")
         return False
 
+def get_arch_info():
+    """检测当前主机架构，返回 (arch_str, runtime_name, compression)"""
+    machine = platform.machine().lower()
+    if machine in ('x86_64', 'amd64'):
+        # x86_64 环境使用 zstd 压缩，以兼容新版 FUSE
+        return 'x86_64', 'runtime-x86_64', 'zstd'
+    elif machine in ('aarch64', 'arm64'):
+        # ARM 环境使用 xz 压缩，以兼容旧版 FUSE
+        return 'aarch64', 'runtime-aarch64', 'xz'
+    else:
+        print(f" ⚠️ 未知架构 {machine}，回退到 x86_64")
+        return 'x86_64', 'runtime-x86_64', 'zstd'
+
 def create_appimage():
-    print("🐧 创建 AppImage 包...")
+    """创建 AppImage 包，自动适配 x86_64 和 aarch64，使用系统 mksquashfs 进行 xz 压缩"""
+    arch, runtime_name, compression = get_arch_info()
+    print(f"🐧 创建 AppImage 包 (架构: {arch}, 压缩: {compression})...")
+
+    # 1. 准备 AppDir 目录结构
     appdir = Path('build/AppDir')
     if appdir.exists():
         shutil.rmtree(appdir)
@@ -286,31 +304,49 @@ exec $HERE/usr/bin/TodoList "$@"
     (appdir / 'AppRun').write_text(apprun_content)
     (appdir / 'AppRun').chmod(0o755)
 
-    # 使用 appimagetool 生成 AppImage
-    appimagetool = shutil.which('appimagetool')
-    if not appimagetool:
-        print("   ⚠️ 未找到 appimagetool，跳过 AppImage 生成")
+    # 使用系统 mksquashfs 生成 squashfs 镜像
+    print(f"   -> 使用系统 mksquashfs 生成 squashfs 镜像 ({compression} 压缩)...")
+    squashfs_file = Path('build/TodoList.squashfs')
+    if squashfs_file.exists():
+        squashfs_file.unlink()
+
+    mksquashfs_cmd = [
+        'mksquashfs', str(appdir), str(squashfs_file),
+        '-comp', compression, '-noappend'  # 使用动态的 compression
+    ]
+    try:
+        subprocess.run(mksquashfs_cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"   ❌ mksquashfs 执行失败: {e}")
+        return False
+    except FileNotFoundError:
+        print("   ❌ 未找到 mksquashfs，请安装 squashfs-tools：sudo apt install squashfs-tools")
         return False
 
     # 指定 runtime 文件（如果存在）
-    runtime_file = Path('/home/ubuntu24/TodoList/runtime-x86_64')
-    cmd = [appimagetool, str(appdir), 'dist/TodoList-x86_64.AppImage']
-    if runtime_file.exists():
-        cmd.insert(1, '--runtime-file')
-        cmd.insert(2, str(runtime_file))
-        print(f"   ✅ 使用 runtime 文件: {runtime_file}")
+    runtime_file = Path(runtime_name)
+    if not runtime_file.exists():
+        print(f"   ⚠️ 未找到 runtime 文件 {runtime_name}，请下载并放到项目根目录")
+        return False
 
-    output = Path('dist/TodoList-x86_64.AppImage')
+    # 拼接 runtime 与 squashfs 为最终 AppImage
+    print("   -> 拼接 runtime 与 squashfs...")
+    output = Path('dist') / f'TodoList-{arch}.AppImage'
     if output.exists():
         output.unlink()
 
-    try:
-        subprocess.run(cmd, check=True, env={**os.environ, 'ARCH': 'x86_64'})
-        print(f"   ✅ AppImage 已生成: {output}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"   ❌ AppImage 生成失败: {e}")
-        return False
+    with open(output, 'wb') as f_out:
+        with open(runtime_file, 'rb') as f_runtime:
+            shutil.copyfileobj(f_runtime, f_out)
+        with open(squashfs_file, 'rb') as f_squashfs:
+            shutil.copyfileobj(f_squashfs, f_out)
+
+    # 9. 赋予执行权限并清理临时文件
+    output.chmod(0o755)
+    squashfs_file.unlink()
+
+    print(f"   ✅ AppImage 已生成: {output}")
+    return True
 
 def main():
     """主函数"""
@@ -345,15 +381,16 @@ def main():
         create_dmg()
     elif sys.platform.startswith('linux'):
         if create_appimage():
-            # 【针对 Ubuntu 24.04 GNOME 的自动化集成】
             print("💡 正在为当前系统注册桌面图标...")
             try:
                 home_dir = Path.home()
                 apps_dir = home_dir / '.local/share/applications'
                 apps_dir.mkdir(parents=True, exist_ok=True)
 
-                # 1. 动态生成指向最终生成的 AppImage 绝对路径的桌面文件
-                appimage_path = Path('dist/TodoList-x86_64.AppImage').resolve()
+                # 自动检测架构以生成正确的 AppImage 文件名
+                arch, _, _ = get_arch_info()
+                appimage_name = f'TodoList-{arch}.AppImage'
+                appimage_path = (Path('dist') / appimage_name).resolve()
 
                 # 图标可以复制到用户本地图标目录，让 GNOME 能够全局识别
                 user_icons_dir = home_dir / '.local/share/icons/hicolor/256x256/apps'
@@ -397,10 +434,11 @@ def main():
         print("   1. 将dist文件夹复制到目标电脑")
         print("   2. 双击TodoList.exe运行应用")
     else:
+        arch, _, _ = get_arch_info()
         print("🐧 Linux 可执行文件位置: dist/TodoList")
         print("\n🎉 TodoList 应用已成功打包为AppImage程序!")
         print("📝 使用说明:")
-        print("     1. 应用分发：将 TodoList-x86_64.AppImage 发送给用户")
+        print(f"     1. 应用分发：将 TodoList-{arch}.AppImage 发送给用户")
         print("     2. 本地使用：进入 dist 目录, 运行 ./TodoList（确保已具有可执行权限）")
         print("\n💡 提示：如果提示权限不足，请执行 chmod +x TodoList")
 
