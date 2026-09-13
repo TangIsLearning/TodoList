@@ -136,9 +136,13 @@ class LinuxService(DesktopCommonService):
 
     def start_app(self) -> None:
         """启动应用的统一接口"""
+        import platform
         from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
+        machine = platform.machine().lower()
+        # arm架构的Linux环境下，关闭ssl功能
+        ssl_enable = False if machine in ('aarch64', 'arm64') else True
         manager = SystemTrayManager()
-        manager.start_app(True)
+        manager.start_app(ssl_enable)
 
 # 用于给工厂注册的导出变量
 ExportService = LinuxService
