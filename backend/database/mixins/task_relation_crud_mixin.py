@@ -56,6 +56,37 @@ class TaskRelationCrudMixin:
             return self.get_task(row[0])
         return None
 
+    def get_parents_map(self, task_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """批量获取多个任务的父任务（仅返回存在关联的任务）。
+
+        用于列表页展示"关联父项任务"列，避免逐条调用 get_parent 产生 N 次查询。
+
+        :param task_ids: 任务ID列表
+        :return: {子任务ID: {'id': 父任务ID, 'title': 父任务标题}}
+        """
+        ids = [tid for tid in (task_ids or []) if tid]
+        if not ids:
+            return {}
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        result: Dict[str, Dict[str, Any]] = {}
+        # SQLite 参数上限约 999，按批拆分以防列表过长
+        batch_size = 500
+        for start in range(0, len(ids), batch_size):
+            batch = ids[start:start + batch_size]
+            placeholders = ','.join(['?'] * len(batch))
+            cursor.execute(
+                f'SELECT r.sub_task_id, t.id, t.title '
+                f'FROM task_relations r JOIN tasks t ON t.id = r.main_task_id '
+                f'WHERE r.sub_task_id IN ({placeholders})',
+                tuple(batch)
+            )
+            for sub_task_id, parent_id, parent_title in cursor.fetchall():
+                result[sub_task_id] = {'id': parent_id, 'title': parent_title}
+        conn.close()
+        return result
+
     def find_parent_task_by_title(self, title: str) -> Optional[Dict[str, Any]]:
         """按标题精确查找"确有子任务关联"的父任务（不区分大小写）。
 

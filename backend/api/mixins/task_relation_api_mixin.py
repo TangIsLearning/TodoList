@@ -16,6 +16,15 @@ class TaskRelationApiMixin:
         return self.db.get_parent(task_id)
 
     @api_handler
+    def get_parents_map(self, task_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """批量获取多个任务的父任务（列表页"关联父项任务"列使用）。
+
+        :param task_ids: 任务ID列表
+        :return: {子任务ID: {'id': 父任务ID, 'title': 父任务标题}}，无父任务的任务不出现在结果中
+        """
+        return self.db.get_parents_map(task_ids)
+
+    @api_handler
     def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
         """为单个子任务设置父任务（若已存在则更新）"""
         sub = self.db.get_task(sub_task_id)
