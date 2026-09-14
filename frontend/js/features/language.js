@@ -241,8 +241,9 @@ class LanguageManager {
                 options[1].textContent = lang.taskHeaderPriority;
                 options[2].textContent = lang.taskHeaderDueDate;
                 options[3].textContent = lang.taskHeaderTag;
-                options[4].textContent = lang.taskHeaderAction;
             }
+            const actionOption = headerRow.querySelectorAll('.tasks-header-cell .tasks-header-label');
+            actionOption.textContent = lang.taskHeaderAction;
         }
 
         // 设置任务列表优先级列

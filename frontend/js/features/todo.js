@@ -1,5 +1,26 @@
 // 任务管理模块
 
+// 任务列表可配置的显示列
+// fixedWidth：固定像素宽度列（内容长度可预期，不随窗口变宽而变宽）
+// minWidth：弹性列（任务名称）的最小像素宽度，弹性列会占据表格剩余宽度
+const TASK_LIST_COLUMN_DEFS = [
+    { key: 'name', i18nKey: 'taskHeaderName', fallback: '任务名称', defaultVisible: true, locked: true, minWidth: 420 },
+    { key: 'priority', i18nKey: 'taskHeaderPriority', fallback: '优先级', defaultVisible: true, fixedWidth: 100 },
+    { key: 'dueDate', i18nKey: 'taskHeaderDueDate', fallback: '到期时间', defaultVisible: true, fixedWidth: 185 },
+    { key: 'tags', i18nKey: 'taskHeaderTag', fallback: '标签', defaultVisible: true, fixedWidth: 145 },
+    { key: 'category', i18nKey: 'taskHeaderCategory', fallback: '所属分类', defaultVisible: false, fixedWidth: 160 },
+    { key: 'parentTask', i18nKey: 'taskHeaderParentTask', fallback: '关联父项任务', defaultVisible: false, fixedWidth: 170 },
+    { key: 'attachments', i18nKey: 'taskHeaderAttachments', fallback: '任务附件', defaultVisible: false, fixedWidth: 130 }
+];
+// 操作列固定展示且不参与配置；内部是固定数量的按钮，使用固定像素宽度避免列变窄后换行变形
+const TASK_LIST_ACTION_COLUMN = { key: 'actions', i18nKey: 'taskHeaderAction', fallback: '操作', fixedWidth: 150 };
+// 任务名称列的最小像素宽度（同时保证不小于其他列中最宽一列的 2 倍）
+const TASK_LIST_NAME_MIN_WIDTH = 420;
+// 表格最小宽度（列较多时自动增大，保证列内容可读）
+const TASK_LIST_MIN_WIDTH = 1060;
+// 列配置本地缓存键（数据库为唯一来源，本地仅作首屏兜底）
+const TASK_LIST_COLUMNS_CACHE_KEY = 'todolist_task_list_columns';
+
 class TodoManager {
     constructor() {
         this.instances = [];
@@ -47,6 +68,10 @@ class TodoManager {
         this._subtaskSuggestIndex = -1;
         // 当前子任务搜索对应的父任务（存在同名任务时用于精确传递父任务ID）
         this.subtaskParent = { id: null, title: null };
+        // 任务列表当前显示的列（列 key 数组）
+        this.visibleColumns = TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key);
+        // 列表任务对应的父任务缓存：{ 子任务ID: { id, title } | null }
+        this.parentTaskMap = {};
         // 日期范围缓存
         this.currentDateRange = null;
         // 统计数据更新防抖
@@ -97,6 +122,9 @@ class TodoManager {
     // 初始化
     async init() {
         this.bindEvents();
+
+        // 读取任务列表显示列配置（本地缓存先兜底，随后以数据库为准）
+        await this.loadColumnConfig();
 
         // 设置默认筛选为"全部"
         this.currentFilter = 'all';
@@ -177,6 +205,15 @@ class TodoManager {
             addTagBtn: 'add-tag-btn',
             tagsSection: 'tags-section',
             tagsList: 'tags-list',
+            // 任务列表显示列配置弹窗
+            columnConfigModal: 'task-columns-modal',
+            columnConfigTitle: 'task-columns-title',
+            columnConfigDesc: 'task-columns-desc',
+            columnConfigList: 'task-columns-list',
+            columnConfigCloseBtn: 'task-columns-close',
+            columnConfigResetBtn: 'task-columns-reset',
+            columnConfigCancelBtn: 'task-columns-cancel',
+            columnConfigSaveBtn: 'task-columns-save',
         };
         Object.entries(dom).forEach(([key, id]) => {
             this[key] = document.getElementById(id);
@@ -249,6 +286,231 @@ class TodoManager {
         this.nextBtn?.addEventListener('click', () => this.goToPage(this.currentPage + 1));
         this.lastBtn?.addEventListener('click', () => this.goToPage(this.totalPages));
         this.pageSizeSelect?.addEventListener('change', (e) => this.changePageSize(e.target.value));
+
+        // 任务列表显示列配置
+        this.bindColumnConfigEvents();
+
+        // 语言切换后刷新列表（表头与列内容文案跟随语言变化）
+        window.languageManager?.addObserver?.(() => this.renderTasks());
+    }
+
+    // ============ 任务列表显示列配置 ============
+
+    // 获取列定义
+    getColumnDef(key) {
+        return TASK_LIST_COLUMN_DEFS.find(c => c.key === key);
+    }
+
+    // 规范化列配置：过滤非法列，并保证必选列始终存在
+    normalizeColumns(keys) {
+        const source = Array.isArray(keys) ? keys : [];
+        const valid = TASK_LIST_COLUMN_DEFS.filter(c => source.includes(c.key)).map(c => c.key);
+        TASK_LIST_COLUMN_DEFS.filter(c => c.locked).forEach(c => {
+            if (!valid.includes(c.key)) valid.unshift(c.key);
+        });
+        return valid;
+    }
+
+    // 当前显示的列（按定义顺序排列，结果按配置数组引用缓存，避免逐行重复计算）
+    getVisibleColumns() {
+        if (!this._visibleColumnsCache || this._visibleColumnsCacheSource !== this.visibleColumns) {
+            this._visibleColumnsCache = this.normalizeColumns(this.visibleColumns);
+            this._visibleColumnsCacheSource = this.visibleColumns;
+        }
+        return this._visibleColumnsCache;
+    }
+
+    // 判断指定列是否显示
+    isColumnVisible(key) {
+        return this.getVisibleColumns().includes(key);
+    }
+
+    // 依据当前显示的列计算列宽与表格最小宽度
+    // - 除任务名称外的列均为固定像素宽度，列数变化时不会被压缩（避免内容换行变形）
+    // - 任务名称作为唯一弹性列占据剩余宽度，窗口越宽名称列越宽，并至少为最宽固定列的 2 倍
+    getColumnLayout() {
+        const columns = this.getVisibleColumns()
+            .map(key => this.getColumnDef(key))
+            .filter(Boolean)
+            .concat([TASK_LIST_ACTION_COLUMN]);
+
+        const fixedTotal = columns.reduce((sum, c) => sum + (c.fixedWidth || 0), 0);
+        const maxFixed = columns.reduce((max, c) => Math.max(max, c.fixedWidth || 0), 0);
+        const flexWeight = columns.reduce((sum, c) => sum + (c.fixedWidth ? 0 : (c.minWidth || TASK_LIST_NAME_MIN_WIDTH)), 0) || 1;
+
+        // 表格最小宽度：固定列总和 + 任务名称列最小宽度
+        const minWidth = Math.max(
+            TASK_LIST_MIN_WIDTH,
+            fixedTotal + Math.max(TASK_LIST_NAME_MIN_WIDTH, maxFixed * 2)
+        );
+
+        return {
+            minWidth,
+            columns: columns.map(c => ({
+                key: c.key,
+                label: window.languageManager.getText(c.i18nKey, c.fallback),
+                width: c.fixedWidth
+                    ? `${c.fixedWidth}px`
+                    : `calc((100% - ${fixedTotal}px) * ${((c.minWidth || TASK_LIST_NAME_MIN_WIDTH) / flexWeight).toFixed(5)})`
+            }))
+        };
+    }
+
+    // 读取列配置：数据库为唯一来源，localStorage 仅用于首屏兜底
+    async loadColumnConfig() {
+        this.applyCachedColumnConfig();
+        await Utils.apiCall({
+            apiMethod: 'get_config',
+            apiArgs: ['task_list_columns'],
+            successCheck: (result) => !!result && !!result.data,
+            onSuccess: (response) => {
+                const keys = response.data.task_list_columns;
+                if (Array.isArray(keys)) this.visibleColumns = this.normalizeColumns(keys);
+            }
+        });
+    }
+
+    // 应用本地缓存的列配置
+    applyCachedColumnConfig() {
+        try {
+            const cached = localStorage.getItem(TASK_LIST_COLUMNS_CACHE_KEY);
+            if (!cached) return;
+            const keys = JSON.parse(cached);
+            if (Array.isArray(keys)) this.visibleColumns = this.normalizeColumns(keys);
+        } catch (e) {
+            logger.warn('解析任务列表列配置缓存失败:', e);
+        }
+    }
+
+    // 绑定列配置相关事件
+    bindColumnConfigEvents() {
+        // 列表内容会整体重绘，操作栏/父任务/附件均使用事件委托
+        this.tasksList?.addEventListener('click', (e) => {
+            const configBtn = e.target.closest('#task-columns-setting-btn');
+            if (configBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openColumnConfigModal();
+                return;
+            }
+
+            const parentLink = e.target.closest('.task-parent-link[data-task-id]');
+            if (parentLink) {
+                e.stopPropagation();
+                this.viewTaskDetails(parentLink.dataset.taskId);
+                return;
+            }
+
+            const attachmentChip = e.target.closest('.task-attachment-chip[data-attachment-id]');
+            if (attachmentChip) {
+                e.stopPropagation();
+                this.openListAttachment(attachmentChip.dataset.taskId, attachmentChip.dataset.attachmentId);
+            }
+        });
+
+        this.columnConfigCloseBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-columns-modal'));
+        this.columnConfigCancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-columns-modal'));
+        this.columnConfigResetBtn?.addEventListener('click', () => this.resetColumnConfigForm());
+        this.columnConfigSaveBtn?.addEventListener('click', () => this.saveColumnConfigFromForm());
+    }
+
+    // 打开列配置弹窗
+    openColumnConfigModal() {
+        this.updateColumnConfigText();
+        this.renderColumnConfigForm();
+        Utils.ModalManager.show('task-columns-modal');
+    }
+
+    // 刷新列配置弹窗中的静态文案（跟随语言切换）
+    updateColumnConfigText() {
+        if (this.columnConfigTitle) {
+            this.columnConfigTitle.textContent = window.languageManager.getText('columnConfigTitle', '配置显示列');
+        }
+        if (this.columnConfigDesc) {
+            this.columnConfigDesc.textContent = window.languageManager.getText('columnConfigDesc', '勾选需要在任务列表中展示的列');
+        }
+    }
+
+    // 渲染列勾选列表
+    renderColumnConfigForm(checkedKeys = null) {
+        if (!this.columnConfigList) return;
+
+        const selected = checkedKeys || this.getVisibleColumns();
+        const lockedText = Utils.escapeHtml(window.languageManager.getText('columnConfigLocked', '必选'));
+
+        this.columnConfigList.innerHTML = TASK_LIST_COLUMN_DEFS.map(def => {
+            const checked = !!def.locked || selected.includes(def.key);
+            const label = Utils.escapeHtml(window.languageManager.getText(def.i18nKey, def.fallback));
+            return `
+                <label class="column-config-item${def.locked ? ' locked' : ''}">
+                    <input type="checkbox" class="column-config-checkbox" value="${def.key}"
+                           ${checked ? 'checked' : ''} ${def.locked ? 'disabled' : ''}>
+                    <span class="column-config-name">${label}</span>
+                    ${def.locked ? `<span class="column-config-tag">${lockedText}</span>` : ''}
+                </label>
+            `;
+        }).join('');
+    }
+
+    // 恢复默认列配置（仅重置勾选，需点击保存生效）
+    resetColumnConfigForm() {
+        this.renderColumnConfigForm(TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key));
+    }
+
+    // 从表单中读取勾选结果并保存
+    async saveColumnConfigFromForm() {
+        const keys = Array.from(this.columnConfigList?.querySelectorAll('.column-config-checkbox') || [])
+            .filter(box => box.checked)
+            .map(box => box.value);
+        await this.saveColumnConfig(keys);
+    }
+
+    // 保存列配置并刷新列表
+    async saveColumnConfig(keys) {
+        const normalized = this.normalizeColumns(keys);
+        if (normalized.length === 0) {
+            Utils.showToast(window.languageManager.getText('columnConfigMinTip', '至少需要保留一列'), 'warning');
+            return;
+        }
+
+        this.visibleColumns = normalized;
+        localStorage.setItem(TASK_LIST_COLUMNS_CACHE_KEY, JSON.stringify(normalized));
+        Utils.ModalManager.hide('task-columns-modal');
+
+        await Utils.apiCall({
+            apiMethod: 'set_config',
+            apiArgs: ['task_list_columns', normalized],
+            onSuccess: () => Utils.showToast(window.languageManager.getText('columnConfigSaved', '显示列配置已保存'), 'success'),
+            onError: () => Utils.showToast(window.languageManager.getText('columnConfigSaveFailed', '显示列配置保存失败'), 'error')
+        });
+
+        await this.renderTasks();
+    }
+
+    // 批量加载当前列表任务的父任务（供"关联父项任务"列使用）
+    async loadParentTaskMap() {
+        const ids = this.tasks
+            .filter(task => task && task.id && !(task.id in this.parentTaskMap))
+            .map(task => task.id);
+        if (ids.length === 0) return;
+
+        await Utils.apiCall({
+            apiMethod: 'get_parents_map',
+            apiArgs: [ids],
+            successCheck: (result) => !!result && !!result.data,
+            onSuccess: (response) => {
+                const map = response.data || {};
+                ids.forEach(id => { this.parentTaskMap[id] = map[id] || null; });
+            },
+            onError: () => ids.forEach(id => { this.parentTaskMap[id] = null; })
+        });
+    }
+
+    // 打开列表中点击的附件
+    openListAttachment(taskId, attachmentId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        const attachment = task && (task.attachments || []).find(a => a.id === attachmentId);
+        if (attachment) this.attachmentManager?.openAttachment(attachment);
     }
 
     // 通用筛选器处理
@@ -434,6 +696,8 @@ class TodoManager {
                 this.tasks = response.data.tasks;
                 this.totalTasks = response.data.total;
                 this.totalPages = response.data.total_pages;
+                // 任务数据已更新，父任务缓存需重新拉取，避免展示过期的关联关系
+                this.parentTaskMap = {};
                 if (window.innerWidth > 480) {
                     // 大屏幕(大于480px)：使用表格分页模式，每页10条
                     this.renderTasks();
@@ -486,19 +750,36 @@ class TodoManager {
         // 生成HTML
         let html = '';
 
-        // 大屏幕添加表头
+        // 大屏幕添加表头（列由用户配置决定）
         if (isLargeScreen) {
+            // 展示"关联父项任务"列时需要父任务信息，统一批量查询避免逐条请求
+            if (this.isColumnVisible('parentTask')) await this.loadParentTaskMap();
+
+            const layout = this.getColumnLayout();
+            this.tasksList.style.minWidth = `${layout.minWidth}px`;
+
+            const configTip = Utils.escapeHtml(window.languageManager.getText('columnConfigTip', '配置列表查看列'));
+            // 操作列表头：文案与设置图标置于弹性容器中，中英文文案变长时图标也不会被挤出列外
+            const headerCells = layout.columns.map(col => `
+                <div class="tasks-header-cell" data-column="${col.key}" style="width: ${col.width};">
+                    ${col.key === 'actions' ? `
+                    <span class="tasks-header-actions">
+                        <span class="tasks-header-label" title="${Utils.escapeHtml(col.label)}">${Utils.escapeHtml(col.label)}</span>
+                        <button type="button" id="task-columns-setting-btn" class="btn btn--colorless column-config-btn"
+                                title="${configTip}">⚙️</button>
+                    </span>` : Utils.escapeHtml(col.label)}
+                </div>
+            `).join('');
+
             html += `
                 <div class="tasks-header">
                     <div class="tasks-header-row">
-                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderName', '任务名称')}</div>
-                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderPriority', '优先级')}</div>
-                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderDueDate', '到期时间')}</div>
-                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderTag', '标签')}</div>
-                        <div class="tasks-header-cell">${window.languageManager.getText('taskHeaderAction', '操作')}</div>
+                        ${headerCells}
                     </div>
                 </div>
             `;
+        } else {
+            this.tasksList.style.minWidth = '';
         }
 
         html += this.tasks.map(task => this.createTaskElement(task)).join('');
@@ -525,40 +806,17 @@ class TodoManager {
             ).join('');
         }
 
-        // 大屏幕表格式布局
+        // 大屏幕表格式布局（按用户配置的列渲染）
         if (isLargeScreen) {
+            const cellCtx = { priorityInfo, isOverdue, tagsHtml };
+            const cells = this.getVisibleColumns()
+                .map(key => this.createTaskCell(task, key, cellCtx))
+                .join('');
+
             return `
                 <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
-                    <div class="task-header">
-                        <div class="task-header-content">
-                            <div class="task-checkbox ${task.completed ? 'checked' : ''}"
-                                 data-task-id="${task.id}"></div>
-                            <div class="task-content">
-                                <h3 class="task-title" title="${task.title}">
-                                    ${Utils.escapeHtml(task.title)}
-                                    ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                                    <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
-                                </h3>
-                            </div>
-                        </div>
-                        <p class="task-description" style="display: none;">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
-                    </div>
-                    <div class="task-meta">
-                        <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
-                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
-                        </span>
-                    </div>
-                    <div class="task-due-date-cell">
-                        ${task.dueDate ? `
-                            <span class="task-due-date ${isOverdue ? 'overdue' : ''}" title="截止时间">
-                                📅 ${Utils.formatDate(task.dueDate)}
-                            </span>
-                        ` : '<span style="color: var(--text-muted);">-</span>'}
-                    </div>
-                    <div class="task-tags">
-                        ${tagsHtml || '<span style="color: var(--text-muted);">-</span>'}
-                    </div>
-                    <div class="task-actions">
+                    ${cells}
+                    <div class="task-actions" data-column="actions">
                         <button class="btn view" data-task-id="${task.id}"
                                 title="查看详情">👁️</button>
                         <button class="btn edit" data-task-id="${task.id}"
@@ -611,6 +869,114 @@ class TodoManager {
                     <button class="btn delete" data-task-id="${task.id}"
                             title="删除">🗑️</button>
                 </div>
+            </div>
+        `;
+    }
+
+    // 按列 key 生成任务行中的单元格（大屏幕表格布局）
+    createTaskCell(task, key, ctx) {
+        const { priorityInfo, isOverdue, tagsHtml } = ctx;
+        const empty = '<span class="task-cell-empty">-</span>';
+
+        switch (key) {
+            case 'name':
+                return `
+                    <div class="task-header" data-column="name">
+                        <div class="task-header-content">
+                            <div class="task-checkbox ${task.completed ? 'checked' : ''}"
+                                 data-task-id="${task.id}"></div>
+                            <div class="task-content">
+                                <h3 class="task-title" title="${task.title}">
+                                    ${Utils.escapeHtml(task.title)}
+                                    ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                                    <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
+                                </h3>
+                            </div>
+                        </div>
+                        <p class="task-description" style="display: none;">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
+                    </div>
+                `;
+            case 'priority':
+                return `
+                    <div class="task-cell task-meta" data-column="priority">
+                        <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
+                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
+                        </span>
+                    </div>
+                `;
+            case 'dueDate':
+                return `
+                    <div class="task-cell task-due-date-cell" data-column="dueDate">
+                        ${task.dueDate ? `
+                            <span class="task-due-date ${isOverdue ? 'overdue' : ''}" title="截止时间">
+                                📅 ${Utils.formatDate(task.dueDate)}
+                            </span>
+                        ` : empty}
+                    </div>
+                `;
+            case 'tags':
+                return `
+                    <div class="task-cell task-tags" data-column="tags">
+                        ${tagsHtml || empty}
+                    </div>
+                `;
+            case 'category':
+                return `
+                    <div class="task-cell task-category-cell" data-column="category">
+                        ${task.categoryId ? `
+                            <span class="task-category" data-category-id="${task.categoryId}">
+                                📁 加载中...
+                            </span>
+                        ` : empty}
+                    </div>
+                `;
+            case 'parentTask':
+                return `
+                    <div class="task-cell task-parent-cell" data-column="parentTask">
+                        ${this.createParentTaskContent(task)}
+                    </div>
+                `;
+            case 'attachments':
+                return `
+                    <div class="task-cell task-attachment-cell" data-column="attachments">
+                        ${this.createAttachmentsContent(task)}
+                    </div>
+                `;
+            default:
+                return '';
+        }
+    }
+
+    // "关联父项任务"列内容
+    createParentTaskContent(task) {
+        const parent = this.parentTaskMap[task.id];
+        if (!parent) return '<span class="task-cell-empty">-</span>';
+
+        return `
+            <span class="task-parent-link" data-task-id="${parent.id}"
+                  title="${Utils.escapeHtml(parent.title)}">🔗 ${Utils.escapeHtml(parent.title)}</span>
+        `;
+    }
+
+    // "任务附件"列内容：固定只渲染一行，避免多行撑高行高导致列表变形
+    createAttachmentsContent(task) {
+        const attachments = task.attachments || [];
+        if (attachments.length === 0) return '<span class="task-cell-empty">-</span>';
+
+        const first = attachments[0];
+        const icon = this.attachmentManager
+            ? this.attachmentManager._itemIcon(first)
+            : (first.type === 'link' ? '🔗' : '📎');
+        // 多余附件以“+N”计数展示，完整名称通过 title 悬浮查看
+        const more = attachments.length > 1
+            ? `<span class="task-attachment-more" title="${Utils.escapeHtml(attachments.slice(1).map(a => a.name).join('\n'))}">+${attachments.length - 1}</span>`
+            : '';
+
+        return `
+            <div class="task-attachment-list">
+                <span class="task-attachment-chip" data-task-id="${task.id}" data-attachment-id="${first.id}"
+                      title="${Utils.escapeHtml(first.name)}">${icon} ${Utils.escapeHtml(first.name)}</span>
+                ${more}
             </div>
         `;
     }
@@ -927,6 +1293,8 @@ class TodoManager {
                     const categoryId = el.dataset.categoryId;
                     const categoryName = categoryMap[categoryId] || '未知分类';
                     el.textContent = `📁 ${categoryName}`;
+                    // 列宽有限时以省略号截断，用 title 保证完整名称可见
+                    el.title = categoryName;
                 });
             }
         });

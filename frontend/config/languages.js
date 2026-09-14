@@ -134,6 +134,19 @@ const Languages = {
         taskHeaderDueDate: "到期时间",
         taskHeaderTag: "标签",
         taskHeaderAction: "操作",
+        taskHeaderCategory: "所属分类",
+        taskHeaderParentTask: "关联父项任务",
+        taskHeaderAttachments: "任务附件",
+
+        // 任务列表显示列配置
+        columnConfigTitle: "配置显示列",
+        columnConfigTip: "配置列表查看列",
+        columnConfigDesc: "勾选需要在任务列表中展示的列",
+        columnConfigLocked: "必选",
+        columnConfigReset: "恢复默认",
+        columnConfigSaved: "显示列配置已保存",
+        columnConfigSaveFailed: "显示列配置保存失败",
+        columnConfigMinTip: "至少需要保留一列",
         
         // 任务列表操作项提示语
         recurringTaskEditTip: "周期性任务不支持编辑",
@@ -444,6 +457,19 @@ const Languages = {
         taskHeaderDueDate: "Due Date",
         taskHeaderTag: "Tag",
         taskHeaderAction: "Action",
+        taskHeaderCategory: "Category",
+        taskHeaderParentTask: "Parent Task",
+        taskHeaderAttachments: "Attachments",
+
+        // 任务列表显示列配置
+        columnConfigTitle: "Configure Columns",
+        columnConfigTip: "Configure list columns",
+        columnConfigDesc: "Select the columns to display in the task list",
+        columnConfigLocked: "Required",
+        columnConfigReset: "Reset to Default",
+        columnConfigSaved: "Column settings saved",
+        columnConfigSaveFailed: "Failed to save column settings",
+        columnConfigMinTip: "At least one column is required",
         
         // 任务列表操作项提示语
         recurringTaskEditTip: "Periodic tasks cannot be edited",

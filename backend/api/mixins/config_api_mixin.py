@@ -39,6 +39,11 @@ class ConfigApiMixin:
             'default': False,
             'transform': utils.str_to_bool,
             'post_set': lambda self, value: self.service.set_auto_start_system(value)
+        },
+        # 任务列表可显示的列（前端列的显隐顺序），值为列 key 数组
+        'task_list_columns': {
+            'key': 'task_list_columns',
+            'default': ['name', 'priority', 'dueDate', 'tags']
         }
     }
 

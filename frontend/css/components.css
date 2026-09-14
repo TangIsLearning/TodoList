@@ -672,6 +672,15 @@
     cursor: default;
     display: inline-block;
     white-space: nowrap;
+    /* 列宽有限时省略号截断，完整名称通过 title 展示 */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.task-category {
+    font-size: var(--font-size-sm);
 }
 
 .task-priority.high {

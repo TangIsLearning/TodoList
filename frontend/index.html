@@ -757,6 +757,27 @@
     </div>
 </div>
 
+<!-- 任务列表显示列配置模态框 -->
+<div id="task-columns-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="task-columns-title">配置显示列</h2>
+            <button class="btn btn--colorless btn--font-size-lg" id="task-columns-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="column-config-desc" id="task-columns-desc">勾选需要在任务列表中展示的列</p>
+            <div class="column-config-list" id="task-columns-list">
+                <!-- 列配置项由 JavaScript 动态渲染 -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="task-columns-reset" class="btn btn--tertiary-color">恢复默认</button>
+            <button id="task-columns-cancel" class="btn btn--tertiary-color">取消</button>
+            <button id="task-columns-save" class="btn btn--primary-color">保存</button>
+        </div>
+    </div>
+</div>
+
 <!-- 设置中心模态框 -->
 <div id="settings-modal" class="modal">
     <div class="modal-content">
