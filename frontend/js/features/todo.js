@@ -146,8 +146,6 @@ class TodoManager {
         const dom = {
             tasksList: 'tasks-list',
             pagination: 'pagination',
-            noMoreTask: 'no-more-tasks',
-            loadingMoreTask: 'loading-more',
             tasksContainer: 'tasks-view',
             firstBtn: 'pagination-first',
             prevBtn: 'pagination-prev',
@@ -703,8 +701,8 @@ class TodoManager {
                     this.renderTasks();
                     this.renderPagination();
                     // 隐藏无限下拉相关
-                    if (this.loadingMoreTask) this.loadingMoreTask.style.display = 'none';
-                    if (this.noMoreTask) this.noMoreTask.style.display = 'none';
+                    this.hideLoadingMore();
+                    this.hideNoMoreTasks();
                 } else {
                     // 小屏幕：使用无限下拉模式
                     this.renderTasks();
@@ -2872,7 +2870,7 @@ class TodoManager {
             },
             onFinally: () => {
                 this.isLoadingMore = false;
-                this.loadingMoreTask?.remove();
+                this.hideLoadingMore();
             }
         });
     }
@@ -2887,8 +2885,23 @@ class TodoManager {
         this.bindTaskEvents();
     }
 
+    // 获取"加载更多"指示器（动态创建，需要实时查询）
+    getLoadingMoreEl() {
+        if (!this.tasksList) return null;
+        return this.tasksList.querySelector('#loading-more');
+    }
+
+    // 获取"已经到底了"提示（动态创建，需要实时查询）
+    getNoMoreTasksEl() {
+        if (!this.tasksList) return null;
+        return this.tasksList.querySelector('#no-more-tasks');
+    }
+
     // 显示"加载更多"指示器
     showLoadingMore() {
+        if (!this.tasksList) return;
+        this.hideLoadingMore();
+
         const loadingMoreDiv = document.createElement('div');
         loadingMoreDiv.id = 'loading-more';
         loadingMoreDiv.className = 'loading-more';
@@ -2899,8 +2912,19 @@ class TodoManager {
         this.tasksList.appendChild(loadingMoreDiv);
     }
 
+    // 隐藏"加载更多"指示器
+    hideLoadingMore() {
+        this.getLoadingMoreEl()?.remove();
+    }
+
     // 显示"已经到底了"提示
     showNoMoreTasks() {
+        if (!this.tasksList) return;
+        // 已存在则不重复添加
+        if (this.getNoMoreTasksEl()) return;
+        // 到底时应移除加载指示器
+        this.hideLoadingMore();
+
         const noMoreDiv = document.createElement('div');
         noMoreDiv.id = 'no-more-tasks';
         noMoreDiv.className = 'no-more-tasks';
@@ -2910,13 +2934,18 @@ class TodoManager {
         this.tasksList.appendChild(noMoreDiv);
     }
 
+    // 隐藏"已经到底了"提示
+    hideNoMoreTasks() {
+        this.getNoMoreTasksEl()?.remove();
+    }
+
     // 重置无限下拉状态
     resetInfiniteScroll() {
         this.isLoadingMore = false;
         this.hasMoreTasks = true;
         this.currentPage = 1;
-        this.noMoreTask?.remove();
-        this.loadingMoreTask?.remove();
+        this.hideNoMoreTasks();
+        this.hideLoadingMore();
         this.loadTasks();
     }
 
