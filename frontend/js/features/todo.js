@@ -68,6 +68,8 @@ class TodoManager {
         // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
         this.searchChips = [];
         this._searchDebounceTimer = null;
+        // 新建任务弹窗打开时的列表筛选快照：{ categoryId, tagIds }，用于提交后决定是否同步/清除筛选
+        this.createFilterSnapshot = null;
         // 子任务搜索建议下拉（输入 ">" 触发）
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
@@ -1393,14 +1395,18 @@ class TodoManager {
         // 截止日期默认为空，不设置默认值
         this.timeInput.value = '';
 
-        // 重置已选标签
-        this.selectedTags = [];
+        // 记录打开弹窗时的列表筛选快照（分类 + 标签），提交后据此决定是否同步或清除筛选
+        const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
+        const currentTagIds = this.searchChips
+            .filter(chip => chip.type === 'tag' && chip.tagId)
+            .map(chip => chip.tagId);
+        this.createFilterSnapshot = { categoryId: currentCategory, tagIds: currentTagIds };
+
+        // 已选标签继承当前标签筛选
+        this.selectedTags = [...currentTagIds];
 
         // 添加输入值变化监听
         this.addInputValueListeners();
-
-        // 获取当前选中的分类ID
-        const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
 
         // 加载分类选项并设置默认选中
         this.loadCategoryOptions(currentCategory);
@@ -2098,6 +2104,16 @@ class TodoManager {
 
                 // 移动端调整：如果当前页不是第一页，重置到第一页
                 if (this.isMobileDevice()) this.resetInfiniteScroll(); // 重置无限下拉状态
+
+                // 新建任务：按表单中最终选择的分类/标签同步列表筛选
+                let tagsModuleRefreshed = false;
+                if (!isEdit) {
+                    tagsModuleRefreshed = await this.syncFiltersAfterCreate(
+                        this.createFilterSnapshot, taskData.categoryId, taskData.tags
+                    );
+                    this.createFilterSnapshot = null;
+                }
+
                 this.loadTasks(true);
                 window.timelineManager.renderTimeline();
 
@@ -2106,11 +2122,61 @@ class TodoManager {
 
                 // 触发云端同步上传
                 Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
-                this.loadTagsModule(true);
+                if (!tagsModuleRefreshed) this.loadTagsModule(true);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
         });
+    }
+
+    // 新建任务完成后，按表单中用户最终选择的分类/标签同步列表筛选：
+    // - 分类：原本存在分类筛选时，未修改则保持；修改为其他分类则跟随新分类；改为"未分类"则重置为全部（清除分类筛选）
+    // - 标签：与打开弹窗时的筛选一致则保持标签筛选，一旦被修改则改为筛选用户新选的标签，未选任何标签则清除标签筛选
+    // 返回值：是否已刷新过左侧标签模块
+    async syncFiltersAfterCreate(snapshot, categoryId, tagNames) {
+        if (!snapshot) return false;
+        let tagsModuleRefreshed = false;
+
+        // ===== 分类筛选 =====
+        const chosenCategoryId = categoryId || '';
+        // 仅在打开弹窗时存在具体分类筛选的前提下，才跟随用户修改后的分类
+        if (snapshot.categoryId && chosenCategoryId !== snapshot.categoryId) {
+            // 选择"未分类"时清除分类筛选
+            const nextFilter = chosenCategoryId || 'all';
+            this.currentFilter = nextFilter;
+            if (window.categoryManager) {
+                window.categoryManager.currentCategory = nextFilter;
+                window.categoryManager.setActiveCategory(nextFilter);
+            }
+        }
+
+        // ===== 标签筛选 =====
+        const presetTagIds = snapshot.tagIds || [];
+        const chosenTagIds = this.selectedTags || [];
+        const isSameTags = chosenTagIds.length === presetTagIds.length &&
+            chosenTagIds.every(id => presetTagIds.includes(id));
+
+        if (!isSameTags) {
+            // 表单中可能包含新建的标签，先刷新标签列表以取其真实 id
+            await this.loadTagsModule(true);
+            tagsModuleRefreshed = true;
+
+            const nameSet = new Set((tagNames || []).map(name => String(name).toLowerCase()));
+            const chosenTagChips = this.availableTags
+                .filter(tag => nameSet.has(String(tag.name).toLowerCase()))
+                .map(tag => ({ type: 'tag', value: tag.name, tagId: tag.id, color: tag.color }));
+
+            // 保留非标签类型的搜索 chip（如文本搜索），仅替换标签筛选部分
+            this.searchChips = this.searchChips.filter(chip => chip.type !== 'tag').concat(chosenTagChips);
+            this.renderSearchChips();
+            this.refreshTagModuleSelection();
+        }
+
+        // 重新计算提交给后端的搜索串（chips + 输入框文本）
+        this.searchQuery = this.buildSearchQuery();
+        this.updateSearchClearButton();
+
+        return tagsModuleRefreshed;
     }
     
     // 删除任务
