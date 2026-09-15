@@ -3,7 +3,9 @@
 class CalendarManager {
     constructor() {
         this.currentDate = new Date();
-        this.currentView = 'list'; // 'list' 或 'calendar'
+        // 当前视图：list(列表) / calendar(日历) / timeline(时间轴) / stats(统计)
+        this.currentView = 'list';
+        this.supportedViews = ['list', 'calendar', 'timeline', 'stats'];
         this.tasks = [];
         this.currentMonth = null;
     }
@@ -11,6 +13,8 @@ class CalendarManager {
     // 初始化
     init() {
         this.bindEvents();
+        // 初始化视图状态：默认列表视图
+        this.syncViewIndicators(this.currentView);
     }
 
     // 绑定事件
@@ -25,9 +29,17 @@ class CalendarManager {
         nextMonthBtn?.addEventListener('click', () => this.nextMonth());
     }
 
-    // 切换视图
+    // 切换视图（事件入口：顶部下拉框 change 事件）
     async toggleView(event) {
-        const viewToggleSelect = event.target.value;
+        const target = event?.target ?? event?.currentTarget;
+        const viewName = target?.value || this.currentView || 'list';
+        await this.switchView(viewName);
+    }
+
+    // 切换视图（统一入口，顶部下拉框与小屏更多菜单共用）
+    // viewName: list | calendar | timeline | stats
+    async switchView(viewName) {
+        const targetView = this.supportedViews.includes(viewName) ? viewName : 'list';
         const tasksView = document.getElementById('tasks-view');
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
@@ -37,104 +49,102 @@ class CalendarManager {
         const groupDividerFilter = document.getElementById('filter-group-divider');
         const timelineView = document.getElementById('timeline-view');
         const statsView = document.getElementById('stats-view');
-        const moreMenuIcon = document.getElementById('more-menu-view-icon');
-        const moreMenuText = document.getElementById('more-menu-view-text');
-        let filterPageSize;
 
-        switch (viewToggleSelect) {
+        // 先隐藏所有视图容器，避免上个视图残留
+        [timelineView, tasksView, pagination, calendarView, statsView].forEach(el => {
+            if (el) el.style.display = 'none';
+        });
+        document.body.classList.remove('stats-mode');
+
+        // 先更新视图状态，保证后续异步加载（分页渲染等）基于新视图执行
+        this.currentView = targetView;
+        this.syncViewIndicators(targetView);
+
+        switch (targetView) {
             // 切换到日历视图
-            case 'calendar':
-                timelineView.style.display = 'none';
-                tasksView.style.display = 'none';
-                pagination.style.display = 'none';
-                calendarView.style.display = 'flex';
-                statsView.style.display = 'none';
-                document.body.classList.remove('stats-mode');
-                dueDateFilter.disabled = true;
-                dueDateFilter.style.pointerEvents = 'auto';
-                dueDateFilter.style.cursor = 'not-allowed';
-                prevMonthFilter.style.display = 'block';
-                nextMonthFilter.style.display = 'block';
-                groupDividerFilter.style.display = 'block';
-                moreMenuIcon.textContent = '📅';
-                moreMenuText.textContent = '切换日历视图';
-                this.currentView = 'calendar';
-                filterPageSize = 9999; // 假定单月任务最多9999个任务
+            case 'calendar': {
+                if (calendarView) calendarView.style.display = 'flex';
+                this.setDueDateFilterState(dueDateFilter, true);
+                if (prevMonthFilter) prevMonthFilter.style.display = 'block';
+                if (nextMonthFilter) nextMonthFilter.style.display = 'block';
+                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
+                const filterPageSize = 9999; // 假定单月任务最多9999个任务
                 // 通知TodoManager进行筛选
-                window.todoManager.currentPage = 1; // 重置到第一页
-                window.todoManager.pageSize = filterPageSize; // 设置分页数量
-                window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-                window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-                await window.todoManager.loadTasks();
+                if (window.todoManager) {
+                    window.todoManager.currentPage = 1; // 重置到第一页
+                    window.todoManager.pageSize = filterPageSize; // 设置分页数量
+                    window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+                    window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+                    await window.todoManager.loadTasks();
+                }
                 break;
-            case 'timeline':
-                // 切换到时间轴视图
-                timelineView.style.display = 'flex';
-                tasksView.style.display = 'none';
-                pagination.style.display = 'none';
-                calendarView.style.display = 'none';
-                statsView.style.display = 'none';
-                document.body.classList.remove('stats-mode');
-                dueDateFilter.disabled = true;
-                dueDateFilter.style.pointerEvents = 'auto';
-                dueDateFilter.style.cursor = 'not-allowed';
-                prevMonthFilter.style.display = 'none';
-                nextMonthFilter.style.display = 'none';
-                groupDividerFilter.style.display = 'block';
-                moreMenuIcon.textContent = '⌛';
-                moreMenuText.textContent = '切换时间轴视图';
-                this.currentView = 'calendar';
-                filterPageSize = 9999; // 假定单月任务最多9999个任务
+            }
+            // 切换到时间轴视图
+            case 'timeline': {
+                if (timelineView) timelineView.style.display = 'flex';
+                this.setDueDateFilterState(dueDateFilter, true);
+                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
+                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
+                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 // 通知TimelineManager进行筛选
-                await window.timelineManager.renderTimeline();
+                if (window.timelineManager) await window.timelineManager.renderTimeline();
                 break;
-            case 'list':
-            default:
-                // 切换到列表视图
-                timelineView.style.display = 'none';
-                tasksView.style.display = 'block';
-                pagination.style.display = 'flex';
-                calendarView.style.display = 'none';
-                statsView.style.display = 'none';
-                document.body.classList.remove('stats-mode');
-                dueDateFilter.disabled = false;
-                dueDateFilter.style.pointerEvents = 'auto';
-                dueDateFilter.style.cursor = 'default';
-                prevMonthFilter.style.display = 'none';
-                nextMonthFilter.style.display = 'none';
-                groupDividerFilter.style.display = 'none';
-                moreMenuIcon.textContent = '📋';
-                moreMenuText.textContent = '切换列表视图';
-                this.currentView = 'list';
-                filterPageSize = 10;
-                // 通知TodoManager进行筛选
-                window.todoManager.currentPage = 1; // 重置到第一页
-                window.todoManager.pageSize = filterPageSize; // 设置分页数量
-                window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-                window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-                await window.todoManager.loadTasks();
-                break;
-            case 'stats':
-                // 切换到统计视图
-                timelineView.style.display = 'none';
-                tasksView.style.display = 'none';
-                pagination.style.display = 'none';
-                calendarView.style.display = 'none';
-                statsView.style.display = 'block';
-                dueDateFilter.disabled = true;
-                dueDateFilter.style.pointerEvents = 'auto';
-                dueDateFilter.style.cursor = 'not-allowed';
-                prevMonthFilter.style.display = 'none';
-                nextMonthFilter.style.display = 'none';
-                groupDividerFilter.style.display = 'block';
-                moreMenuIcon.textContent = '📊';
-                moreMenuText.textContent = '切换统计视图';
-                this.currentView = 'stats';
+            }
+            // 切换到统计视图
+            case 'stats': {
+                if (statsView) statsView.style.display = 'block';
+                this.setDueDateFilterState(dueDateFilter, true);
+                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
+                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
+                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 document.body.classList.add('stats-mode');
                 // 通知统计管理器加载数据
                 if (window.statsManager) window.statsManager.onViewEnter();
                 break;
+            }
+            // 切换到列表视图
+            case 'list':
+            default: {
+                if (tasksView) tasksView.style.display = 'block';
+                if (pagination) pagination.style.display = 'flex';
+                this.setDueDateFilterState(dueDateFilter, false);
+                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
+                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
+                if (groupDividerFilter) groupDividerFilter.style.display = 'none';
+                const filterPageSize = 10;
+                // 通知TodoManager进行筛选
+                if (window.todoManager) {
+                    window.todoManager.currentPage = 1; // 重置到第一页
+                    window.todoManager.pageSize = filterPageSize; // 设置分页数量
+                    window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+                    window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+                    await window.todoManager.loadTasks();
+                }
+                break;
+            }
         }
+    }
+
+    // 设置截止日期筛选器的可用状态
+    setDueDateFilterState(dueDateFilter, disabled) {
+        if (!dueDateFilter) return;
+        dueDateFilter.disabled = disabled;
+        dueDateFilter.style.pointerEvents = 'auto';
+        dueDateFilter.style.cursor = disabled ? 'not-allowed' : 'default';
+    }
+
+    // 同步顶部下拉框与小屏更多菜单的视图状态
+    syncViewIndicators(viewName) {
+        const viewToggleSelect = document.getElementById('view-toggle-select');
+        if (viewToggleSelect && viewToggleSelect.value !== viewName) {
+            viewToggleSelect.value = viewName;
+        }
+
+        // 高亮小屏更多菜单中当前所在的视图项
+        const moreMenuLinks = document.querySelectorAll('.more-menu-link[data-action="switch-view"]');
+        moreMenuLinks.forEach(link => {
+            link.classList.toggle('active', link.dataset.view === viewName);
+        });
     }
 
     // 上一个月
@@ -320,7 +330,7 @@ class CalendarManager {
     // 处理日期点击
     async handleDayClick(dateStr, event) {
         // 切换回列表视图
-        await this.toggleView(event);
+        await this.switchView('list');
 
         // 设置截止日期筛选为指定日期
         const dueDateFilter = document.getElementById('due-date-filter');

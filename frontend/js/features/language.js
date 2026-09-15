@@ -348,11 +348,25 @@ class LanguageManager {
         // 视图
         const viewSelect = document.getElementById('view-toggle-select');
         const viewOptions = viewSelect?.querySelectorAll('option');
-        if (viewOptions.length >= 3) {
+        if (viewOptions.length >= 4) {
             viewOptions[0].textContent = `📋 ${lang.listView}`;
             viewOptions[1].textContent = `📅 ${lang.calendarView}`;
             viewOptions[2].textContent = `⌛ ${lang.timelineView}`;
+            viewOptions[3].textContent = `📊 ${lang.statsView}`;
         }
+
+        // 小屏更多菜单的视图切换项
+        const moreMenuViewTexts = document.querySelectorAll('.more-menu-text[data-view-text]');
+        const moreMenuViewLabels = {
+            list: lang.listView,
+            calendar: lang.calendarView,
+            timeline: lang.timelineView,
+            stats: lang.statsView
+        };
+        moreMenuViewTexts.forEach(textEl => {
+            const label = moreMenuViewLabels[textEl.dataset.viewText];
+            if (label) textEl.textContent = label;
+        });
 
         // 优先级筛选器
         const priorityFilter = document.getElementById('priority-filter');

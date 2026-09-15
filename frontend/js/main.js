@@ -74,11 +74,15 @@ class App {
         const sidebarOverlay = document.getElementById('sidebar-overlay');
         sidebarOverlay?.addEventListener('click', () => this.closeMobileSidebar());
 
-        // 窗口大小变化
+        // 窗口大小变化：立即处理保证蒙版及时关闭，同时防抖执行后续逻辑
+        this.debouncedResize = Utils.debounce(() => this.handleResize(), 250);
         window.addEventListener('resize', () => {
-            this.closeMobileSidebar();
-            Utils.debounce((() => this.handleResize()), 250);
+            this.handleResize();
+            this.debouncedResize();
         });
+
+        // 监听断点变化，窗口拉大后自动关闭小屏蒙版
+        this.bindBreakpointListeners();
         
         // 页面可见性变化
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -104,10 +108,10 @@ class App {
         // 更多菜单项点击事件
         const moreMenuLinks = document.querySelectorAll('.more-menu-link');
         moreMenuLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
+            link.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const action = link.dataset.action;
-                this.handleMoreMenuAction(e, action);
+                await this.handleMoreMenuAction(e, action, link.dataset.view);
                 this.hideMoreMenu();
             });
         });
@@ -154,10 +158,47 @@ class App {
         // 如果是移动设备，可能需要调整布局
         if (window.innerWidth < 768) {
             document.body.classList.add('mobile');
+            // 更多菜单按钮仅在 <=480px 展示，超出后蒙版需同步关闭
+            if (window.innerWidth > 480) this.hideMoreMenu();
         } else {
             document.body.classList.remove('mobile');
+            // 拉升为大屏时，自动关闭小屏更多菜单蒙版与侧边栏蒙版
             this.hideMoreMenu();
+            this.closeMobileSidebar();
         }
+    }
+
+    // 监听媒体查询断点变化，离开小屏时自动关闭蒙版
+    bindBreakpointListeners() {
+        const breakpoints = [
+            // 更多菜单按钮的展示断点（见 media.css max-width: 480px）
+            {
+                query: '(max-width: 480px)',
+                onChange: (matches) => {
+                    if (!matches) this.hideMoreMenu();
+                }
+            },
+            // 侧边栏/移动端布局断点
+            {
+                query: '(max-width: 768px)',
+                onChange: (matches) => {
+                    if (!matches) {
+                        this.hideMoreMenu();
+                        this.closeMobileSidebar();
+                    }
+                }
+            }
+        ];
+
+        breakpoints.forEach(({ query, onChange }) => {
+            const mediaQueryList = window.matchMedia(query);
+            const handler = (event) => onChange(event.matches);
+            if (typeof mediaQueryList.addEventListener === 'function') {
+                mediaQueryList.addEventListener('change', handler);
+            } else if (typeof mediaQueryList.addListener === 'function') {
+                mediaQueryList.addListener(handler); // 兼容旧版浏览器内核
+            }
+        });
     }
     
     // 处理页面可见性变化
@@ -334,16 +375,28 @@ class App {
         const modal = document.getElementById('more-menu-modal');
         if (modal) {
             modal.classList.remove('show');
-            // 恢复背景滚动
-            document.body.style.overflow = '';
+            // 恢复背景滚动（若仍有其他弹窗打开则保持锁定）
+            this.restoreBodyOverflow();
         }
+    }
+
+    // 在没有其他弹窗/蒙版打开时恢复背景滚动
+    restoreBodyOverflow() {
+        const stillOpen = document.querySelector(
+            '.modal.show, #qr-code-modal.show, #more-menu-modal.show'
+        );
+        if (!stillOpen) document.body.style.overflow = '';
     }
     
     // 处理更多菜单动作
-    async handleMoreMenuAction(event, action) {
+    async handleMoreMenuAction(event, action, view) {
         switch (action) {
+            case 'switch-view':
+                await this.switchView(view);
+                break;
             case 'calendar-view':
-                await this.toggleView(event);
+                // 兼容旧的“切换日历视图”动作
+                await this.switchView('calendar');
                 break;
             case 'filter-uncompleted':
                 await this.filterTasks('uncompleted', 'all', '', '已筛选未完成任务');
@@ -371,11 +424,20 @@ class App {
         }
     }
     
-    // 切换视图
+    // 切换视图（小屏更多菜单、顶部下拉框共用）
+    async switchView(viewName) {
+        if (window.calendarManager) {
+            await window.calendarManager.switchView(viewName);
+            Utils.showToast(window.languageManager?.getText('viewSwitched', '视图已切换'), 'success');
+        } else {
+            Utils.showToast('切换视图不可用', 'error');
+        }
+    }
+
+    // 切换视图（事件入口，兼容旧调用）
     async toggleView(event) {
         if (window.calendarManager) {
             await window.calendarManager.toggleView(event);
-            Utils.showToast('视图已切换', 'success');
         } else {
             Utils.showToast('切换视图不可用', 'error');
         }

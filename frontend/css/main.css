@@ -848,6 +848,9 @@ input:checked + .slider:before {
     box-shadow: var(--shadow-lg);
     width: 100%;
     max-width: 300px;
+    /* 菜单项较多时（4种视图 + 快捷筛选）允许内部滚动 */
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
     animation: slideInFromRight 0.3s ease;
 }
 

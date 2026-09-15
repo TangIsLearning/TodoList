@@ -123,6 +123,8 @@ const Languages = {
         listView: "列表视图",
         calendarView: "日历视图",
         timelineView: "时间轴视图",
+        statsView: "统计视图",
+        viewSwitched: "视图已切换",
 
         // 日历相关
         calendarMonth: "月",
@@ -446,6 +448,8 @@ const Languages = {
         listView: "List View",
         calendarView: "Calendar View",
         timelineView: "Timeline View",
+        statsView: "Stats View",
+        viewSwitched: "View switched",
         
         // 日历相关
         calendarMonth: "Month",
