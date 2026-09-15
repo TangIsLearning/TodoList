@@ -68,8 +68,10 @@ class TodoManager {
         // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
         this.searchChips = [];
         this._searchDebounceTimer = null;
-        // 新建任务弹窗打开时的列表筛选快照：{ categoryId, tagIds }，用于提交后决定是否同步/清除筛选
-        this.createFilterSnapshot = null;
+        // 任务弹窗打开时的筛选快照：{ categoryId, tagIds, hasCategoryFilter, hasTagFilter }
+        // categoryId/tagIds 为表单初始值（新建时为列表筛选值，编辑时为任务原值），
+        // hasCategoryFilter/hasTagFilter 标记弹窗打开时列表是否已存在对应筛选
+        this.taskFilterSnapshot = null;
         // 子任务搜索建议下拉（输入 ">" 触发）
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
@@ -1400,7 +1402,13 @@ class TodoManager {
         const currentTagIds = this.searchChips
             .filter(chip => chip.type === 'tag' && chip.tagId)
             .map(chip => chip.tagId);
-        this.createFilterSnapshot = { categoryId: currentCategory, tagIds: currentTagIds };
+        // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
+        this.taskFilterSnapshot = {
+            categoryId: currentCategory,
+            tagIds: currentTagIds,
+            hasCategoryFilter: !!currentCategory,
+            hasTagFilter: currentTagIds.length > 0
+        };
 
         // 已选标签继承当前标签筛选
         this.selectedTags = [...currentTagIds];
@@ -1865,6 +1873,18 @@ class TodoManager {
         // 设置已选标签
         this.selectedTags = task.tags ? task.tags.map(t => t.id) : [];
 
+        // 记录打开弹窗时的任务原分类/原标签与列表筛选状态，提交后据此决定是否同步筛选
+        const filterCategoryId = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
+        const filterTagIds = this.searchChips
+            .filter(chip => chip.type === 'tag' && chip.tagId)
+            .map(chip => chip.tagId);
+        this.taskFilterSnapshot = {
+            categoryId: task.categoryId || '',
+            tagIds: [...this.selectedTags],
+            hasCategoryFilter: !!filterCategoryId,
+            hasTagFilter: filterTagIds.length > 0
+        };
+
         // 如果有截止日期，自动展开更多选项
         if (task.dueDate) {
             const [datePart, timePart] = task.dueDate.split('T');
@@ -2105,14 +2125,11 @@ class TodoManager {
                 // 移动端调整：如果当前页不是第一页，重置到第一页
                 if (this.isMobileDevice()) this.resetInfiniteScroll(); // 重置无限下拉状态
 
-                // 新建任务：按表单中最终选择的分类/标签同步列表筛选
-                let tagsModuleRefreshed = false;
-                if (!isEdit) {
-                    tagsModuleRefreshed = await this.syncFiltersAfterCreate(
-                        this.createFilterSnapshot, taskData.categoryId, taskData.tags
-                    );
-                    this.createFilterSnapshot = null;
-                }
+                // 按表单中最终选择的分类/标签同步列表筛选
+                const tagsModuleRefreshed = await this.syncFiltersAfterSave(
+                    this.taskFilterSnapshot, taskData.categoryId, taskData.tags
+                );
+                this.taskFilterSnapshot = null;
 
                 this.loadTasks(true);
                 window.timelineManager.renderTimeline();
@@ -2129,18 +2146,20 @@ class TodoManager {
         });
     }
 
-    // 新建任务完成后，按表单中用户最终选择的分类/标签同步列表筛选：
-    // - 分类：原本存在分类筛选时，未修改则保持；修改为其他分类则跟随新分类；改为"未分类"则重置为全部（清除分类筛选）
-    // - 标签：与打开弹窗时的筛选一致则保持标签筛选，一旦被修改则改为筛选用户新选的标签，未选任何标签则清除标签筛选
+    // 任务保存（新建/更新）完成后，按表单中用户最终选择的分类/标签同步列表筛选：
+    // - 分类：分类被修改时，若原本存在分类筛选则跟随新分类，改为"未分类"则重置为全部（清除分类筛选）；
+    //         原本不存在分类筛选时不做任何筛选调整
+    // - 标签：标签被修改时，若原本存在标签筛选则改为筛选用户新选的标签，未选任何标签则清除标签筛选；
+    //         原本不存在标签筛选时不做任何筛选调整
     // 返回值：是否已刷新过左侧标签模块
-    async syncFiltersAfterCreate(snapshot, categoryId, tagNames) {
+    async syncFiltersAfterSave(snapshot, categoryId, tagNames) {
         if (!snapshot) return false;
         let tagsModuleRefreshed = false;
+        let filterChanged = false;
 
         // ===== 分类筛选 =====
         const chosenCategoryId = categoryId || '';
-        // 仅在打开弹窗时存在具体分类筛选的前提下，才跟随用户修改后的分类
-        if (snapshot.categoryId && chosenCategoryId !== snapshot.categoryId) {
+        if (chosenCategoryId !== snapshot.categoryId && snapshot.hasCategoryFilter) {
             // 选择"未分类"时清除分类筛选
             const nextFilter = chosenCategoryId || 'all';
             this.currentFilter = nextFilter;
@@ -2148,6 +2167,7 @@ class TodoManager {
                 window.categoryManager.currentCategory = nextFilter;
                 window.categoryManager.setActiveCategory(nextFilter);
             }
+            filterChanged = true;
         }
 
         // ===== 标签筛选 =====
@@ -2156,7 +2176,7 @@ class TodoManager {
         const isSameTags = chosenTagIds.length === presetTagIds.length &&
             chosenTagIds.every(id => presetTagIds.includes(id));
 
-        if (!isSameTags) {
+        if (!isSameTags && snapshot.hasTagFilter) {
             // 表单中可能包含新建的标签，先刷新标签列表以取其真实 id
             await this.loadTagsModule(true);
             tagsModuleRefreshed = true;
@@ -2170,11 +2190,17 @@ class TodoManager {
             this.searchChips = this.searchChips.filter(chip => chip.type !== 'tag').concat(chosenTagChips);
             this.renderSearchChips();
             this.refreshTagModuleSelection();
+            filterChanged = true;
         }
 
-        // 重新计算提交给后端的搜索串（chips + 输入框文本）
-        this.searchQuery = this.buildSearchQuery();
-        this.updateSearchClearButton();
+        if (filterChanged) {
+            // 重新计算提交给后端的搜索串（chips + 输入框文本）
+            this.searchQuery = this.buildSearchQuery();
+            this.updateSearchClearButton();
+            // 筛选条件已变化，回到第一页重新加载
+            this.currentPage = 1;
+            this.resetInfiniteScroll();
+        }
 
         return tagsModuleRefreshed;
     }
