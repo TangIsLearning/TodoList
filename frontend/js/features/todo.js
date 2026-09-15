@@ -54,6 +54,12 @@ class TodoManager {
         this.hasMoreTasks = true;
         this.scrollThreshold = 300; // 距离底部300px时开始加载
         this.scrollListener = null;
+        this.listLoadToken = 0; // 列表加载令牌：loadTasks 时自增，用于丢弃过期的下拉加载结果
+        this.autoFillTimer = null; // 自动填充定时器（内容不足一屏时补加载）
+        this.autoFillCount = 0; // 连续自动填充次数
+        this.maxAutoFill = 3; // 单次最多连续自动填充页数，避免首屏一次性拉完全部数据
+        this._scrollFrameId = null; // 滚动事件节流用的 rAF 句柄
+        this._globalCloseHandlerBound = false; // 全局关闭侧滑菜单的监听是否已绑定
         // 标签相关
         this.availableTags = [];
         this.selectedTags = [];
@@ -685,6 +691,9 @@ class TodoManager {
 
     // 加载任务
     async loadTasks(fromZero = false) {
+        // 递增令牌：使仍在飞行中的"加载更多"请求结果失效，避免旧数据追加到新列表
+        this.listLoadToken++;
+        this.autoFillCount = 0; // 重新加载后允许再次自动填充
         Utils.setLoading(true, '加载任务...');
         const { apiMethod, apiArgs } = this.buildListQuery(this.currentPage);
         await Utils.apiCall({
@@ -979,10 +988,13 @@ class TodoManager {
         `;
     }
     
-    // 绑定任务事件
-    async bindTaskEvents() {
+    // 绑定任务事件（root 用于限定作用域，无限下拉追加时只处理新增节点）
+    async bindTaskEvents(root = document) {
+        const scope = root || document;
+        const isFullBind = scope === document;
+
         // 复选框点击
-        document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
                 this.toggleTask(taskId);
@@ -990,15 +1002,19 @@ class TodoManager {
         });
 
         // 查看详情按钮(仅大屏幕)
-        document.querySelectorAll('.btn.view').forEach(btn => {
+        scope.querySelectorAll('.btn.view').forEach(btn => {
             btn.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
                 this.viewTaskDetails(taskId);
             };
         });
 
-        // 先重置所有小屏幕任务项的样式
-        document.querySelectorAll('.small-screen-task-item').forEach(item => {
+        // 全量绑定时先重置所有小屏幕任务项的样式，并解绑旧事件
+        const itemsToBind = isFullBind
+            ? scope.querySelectorAll('.small-screen-task-item')
+            : [];
+
+        Array.from(itemsToBind).forEach(item => {
             const content = item.querySelector('.task-header');
             if (content) {
                 // 重置所有样式到初始状态
@@ -1024,11 +1040,11 @@ class TodoManager {
             if (item._clickHandler) item.removeEventListener('click', item._clickHandler);
         });
 
-        // 清空实例数组
-        this.instances = [];
+        // 全量绑定时清空实例数组（增量绑定时保留已打开项的引用）
+        if (isFullBind) this.instances = [];
 
-        // 重新绑定
-        document.querySelectorAll('.small-screen-task-item').forEach(item => {
+        // 重新绑定（增量绑定时只包含新增节点）
+        Array.from(scope.querySelectorAll('.small-screen-task-item')).forEach(item => {
             const content = item.querySelector('.task-header');
             if (!content) return;
 
@@ -1196,31 +1212,36 @@ class TodoManager {
             item.addEventListener('dragstart', (e) => e.preventDefault());
         });
 
-        // 全局点击关闭（也要支持触摸）
-        const closeAllHandler = (e) => {
-            if (!e.target.closest('.small-screen-task-item')) {
-                this.instances.forEach(instance => {
-                    if (instance) {
-                        instance.style.left = '0px';
-                        instance.style.transition = 'left 0.2s ease';
-                        instance._isOpen = false;
-                    }
-                });
-                this.instances = [];
-            }
-        };
+        // 全局点击关闭（也要支持触摸）：只需绑定一次，避免无限下拉时重复叠加 document 监听
+        if (!this._globalCloseHandlerBound) {
+            const closeAllHandler = (e) => {
+                if (!e.target.closest('.small-screen-task-item')) {
+                    this.instances.forEach(instance => {
+                        if (instance) {
+                            instance.style.left = '0px';
+                            instance.style.transition = 'left 0.2s ease';
+                            instance._isOpen = false;
+                        }
+                    });
+                    this.instances = [];
+                }
+            };
 
-        document.addEventListener('click', closeAllHandler);
-        document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
+            document.addEventListener('click', closeAllHandler);
+            document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
+            this._globalCloseHandlerBound = true;
+        }
 
-        await this.loadSubtaskCounts();
+        await this.loadSubtaskCounts(scope);
 
         // 绑定子任务数量徽章点击事件
-        this.bindSubtaskCountEvents();
+        this.bindSubtaskCountEvents(scope);
 
-        // 添加CSS样式防止移动端默认行为
-        const style = document.createElement('style');
-        style.textContent = `
+        // 添加CSS样式防止移动端默认行为（只注入一次）
+        if (!document.getElementById('small-screen-task-style')) {
+            const style = document.createElement('style');
+            style.id = 'small-screen-task-style';
+            style.textContent = `
             .small-screen-task-item {
                 user-select: none;
                 -webkit-user-select: none;
@@ -1229,10 +1250,11 @@ class TodoManager {
                 will-change: transform; /* 优化性能 */
             }
         `;
-        document.head.appendChild(style);
+            document.head.appendChild(style);
+        }
 
         // 编辑按钮
-        document.querySelectorAll('.btn.edit').forEach(btn => {
+        scope.querySelectorAll('.btn.edit').forEach(btn => {
             const taskId = btn.dataset.taskId;
             const task = this.tasks.find(t => t.id === taskId);
 
@@ -1264,7 +1286,7 @@ class TodoManager {
         });
 
         // 删除按钮
-        document.querySelectorAll('.btn.delete').forEach(btn => {
+        scope.querySelectorAll('.btn.delete').forEach(btn => {
             btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;
                 await this.deleteTask(taskId);
@@ -1272,11 +1294,12 @@ class TodoManager {
         });
 
         // 加载分类名称
-        await this.loadCategoryNames();
+        await this.loadCategoryNames(scope);
     }
     
     // 加载分类名称
-    async loadCategoryNames() {
+    async loadCategoryNames(scope = document) {
+        const root = scope || document;
         await Utils.apiCall({
             apiMethod: 'get_categories',
             onSuccess: (response) => {
@@ -1287,7 +1310,7 @@ class TodoManager {
                     categoryMap[cat.id] = cat.name;
                 });
 
-                document.querySelectorAll('.task-category').forEach(el => {
+                root.querySelectorAll('.task-category').forEach(el => {
                     const categoryId = el.dataset.categoryId;
                     const categoryName = categoryMap[categoryId] || '未知分类';
                     el.textContent = `📁 ${categoryName}`;
@@ -1562,35 +1585,36 @@ class TodoManager {
         });
     }
     
-    // 加载子任务数量并更新显示
-    async loadSubtaskCounts() {
-        const subtaskCountEls = document.querySelectorAll('.subtask-count');
+    // 加载子任务数量并更新显示（scope 用于限定作用域，默认全文档）
+    async loadSubtaskCounts(scope = document) {
+        const root = scope || document;
+        const subtaskCountEls = root.querySelectorAll('.subtask-count');
         if (subtaskCountEls.length === 0) return;
         
         const taskIds = Array.from(subtaskCountEls).map(el => el.dataset.taskId);
 
-        for (const taskId of taskIds) {
-            await Utils.apiCall({
-                apiMethod: 'get_children',
-                apiArgs: [taskId],
-                onSuccess: (response) => {
-                    const children = response.data;
-                    if (children && children.length > 0) {
-                        const countEl = document.querySelector(`.subtask-count[data-task-id="${taskId}"]`);
-                        if (countEl) {
-                            const countSpan = countEl.querySelector('.count');
-                            if (countSpan) countSpan.textContent = children.length;
-                            countEl.style.display = 'inline';
-                        }
+        // 并发请求，避免逐条 await 导致列表越大等待越久
+        await Promise.all(taskIds.map(taskId => Utils.apiCall({
+            apiMethod: 'get_children',
+            apiArgs: [taskId],
+            onSuccess: (response) => {
+                const children = response.data;
+                if (children && children.length > 0) {
+                    const countEl = root.querySelector(`.subtask-count[data-task-id="${taskId}"]`);
+                    if (countEl) {
+                        const countSpan = countEl.querySelector('.count');
+                        if (countSpan) countSpan.textContent = children.length;
+                        countEl.style.display = 'inline';
                     }
                 }
-            });
-        }
+            }
+        })));
     }
     
     // 绑定子任务数量徽章点击事件
-    bindSubtaskCountEvents() {
-        document.querySelectorAll('.subtask-count').forEach(el => {
+    bindSubtaskCountEvents(scope = document) {
+        const root = scope || document;
+        root.querySelectorAll('.subtask-count').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 
@@ -2785,38 +2809,87 @@ class TodoManager {
     // 初始化无限下拉功能
     initInfiniteScroll() {
         // 移除已存在的监听器
-        if (this.scrollListener) {
-            this.tasksContainer.removeEventListener('scroll', this.scrollListener);
-            this.scrollListener = null;
-        }
+        this.removeScrollListener();
+        this.clearAutoFillTimer();
 
         // 只在移动端启用无限下拉
-        if (!this.isMobileDevice()) return;
+        if (!this.isMobileDevice() || !this.tasksContainer) return;
 
-        // 添加滚动监听器
-        this.scrollListener = async () => {
+        // 添加滚动监听器（rAF 节流，避免每个滚动事件都做布局计算）
+        this.scrollListener = () => {
+            // 用户主动滚动：重置连续自动填充计数
+            this.autoFillCount = 0;
+
             if (this.isLoadingMore || !this.hasMoreTasks) return;
+            if (this._scrollFrameId !== null) return;
 
-            const scrollPosition = this.tasksContainer.scrollTop + this.tasksContainer.clientHeight;
-            const scrollHeight = this.tasksContainer.scrollHeight;
+            this._scrollFrameId = window.requestAnimationFrame(() => {
+                this._scrollFrameId = null;
+                if (this.isLoadingMore || !this.hasMoreTasks) return;
 
-            // 当滚动位置距离底部小于阈值时，加载更多
-            if (scrollPosition >= scrollHeight - this.scrollThreshold) await this.loadMoreTasks();
+                const container = this.tasksContainer;
+                if (!container) return;
+
+                const scrollPosition = container.scrollTop + container.clientHeight;
+                const scrollHeight = container.scrollHeight;
+
+                // 当滚动位置距离底部小于阈值时，加载更多
+                if (scrollPosition >= scrollHeight - this.scrollThreshold) this.loadMoreTasks();
+            });
         };
 
         this.tasksContainer.addEventListener('scroll', this.scrollListener, { passive: true });
         logger.info('Infinite scroll listener attached');
 
         // 检查是否需要自动加载更多（内容不足以滚动时）
-        setTimeout(() => this.checkAndLoadMoreIfNeeded(), 100);
+        this.scheduleAutoFillCheck();
+    }
+
+    // 移除滚动监听器
+    removeScrollListener() {
+        if (this.scrollListener && this.tasksContainer) {
+            this.tasksContainer.removeEventListener('scroll', this.scrollListener);
+        }
+        this.scrollListener = null;
+
+        if (this._scrollFrameId !== null) {
+            window.cancelAnimationFrame(this._scrollFrameId);
+            this._scrollFrameId = null;
+        }
+    }
+
+    // 清除自动填充定时器
+    clearAutoFillTimer() {
+        if (this.autoFillTimer) {
+            clearTimeout(this.autoFillTimer);
+            this.autoFillTimer = null;
+        }
+    }
+
+    // 延迟检查是否需要自动加载更多
+    scheduleAutoFillCheck() {
+        this.clearAutoFillTimer();
+        this.autoFillTimer = setTimeout(() => {
+            this.autoFillTimer = null;
+            this.checkAndLoadMoreIfNeeded();
+        }, 100);
     }
 
     // 检查是否需要自动加载更多任务
     checkAndLoadMoreIfNeeded() {
         if (!this.isMobileDevice() || this.isLoadingMore || !this.hasMoreTasks) return;
 
-        const scrollHeight = this.tasksContainer.scrollHeight;
-        const clientHeight = this.tasksContainer.clientHeight;
+        const container = this.tasksContainer;
+        if (!container) return;
+
+        // 列表为空（或已隐藏）时不再自动补加载，避免空列表触发无意义的请求
+        if (!Array.isArray(this.tasks) || this.tasks.length === 0) return;
+
+        // 连续自动填充达到上限时暂停，等用户滚动时再继续，避免一次性拉完全部数据
+        if (this.autoFillCount >= this.maxAutoFill) return;
+
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
 
         logger.info('Checking if need to load more - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'currentPage:', this.currentPage, 'totalPages:', this.totalPages);
 
@@ -2824,9 +2897,10 @@ class TodoManager {
         // 同时确保还有更多页面可加载
         if (scrollHeight <= clientHeight && this.currentPage < this.totalPages) {
             logger.info('Content fits in viewport, auto-loading more tasks');
+            this.autoFillCount++;
             this.loadMoreTasks().then(() => {
                 // 加载完成后再次检查,直到内容超过容器高度
-                setTimeout(() => this.checkAndLoadMoreIfNeeded(), 100);
+                if (this.isMobileDevice()) this.scheduleAutoFillCheck();
             });
         }
     }
@@ -2845,17 +2919,29 @@ class TodoManager {
         this.isLoadingMore = true;
         this.showLoadingMore();
         const nextPage = this.currentPage + 1;
+        const token = this.listLoadToken; // 记录当前令牌，用于判断结果是否仍然有效
         const { apiMethod, apiArgs } = this.buildListQuery(nextPage);
         await Utils.apiCall({
             apiMethod: apiMethod,
             apiArgs: apiArgs,
             onSuccess: (response) => {
-                if (response.data.tasks.length > 0) {
+                // 期间发生了重新加载（搜索/筛选/删除等），丢弃本次结果，避免脏数据混入新列表
+                if (token !== this.listLoadToken) {
+                    logger.info('Discard stale load-more result, page:', nextPage);
+                    return;
+                }
+
+                // 用后端最新分页信息刷新总数，避免并发增删后分页信息过期
+                if (typeof response.data.total === 'number') this.totalTasks = response.data.total;
+                if (typeof response.data.total_pages === 'number') this.totalPages = response.data.total_pages;
+
+                const newTasks = response.data.tasks || [];
+                if (newTasks.length > 0) {
                     // 将新任务追加到现有任务列表
-                    this.tasks = [...this.tasks, ...response.data.tasks];
+                    this.tasks = [...this.tasks, ...newTasks];
                     this.currentPage = nextPage;
                     // 渲染新增的任务
-                    this.appendTasks(response.data.tasks);
+                    this.appendTasks(newTasks);
                     // 检查是否还有更多任务
                     this.hasMoreTasks = this.currentPage < this.totalPages;
                     // 如果是最后一页，显示到底提示
@@ -2877,12 +2963,21 @@ class TodoManager {
 
     // 追加任务到列表
     appendTasks(newTasks) {
-        // 生成新任务的HTML并追加到列表
-        const tasksHtml = newTasks.map(task => this.createTaskElement(task)).join('');
-        this.tasksList.insertAdjacentHTML('beforeend', tasksHtml);
+        if (!this.tasksList || !Array.isArray(newTasks) || newTasks.length === 0) return;
 
-        // 绑定新增任务的事件
-        this.bindTaskEvents();
+        // 生成新任务的HTML（先在游离容器中构建，便于只给新增节点绑定事件）
+        const temp = document.createElement('div');
+        temp.innerHTML = newTasks.map(task => this.createTaskElement(task)).join('');
+
+        // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
+        this.bindTaskEvents(temp);
+
+        // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
+        const anchor = this.getLoadingMoreEl();
+        while (temp.firstChild) {
+            if (anchor) this.tasksList.insertBefore(temp.firstChild, anchor);
+            else this.tasksList.appendChild(temp.firstChild);
+        }
     }
 
     // 获取"加载更多"指示器（动态创建，需要实时查询）
@@ -2939,14 +3034,17 @@ class TodoManager {
         this.getNoMoreTasksEl()?.remove();
     }
 
-    // 重置无限下拉状态
+    // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
     resetInfiniteScroll() {
+        // 使飞行中的"加载更多"结果失效
+        this.listLoadToken++;
         this.isLoadingMore = false;
         this.hasMoreTasks = true;
         this.currentPage = 1;
+        this.autoFillCount = 0;
+        this.clearAutoFillTimer();
         this.hideNoMoreTasks();
         this.hideLoadingMore();
-        this.loadTasks();
     }
 
     // 处理窗口大小变化
@@ -2960,11 +3058,11 @@ class TodoManager {
             // 设置列表为表格布局
             this.tasksList.style.display = 'table';
 
-            // 移除无限下拉
-            if (this.scrollListener) {
-                this.tasksContainer.removeEventListener('scroll', this.scrollListener);
-                this.scrollListener = null;
-            }
+            // 移除无限下拉（同时清理加载提示与待执行的自动填充）
+            this.removeScrollListener();
+            this.clearAutoFillTimer();
+            this.hideLoadingMore();
+            this.hideNoMoreTasks();
 
             // 显示分页
             this.pagination.style.display = 'flex';
