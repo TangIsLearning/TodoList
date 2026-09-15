@@ -9,13 +9,28 @@ class LanguageManager {
         this.isInitialized = false;
         this.observers = []; // 观察者列表，用于通知界面更新
         this.retryCount = 0;
+        this.initPromise = null;    // 初始化承诺，避免构造与 DOMContentLoaded 重复初始化
+        this.switchingPromise = null; // 切换中的承诺，避免快速连点造成并发切换
         
         // 等待语言配置文件加载完成后再初始化
         this.waitForLanguagesConfig().then(() => this.init());
     }
     
+    // 初始化（幂等，避免并发重复执行）
+    init() {
+        if (this.initPromise) return this.initPromise;
+        
+        this.initPromise = this.doInit().catch((error) => {
+            logger.error('Failed to initialize LanguageManager:', error);
+            // 使用默认语言
+            this.currentLanguage = this.currentLanguage || 'zh';
+        });
+        
+        return this.initPromise;
+    }
+    
     // 初始化
-    async init() {
+    async doInit() {
         try {
             // 从存储中恢复语言设置
             await this.initLanguageSetting();
@@ -53,22 +68,35 @@ class LanguageManager {
         });
     }
     
-    // 保存语言设置
+    // 保存语言设置（后端写入失败会抛出，交由调用方判定为切换失败）
     async saveLanguageSetting(language) {
         await Utils.apiCall({
             apiMethod: 'set_config',
             apiArgs: ['language', language],
+            throwOnError: true,
             onSuccess: (response) => {
+                // 写入本地缓存，保证下次启动能立即恢复用户选择
                 localStorage.setItem('todolist_language', language);
-            },
-            onError: (error) => {
-                this.currentLanguage = 'zh';
             }
         });
     }
     
     // 切换语言
-    async switchLanguage(language) {
+    switchLanguage(language) {
+        // 串行化切换请求，避免快速连点导致并发写入与界面错乱
+        if (this.switchingPromise) {
+            return this.switchingPromise.then(() => this.switchLanguage(language));
+        }
+        
+        this.switchingPromise = this.doSwitchLanguage(language).finally(() => {
+            this.switchingPromise = null;
+        });
+        
+        return this.switchingPromise;
+    }
+    
+    // 切换语言实现
+    async doSwitchLanguage(language) {
         if (!window.Languages || !window.Languages[language]) {
             logger.error('Language not supported:', language);
             return false;
@@ -79,23 +107,28 @@ class LanguageManager {
         }
         
         try {
-            // 保存设置
+            // 保存设置（持久化失败才是真正的切换失败）
             await this.saveLanguageSetting(language);
-            
-            // 更新当前语言
-            this.currentLanguage = language;
-            
-            // 应用语言设置
-            await this.applyLanguage(language);
-            
-            // 通知观察者
-            this.notifyObservers();
-            
-            return true;
         } catch (error) {
             logger.error('Failed to switch language:', error);
             return false;
         }
+        
+        // 持久化成功即视为切换成功，后续界面刷新异常不应回滚语言
+        this.currentLanguage = language;
+        
+        try {
+            // 应用语言设置
+            await this.applyLanguage(language);
+        } catch (error) {
+            logger.error('Failed to apply language to UI, keeping language setting:', error);
+        }
+        
+        // 通知观察者
+        this.notifyObservers();
+        
+        // 持久化已生效，界面也已按新语言刷新，判定为成功
+        return true;
     }
     
     // 等待语言配置文件加载完成
@@ -110,6 +143,25 @@ class LanguageManager {
             };
             checkConfig();
         });
+    }
+    
+    // 安全设置文本：元素不存在时静默跳过，避免因个别节点缺失中断整体刷新
+    setText(el, text) {
+        if (el && text !== undefined && text !== null) el.textContent = text;
+    }
+    
+    // 在指定容器内查找目标节点并设置文本
+    setTextIn(container, selector, text) {
+        if (!container) return;
+        this.setText(container.querySelector(selector), text);
+    }
+    
+    // 按 id 取控件，向上找到所属设置项后更新其文本
+    setSettingItemText(id, text, itemSelector = '.setting-item', textSelector = '.setting-text') {
+        const control = document.getElementById(id);
+        if (!control) return;
+        
+        this.setTextIn(control.closest(itemSelector), textSelector, text);
     }
     
     // 应用语言设置到界面
@@ -141,23 +193,23 @@ class LanguageManager {
         // 更新HTML lang属性
         document.documentElement.lang = language;
         
-        // 更新页面标题
-        this.updatePageTitle(lang);
+        // 各区块独立刷新：任一区块因 DOM 未就绪而失败时，不影响其余区块继续刷新
+        const steps = [
+            ['页面标题', () => this.updatePageTitle(lang)],
+            ['主界面', () => this.updateMainInterface(lang)],
+            ['模态框', () => this.updateModals(lang)],
+            ['日历视图', () => this.updateCalendar(lang)],
+            ['设置中心', () => this.updateSettings(lang)],
+            ['日期选择器', () => this.updateDatePicker(language)]
+        ];
         
-        // 更新主界面文本
-        this.updateMainInterface(lang);
-        
-        // 更新模态框文本
-        this.updateModals(lang);
-        
-        // 更新日历视图文本
-        this.updateCalendar(lang);
-        
-        // 更新设置中心文本
-        this.updateSettings(lang);
-        
-        // 更新Pikaday日期选择器
-        this.updateDatePicker(language);
+        for (const [name, step] of steps) {
+            try {
+                step();
+            } catch (error) {
+                logger.warning(`更新${name}文本失败（已跳过该区块）:`, error);
+            }
+        }
     }
     
     // 更新页面标题
@@ -560,34 +612,19 @@ class LanguageManager {
         if (sectionTitles[0]) sectionTitles[0].textContent = lang.settingsWindow;
 
         // 窗口置顶设置
-        const windowTopCheckbox = document.getElementById('window-top-toggle');
-        const windowTopSettingItem = windowTopCheckbox.closest('.setting-item');
-        const windowTopLabel = windowTopSettingItem.querySelector('.setting-text');
-        if (windowTopLabel) windowTopLabel.textContent = lang.settingsWindowTop;
+        this.setSettingItemText('window-top-toggle', lang.settingsWindowTop);
         
         // 主题设置
-        const darkModeCheckbox = document.getElementById('theme-dark-toggle');
-        const settingItem = darkModeCheckbox.closest('.setting-item');
-        const themeTopLabel = settingItem.querySelector('.setting-text');
-        if (themeTopLabel) themeTopLabel.textContent = lang.settingsDarkTheme;
+        this.setSettingItemText('theme-dark-toggle', lang.settingsDarkTheme);
 
         // 中英文设置
-        const languageCheckbox = document.getElementById('language-toggle');
-        const languageSettingItem = languageCheckbox.closest('.setting-item');
-        const languageLabel = languageSettingItem.querySelector('.setting-text');
-        if (languageLabel) languageLabel.textContent = lang.language;
+        this.setSettingItemText('language-toggle', lang.language);
 
         // 自启动设置
-        const autoStartCheckbox = document.getElementById('auto-start-toggle');
-        const autoStartSettingItem = autoStartCheckbox.closest('.setting-item');
-        const autoStartLabel = autoStartSettingItem.querySelector('.setting-text');
-        if (autoStartLabel) autoStartLabel.textContent = lang.settingsAutoStart;
+        this.setSettingItemText('auto-start-toggle', lang.settingsAutoStart);
 
         // 快捷键设置
-        const shortcutCheckbox = document.getElementById('shortcut-toggle');
-        const shortcutSettingItem = shortcutCheckbox.closest('.setting-item');
-        const shortcutLabel = shortcutSettingItem.querySelector('.setting-text');
-        if (shortcutLabel) shortcutLabel.textContent = lang.settingsShortcut;
+        this.setSettingItemText('shortcut-toggle', lang.settingsShortcut);
 
         // 数据管理
         if (sectionTitles[1]) sectionTitles[1].textContent = lang.settingsData;
@@ -595,20 +632,15 @@ class LanguageManager {
         // 数据共享
         const dataTransferTitle = document.querySelector('#data-transfer-modal h2');
         if (dataTransferTitle) dataTransferTitle.textContent = lang.settingsDataShare;
-        const dataShareSettingItem = document.getElementById('data-share-btn');
-        const dataShareLabel = dataShareSettingItem.querySelector('.setting-text');
-        if (dataShareLabel) dataShareLabel.textContent = lang.settingsDataShare;
-
-        const dataSyncSettingItem = document.getElementById('data-sync-btn');
-        const dataSyncLabel = dataSyncSettingItem.querySelector('.setting-text');
-        if (dataSyncLabel) dataSyncLabel.textContent = lang.settingsDataSync;
+        this.setTextIn(document.getElementById('data-share-btn'), '.setting-text', lang.settingsDataShare);
+        this.setTextIn(document.getElementById('data-sync-btn'), '.setting-text', lang.settingsDataSync);
         const shareModeText = document.querySelector('#share-mode-btn .mode-text');
         if (shareModeText) shareModeText.textContent = lang.shareMode;
         const receiveModeText = document.querySelector('#receive-mode-btn .mode-text');
         if (receiveModeText) receiveModeText.textContent = lang.receiveMode;
-        const dataSharePanel = document.getElementById('share-mode-panel');
-        const dataShareDataLabel = dataSharePanel.querySelectorAll('h3');
-        if (dataShareDataLabel.length >= 3) {
+        
+        const dataShareDataLabel = document.getElementById('share-mode-panel')?.querySelectorAll('h3');
+        if (dataShareDataLabel && dataShareDataLabel.length >= 3) {
             dataShareDataLabel[0].textContent = lang.currentDataSummary;
             dataShareDataLabel[1].textContent = lang.shareSettings;
             dataShareDataLabel[2].textContent = lang.shareStatus;
@@ -623,16 +655,14 @@ class LanguageManager {
         const stopShareBtn = document.getElementById('stop-share-btn');
         if (stopShareBtn) stopShareBtn.textContent = lang.stopShare;
 
-        const shareStatus = document.getElementById('share-status');
-        const shareStatusInfo = shareStatus.querySelectorAll('strong');
-        if (shareStatusInfo.length >= 3) {
+        const shareStatusInfo = document.getElementById('share-status')?.querySelectorAll('strong');
+        if (shareStatusInfo && shareStatusInfo.length >= 3) {
             shareStatusInfo[0].textContent = lang.ipAddress;
             shareStatusInfo[1].textContent = lang.port;
             shareStatusInfo[2].textContent = lang.sharingData;
         }
-        const receiveModePanel = document.getElementById('receive-mode-panel');
-        const receiveModeTitle = receiveModePanel.querySelectorAll('h3');
-        if (receiveModeTitle.length >= 3) {
+        const receiveModeTitle = document.getElementById('receive-mode-panel')?.querySelectorAll('h3');
+        if (receiveModeTitle && receiveModeTitle.length >= 3) {
             receiveModeTitle[0].textContent = lang.scanDevice;
             receiveModeTitle[1].textContent = lang.availableDevices;
             receiveModeTitle[2].textContent = lang.receivedDataPreview;
@@ -651,9 +681,7 @@ class LanguageManager {
         if (cancelImportBtn) cancelImportBtn.textContent = lang.cancelImport;
 
         // 数据存储
-        const dataStorageSettingConfig = document.querySelector('.data-storage');
-        const dataStorageLabel = dataStorageSettingConfig.querySelector('.data-label');
-        if (dataStorageLabel) dataStorageLabel.textContent = lang.dataStoragePath;
+        this.setTextIn(document.querySelector('.data-storage'), '.data-label', lang.dataStoragePath);
 
         // 更新应用标签
         const applyLabels = document.querySelectorAll('.setting-config-btn');
@@ -664,47 +692,44 @@ class LanguageManager {
         // 数据同步
         const dataSyncTitle = document.querySelector('#data-sync-modal h2');
         if (dataSyncTitle) dataSyncTitle.textContent = lang.settingsDataSync;
-        const webDavCheckbox = document.getElementById('webdav-enable-toggle');
-        const webDavSettingItem = webDavCheckbox.closest('.setting-item');
-        const webDavLabel = webDavSettingItem.querySelector('.setting-text');
-        if (webDavLabel) webDavLabel.textContent = lang.dataSync;
+        this.setSettingItemText('webdav-enable-toggle', lang.dataSync);
 
         const dataSyncPanel = document.getElementById('webdav-config-panel');
-        const dataSyncDataLabel = dataSyncPanel.querySelectorAll('.data-label');
-        if (dataSyncDataLabel.length >= 4) {
-            dataSyncDataLabel[0].textContent = lang.syncType;
-            dataSyncDataLabel[1].textContent = lang.url;
-            dataSyncDataLabel[2].textContent = lang.account;
-            dataSyncDataLabel[3].textContent = lang.password;
-            dataSyncDataLabel[4].textContent = lang.filepath;
-            dataSyncDataLabel[5].textContent = lang.firstSyncMode;
+        const dataSyncDataLabel = dataSyncPanel?.querySelectorAll('.data-label');
+        if (dataSyncDataLabel) {
+            const dataSyncLabels = [lang.syncType, lang.url, lang.account, lang.password, lang.filepath, lang.firstSyncMode];
+            dataSyncLabels.forEach((text, index) => {
+                if (dataSyncDataLabel[index]) dataSyncDataLabel[index].textContent = text;
+            });
         }
-        const firstSyncModeSelect = document.getElementById('webdav-first-sync-mode');
-        const firstSyncModeOptions = firstSyncModeSelect.querySelectorAll('option');
-        if (firstSyncModeOptions.length >= 2) {
+        const firstSyncModeOptions = document.getElementById('webdav-first-sync-mode')?.querySelectorAll('option');
+        if (firstSyncModeOptions && firstSyncModeOptions.length >= 2) {
             firstSyncModeOptions[0].textContent = lang.firstSyncModeRemote;
             firstSyncModeOptions[1].textContent = lang.firstSyncModeLocal;
         }
-        const autoSyncNotice = dataSyncPanel.querySelector('.edit-notice');
-        autoSyncNotice.textContent = lang.autoSyncNotice;
+        this.setTextIn(dataSyncPanel, '.edit-notice', lang.autoSyncNotice);
         const webDavTestBtn = document.getElementById('webdav-test-btn');
         if (webDavTestBtn) webDavTestBtn.textContent = lang.testConnection;
         const webDavSaveBtn = document.getElementById('webdav-save-btn');
         if (webDavSaveBtn) webDavSaveBtn.textContent = lang.saveConfiguration;
 
         // 关于
-        if (sectionTitles[2]) sectionTitles[2].textContent = lang.about;
-        const aboutSection = sectionTitles[2].closest('.setting-section');
-        const aboutOptions = aboutSection.querySelectorAll('.setting-text');
-        if (aboutOptions.length >= 3) {
-            aboutOptions[0].textContent = lang.sourceCode;
-            aboutOptions[1].textContent = lang.document;
-            aboutOptions[2].textContent = lang.statement;
-        }
-        const externalLinks = aboutSection.querySelectorAll('.external-link');
-        if (externalLinks.length >= 3) {
-            externalLinks[1].textContent = lang.documentText;
-            externalLinks[2].textContent = lang.statementText;
+        const aboutTitle = sectionTitles[2];
+        if (aboutTitle) aboutTitle.textContent = lang.about;
+        
+        const aboutSection = aboutTitle?.closest('.setting-section');
+        if (aboutSection) {
+            const aboutOptions = aboutSection.querySelectorAll('.setting-text');
+            if (aboutOptions.length >= 3) {
+                aboutOptions[0].textContent = lang.sourceCode;
+                aboutOptions[1].textContent = lang.document;
+                aboutOptions[2].textContent = lang.statement;
+            }
+            const externalLinks = aboutSection.querySelectorAll('.external-link');
+            if (externalLinks.length >= 3) {
+                externalLinks[1].textContent = lang.documentText;
+                externalLinks[2].textContent = lang.statementText;
+            }
         }
     }
     
@@ -731,8 +756,12 @@ class LanguageManager {
                 };
             }
             
-            // 重新渲染日期选择器
-            pikaday.draw();
+            // 重新渲染日期选择器（实例可能已被销毁，失败不应影响语言切换结果）
+            try {
+                pikaday.draw();
+            } catch (error) {
+                logger.warning('重绘日期选择器失败:', error);
+            }
         }
     }
     

@@ -325,10 +325,13 @@ class SettingsUIManager {
                 // 更新设置中心的语言文本
                 this.updateSettingsLanguage();
             } else {
+                // 切换失败时回滚开关与指示器，避免界面状态与真实语言不一致
+                this.updateLanguageSwitchState();
                 Utils.showToast(window.languageManager.getText('languageSwitchFailed', '语言切换失败'), 'error');
             }
         } catch (error) {
             logger.error('设置语言失败:', error);
+            this.updateLanguageSwitchState();
             Utils.showToast(window.languageManager.getText('languageSwitchFailed', '语言切换失败'), 'error');
         }
     }
