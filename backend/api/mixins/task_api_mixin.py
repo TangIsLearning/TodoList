@@ -25,6 +25,16 @@ def validate_due_date(task_data: Union[Dict[str, Any], str]) -> Dict[str, Union[
     except ValueError:
         return { 'valid': False, 'message': '截止时间格式无效'}
 
+
+def normalize_due_date(due_date: Optional[str]) -> Union[datetime, Optional[str]]:
+    """将截止时间统一解析为时间对象，便于比较；无法解析时返回原值"""
+    if not due_date:
+        return None
+    try:
+        return datetime.fromisoformat(due_date)
+    except (ValueError, TypeError):
+        return due_date
+
 class TaskApiMixin:
     """任务核心操作 Mixin"""
 
@@ -72,15 +82,34 @@ class TaskApiMixin:
         """获取单个任务"""
         return self.db.get_task(task_id)
 
+    def _refresh_due_date_reminder(self, task_id: str, old_task: Optional[Dict[str, Any]],
+                                   new_due_date: Optional[str]) -> None:
+        """截止时间发生变化时刷新到期提醒，避免到期后不再提醒
+
+        桌面端：清除已提醒标记，使其在新的截止时间再次弹窗；
+        移动端：同步调整系统日历中的提醒时间。
+        """
+        old_due_date = (old_task or {}).get('dueDate')
+        # 统一按时间对象比较，避免「10:30」与「10:30:00」这类格式差异导致误判
+        if normalize_due_date(old_due_date) == normalize_due_date(new_due_date):
+            return
+        try:
+            self.service.refresh_task_reminder(task_id, new_due_date, old_due_date)
+        except Exception as e:
+            self.get_logger.error(f"刷新任务到期提醒失败: {e}")
+
     @api_handler
     def update_todo(self, task_id: str, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """更新任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
             raise Exception(f'{validation_result["message"]}')
+        old_task = self.db.get_task(task_id)
         result = self.db.update_task(task_id, task_data)
         # 同步附件（新增/修改/删除）
         self.sync_task_attachments(task_id, task_data.get('attachments'))
+        # 截止时间变更后刷新提醒，确保新截止时间到期时能弹窗
+        self._refresh_due_date_reminder(task_id, old_task, task_data.get('dueDate'))
         return result
 
     @api_handler
@@ -89,7 +118,10 @@ class TaskApiMixin:
         validation_result = validate_due_date(due_date)
         if not validation_result['valid']:
             raise Exception(f'{validation_result["message"]}')
-        return self.db.update_task_due_date(task_id, due_date)
+        old_task = self.db.get_task(task_id)
+        result = self.db.update_task_due_date(task_id, due_date)
+        self._refresh_due_date_reminder(task_id, old_task, due_date)
+        return result
 
     @api_handler
     def delete_todo(self, task_id: str, delete_all: bool = False) -> None:

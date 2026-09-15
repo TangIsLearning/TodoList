@@ -61,6 +61,12 @@ class PlatformService(ABC):
         pass
 
     @abstractmethod
+    def refresh_task_reminder(self, task_id: str, due_date: Optional[str] = None,
+                              old_due_date: Optional[str] = None) -> None:
+        """任务截止时间变更后刷新到期提醒的统一接口"""
+        pass
+
+    @abstractmethod
     def check_calendar_permission(self) -> None:
         """校验日历使用权限的统一接口"""
         pass

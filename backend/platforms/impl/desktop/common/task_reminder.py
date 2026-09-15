@@ -224,6 +224,29 @@ class TaskReminder(LogManager):
         """重置已提醒任务列表(用于测试或重新提醒)"""
         self.notified_tasks.clear()
         self.get_logger.info("已重置已提醒任务列表")
+
+    def refresh_task_reminder(self, task_id: str, due_date: Optional[str] = None) -> None:
+        """刷新单个任务的到期提醒状态
+
+        当任务的截止时间被修改时调用：清除该任务已提醒的记录，并按新的截止时间
+        重新登记，确保任务在新的截止时间到期后仍能弹窗提醒。
+        """
+        if not task_id:
+            return
+
+        # 移除已提醒标记，使该任务可以在新的截止时间再次触发提醒
+        self.notified_tasks.discard(task_id)
+
+        if due_date:
+            try:
+                self.scheduled_tasks[task_id] = datetime.fromisoformat(due_date)
+            except (ValueError, TypeError):
+                self.scheduled_tasks.pop(task_id, None)
+        else:
+            # 截止时间被清空，不再需要提醒
+            self.scheduled_tasks.pop(task_id, None)
+
+        self.get_logger.info(f"任务 {task_id} 的截止时间已变更，到期提醒已刷新")
     
     def get_pending_tasks_count(self) -> int:
         """获取待提醒的任务数量"""
@@ -245,6 +268,10 @@ def start_reminder(click_event: Any = None) -> TaskReminder:
     reminder = get_reminder()
     reminder.start(click_event)
     return reminder
+
+def refresh_reminder(task_id: str, due_date: Optional[str] = None) -> None:
+    """刷新指定任务的到期提醒（任务截止时间变更后调用）"""
+    get_reminder().refresh_task_reminder(task_id, due_date)
 
 def stop_reminder() -> None:
     """停止提醒服务"""

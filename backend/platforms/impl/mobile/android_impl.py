@@ -50,6 +50,12 @@ class AndroidService(PlatformService):
     def add_new_desktop_task_reminder(self) -> None:
         pass
 
+    def refresh_task_reminder(self, task_id: str, due_date: Optional[str] = None,
+                              old_due_date: Optional[str] = None) -> None:
+        """移动端：截止时间变更后同步调整系统日历提醒时间"""
+        from backend.platforms.impl.mobile.common.calendar_manager import refresh_task_reminder_in_calendar
+        refresh_task_reminder_in_calendar(task_id, due_date, old_due_date, self)
+
     def check_calendar_permission(self) -> None:
         """校验日历使用权限的统一接口"""
         from backend.platforms.impl.mobile.common.calendar_manager import check_permission

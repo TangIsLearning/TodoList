@@ -11,6 +11,7 @@ from .attachment_crud_mixin import AttachmentCrudMixin
 from .task_relation_crud_mixin import TaskRelationCrudMixin
 from .setting_crud_mixin import SettingCrudMixin
 from .statistics_crud_mixin import StatisticsCrudMixin
+from .calendar_event_crud_mixin import CalendarEventCrudMixin
 
 # 定义一个组合所有 Crud 能力的基类（空类，仅用于继承）
 class AllCrudMixins(
@@ -20,7 +21,8 @@ class AllCrudMixins(
     AttachmentCrudMixin,
     TaskRelationCrudMixin,
     SettingCrudMixin,
-    StatisticsCrudMixin
+    StatisticsCrudMixin,
+    CalendarEventCrudMixin
 ):
     """聚合所有 Crud 功能 Mixin，便于 TodoDatabase 单一继承"""
     pass
@@ -33,5 +35,6 @@ __all__ = [
     'TaskRelationCrudMixin',
     'SettingCrudMixin',
     'StatisticsCrudMixin',
+    'CalendarEventCrudMixin',
     'AllCrudMixins'
 ]

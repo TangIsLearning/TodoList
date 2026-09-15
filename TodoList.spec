@@ -103,6 +103,7 @@ base_hiddenimports = [
     'backend.database.mixins.task_relation_crud_mixin',
     'backend.database.mixins.setting_crud_mixin',
     'backend.database.mixins.statistics_crud_mixin',
+    'backend.database.mixins.calendar_event_crud_mixin',
     'backend.database.data_export',
     'backend.database.models',
     'backend.database.utils',

@@ -90,3 +90,12 @@ def migrate_database(cursor: sqlite3.Cursor) -> None:
             )
         ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id)')
+
+    # 新增日历提醒事件关联表（移动端：记录任务对应的系统日历事件ID）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            task_id TEXT PRIMARY KEY,
+            event_id TEXT NOT NULL,
+            updated_at TEXT
+        )
+    ''')
