@@ -23,6 +23,7 @@ class AttachmentManager {
         this.countEl = document.getElementById('attachment-count');
         this.addFileBtn = document.getElementById('attachment-add-file-btn');
         this.addLinkBtn = document.getElementById('attachment-add-link-btn');
+        this.addFolderBtn = document.getElementById('attachment-add-folder-btn');
         // 在线链接弹窗
         this.linkModal = document.getElementById('attachment-link-modal');
         this.linkNameInput = document.getElementById('attachment-link-name');
@@ -35,6 +36,7 @@ class AttachmentManager {
     bindEvents() {
         this.addFileBtn?.addEventListener('click', () => this.addFiles());
         this.addLinkBtn?.addEventListener('click', () => this.openLinkModal());
+        this.addFolderBtn?.addEventListener('click', () => this.addFolder());
         this.linkSaveBtn?.addEventListener('click', () => this.confirmAddLink());
         this.linkCancelBtn?.addEventListener('click', () => this.closeLinkModal());
         this.linkCloseBtn?.addEventListener('click', () => this.closeLinkModal());
@@ -111,6 +113,36 @@ class AttachmentManager {
         });
     }
 
+    async addFolder() {
+        if (this.items.length >= ATTACHMENT_MAX_COUNT) {
+            Utils.showToast(this.getText('attachmentMaxReached', '最多只能添加 {count} 个附件').replace('{count}', ATTACHMENT_MAX_COUNT), 'warning');
+            return;
+        }
+
+        await Utils.apiCall({
+            apiMethod: 'select_attachment_folder',
+            onSuccess: (response) => {
+                const data = response.data || {};
+                if (data.supported === false) {
+                    Utils.showToast(this.getText('folderAddUnsupportedOnMobile', '移动端不支持关联文件夹'), 'warning');
+                    return;
+                }
+                const folderPath = data.path;
+                if (!folderPath) return;
+                this.items.push({
+                    tempId: `new_${Date.now()}_${this._tempSeq++}`,
+                    type: 'folder',
+                    name: data.name || folderPath,
+                    path: folderPath
+                });
+                this.renderFormList();
+            },
+            onError: () => {
+                // 用户取消选择属于正常操作，不提示错误
+            }
+        });
+    }
+
     openLinkModal() {
         if (this.items.length >= ATTACHMENT_MAX_COUNT) {
             Utils.showToast(this.getText('attachmentMaxReached', '最多只能添加 {count} 个附件').replace('{count}', ATTACHMENT_MAX_COUNT), 'warning');
@@ -175,6 +207,7 @@ class AttachmentManager {
         const reached = this.items.length >= ATTACHMENT_MAX_COUNT;
         if (this.addFileBtn) this.addFileBtn.disabled = reached;
         if (this.addLinkBtn) this.addLinkBtn.disabled = reached;
+        if (this.addFolderBtn) this.addFolderBtn.disabled = reached;
     }
 
     getAttachments() {
@@ -189,6 +222,9 @@ class AttachmentManager {
             }
             if (item.type === 'link') {
                 return { type: 'link', name: item.name, url: item.url };
+            }
+            if (item.type === 'folder') {
+                return { type: 'folder', name: item.name, path: item.path };
             }
             return {
                 type: 'file',
@@ -205,6 +241,7 @@ class AttachmentManager {
 
     _itemIcon(item) {
         if (item.type === 'link') return '🔗';
+        if (item.type === 'folder') return '📁';
         return item.isImage ? '🖼️' : '📎';
     }
 
@@ -260,6 +297,10 @@ class AttachmentManager {
             this.openExternal(att);
             return;
         }
+        if (att.type === 'folder') {
+            this.openFolder(att);
+            return;
+        }
         // 由后端统一判断访问模式：
         // - local：桌面端且未开启同步，直接打开本地文件
         // - remote：移动端或已开启同步，拼接云端地址下载
@@ -288,6 +329,30 @@ class AttachmentManager {
                     Utils.showToast(this.getText('attachmentOpenFailed', '打开附件失败'), 'error');
                 }
             }
+        });
+    }
+
+    // 关联的文件夹：桌面端直接打开，移动端提示不支持
+    openFolder(att) {
+        Utils.apiCall({
+            apiMethod: 'get_attachment_access_mode',
+            onSuccess: (response) => {
+                const data = response.data || {};
+                if (data.is_mobile) {
+                    Utils.showToast(this.getText('folderOpenUnsupportedOnMobile', '移动端不支持打开任务关联的文件夹'), 'warning');
+                    return;
+                }
+                this.openFolderLocal(att);
+            },
+            onError: () => this.openFolderLocal(att)
+        });
+    }
+
+    openFolderLocal(att) {
+        Utils.apiCall({
+            apiMethod: 'open_attachment',
+            apiArgs: [att.id],
+            onError: () => Utils.showToast(this.getText('folderOpenFailed', '打开文件夹失败，文件夹可能已被移动或删除'), 'error')
         });
     }
 

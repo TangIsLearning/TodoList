@@ -27,8 +27,12 @@ MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10MB
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.heic'}
 
 # 附件类型
+# file：实体文件（会被复制到附件存储目录）
+# link：在线链接
+# folder：关联的本地文件夹（仅记录绝对路径，不复制内容，也不会被删除）
 TYPE_FILE = 'file'
 TYPE_LINK = 'link'
+TYPE_FOLDER = 'folder'
 
 
 class AttachmentError(Exception):

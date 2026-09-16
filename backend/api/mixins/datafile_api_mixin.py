@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 from backend.database.todo_database import TodoDatabase
 from backend.utils.response_wrapper import api_handler
 
@@ -150,6 +150,33 @@ class DatafileApiMixin:
                 'isImage': self._is_image_name(name),
             })
         return result
+
+    @api_handler
+    def select_attachment_folder(self) -> Dict[str, Any]:
+        """打开文件夹选择对话框（用于任务关联文件夹）
+
+        桌面端可用；移动端没有目录选择能力，返回 supported=False 由前端提示用户。
+        文件夹不会被复制到附件存储目录，仅记录其绝对路径。
+        """
+        if getattr(self, 'is_android', False):
+            return {'supported': False, 'reason': 'mobile'}
+
+        import webview
+        active_window = webview.active_window()
+        selected_dir = active_window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not selected_dir:
+            raise Exception("用户取消了文件夹选择")
+        if isinstance(selected_dir, (list, tuple)):
+            selected_dir = selected_dir[0] if selected_dir else None
+        if not selected_dir:
+            raise Exception("用户取消了文件夹选择")
+
+        folder_path = str(selected_dir)
+        return {
+            'supported': True,
+            'path': folder_path,
+            'name': Path(folder_path).name or folder_path,
+        }
 
     @staticmethod
     def _is_image_name(name: str) -> bool:

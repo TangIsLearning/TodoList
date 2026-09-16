@@ -17,6 +17,7 @@ from backend.features.attachment.attachment_service import (
     AttachmentError,
     MAX_ATTACHMENT_COUNT,
     TYPE_FILE,
+    TYPE_FOLDER,
     TYPE_LINK,
     get_attachment_service,
 )
@@ -45,6 +46,18 @@ class AttachmentApiMixin:
                 'type': TYPE_LINK,
                 'name': name,
                 'url': url,
+            })
+
+        if att_type == TYPE_FOLDER:
+            # 文件夹不复制到存储目录，只记录其绝对路径；删除附件时也不会删除该文件夹
+            folder_path = str(payload.get('path') or payload.get('sourcePath') or '').strip()
+            if not folder_path:
+                return None
+            folder_name = Path(folder_path).name or folder_path
+            return self.db.add_attachment(task_id, {
+                'type': TYPE_FOLDER,
+                'name': payload.get('name') or folder_name,
+                'filePath': folder_path,
             })
 
         # 实体文件
@@ -197,6 +210,9 @@ class AttachmentApiMixin:
             self._open_external_url(url)
             return {'opened': True, 'kind': 'link', 'url': url}
 
+        if att.get('type') == TYPE_FOLDER:
+            return self._open_folder(att)
+
         local_file = self._locate_local_attachment_file(att)
         if not local_file:
             raise AttachmentError("本地附件文件不存在")
@@ -212,8 +228,8 @@ class AttachmentApiMixin:
         att = self.db.get_attachment(attachment_id)
         if not att:
             raise Exception("附件不存在")
-        if att.get('type') != TYPE_FILE:
-            raise Exception("仅本地文件支持定位")
+        if att.get('type') not in (TYPE_FILE, TYPE_FOLDER):
+            raise Exception("仅本地文件或文件夹支持定位")
 
         service = get_attachment_service()
         resolved = self._resolve_attachment_path(att)
@@ -234,6 +250,9 @@ class AttachmentApiMixin:
 
         if att.get('type') == TYPE_LINK:
             return {'type': 'link', 'url': att.get('url')}
+
+        if att.get('type') == TYPE_FOLDER:
+            raise Exception("文件夹附件不支持通过云端下载")
 
         service = get_attachment_service()
         relative = self._attachment_relative_path(att)
@@ -330,19 +349,35 @@ class AttachmentApiMixin:
         except Exception as e:
             self.get_logger.error(f"回写附件路径失败: {att['id']}, 错误: {e}")
 
+    def _open_folder(self, att: Dict[str, Any]) -> Dict[str, Any]:
+        """打开任务关联的文件夹（仅桌面端支持）"""
+        if self.is_android:
+            raise Exception("移动端不支持打开任务关联的文件夹")
+
+        folder_path = str(att.get('filePath') or '').strip()
+        target = Path(folder_path) if folder_path else None
+        if not target or not target.is_dir():
+            raise AttachmentError("任务关联的文件夹不存在或已被移动")
+
+        self._open_local_path(str(target))
+        return {'opened': True, 'kind': 'folder', 'name': att['name']}
+
     def _open_local_file(self, file_path: str) -> None:
         """使用系统默认程序打开本地文件"""
         if self.is_android:
             raise Exception("移动端请使用云链接下载后查看")
+        self._open_local_path(file_path)
 
+    def _open_local_path(self, path: str) -> None:
+        """使用系统默认程序打开本地文件或目录"""
         if os.name == 'nt':
-            os.startfile(file_path)  # type: ignore[attr-defined]
+            os.startfile(path)  # type: ignore[attr-defined]
         elif sys.platform == 'darwin':
             import subprocess
-            subprocess.Popen(['open', file_path])
+            subprocess.Popen(['open', path])
         else:
             import subprocess
-            subprocess.Popen(['xdg-open', file_path])
+            subprocess.Popen(['xdg-open', path])
 
     def _reveal_in_file_manager(self, target: Path) -> None:
         """在系统文件管理器中显示目标文件或目录"""

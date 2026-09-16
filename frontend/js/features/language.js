@@ -554,6 +554,8 @@ class LanguageManager {
         if (addFileBtn) addFileBtn.textContent = `📎 ${lang.attachmentUploadFile}`;
         const addLinkBtn = document.getElementById('attachment-add-link-btn');
         if (addLinkBtn) addLinkBtn.textContent = `🔗 ${lang.attachmentAddLink}`;
+        const addFolderBtn = document.getElementById('attachment-add-folder-btn');
+        if (addFolderBtn) addFolderBtn.textContent = `📁 ${lang.attachmentAddFolder}`;
 
         // 在线链接弹窗
         const linkTitle = document.querySelector('#attachment-link-modal h2');
