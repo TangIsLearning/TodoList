@@ -132,44 +132,86 @@ function isOverdue(dueDate) {
     return taskDate < now;
 }
 
+/**
+ * 统一的“点击遮罩层关闭弹窗”绑定。
+ *
+ * 不能直接用 click 事件 + `e.target === overlay` 判断，原因：
+ * 当鼠标在遮罩层内部的输入框按下、拖拽选中文字后在遮罩层（弹窗面板之外）松开时，
+ * click 事件的 target 会被派发到 mousedown 与 mouseup 目标的公共祖先，
+ * 恰好就是遮罩层元素本身，于是被误判为“点击空白处”而关闭弹窗。
+ * 鼠标拖选标题/描述文本时极易触发该场景。
+ *
+ * 解决：只有当“按下”和“抬起”都发生在遮罩层本身（真正的点空白）时才关闭。
+ * 同时每个元素只绑定一次，避免重复打开弹窗导致监听器堆积。
+ */
+const _backdropClosers = new WeakMap();
+
+function bindBackdropClose(overlay, closeFn) {
+    if (!overlay || typeof closeFn !== 'function' || _backdropClosers.has(overlay)) return;
+
+    let pressStartedOnOverlay = false;
+
+    const onPointerDown = (e) => {
+        pressStartedOnOverlay = (e.target === overlay);
+    };
+
+    const onClick = (e) => {
+        const shouldClose = pressStartedOnOverlay && e.target === overlay;
+        pressStartedOnOverlay = false;
+        if (shouldClose) closeFn();
+    };
+
+    // pointerdown 覆盖鼠标/触摸，mousedown 作为不支持 Pointer Events 的内核兜底
+    overlay.addEventListener('pointerdown', onPointerDown);
+    overlay.addEventListener('mousedown', onPointerDown);
+    overlay.addEventListener('click', onClick);
+
+    _backdropClosers.set(overlay, { onPointerDown, onClick });
+}
+
 // 模态框管理
 const ModalManager = {
+    _boundModals: new WeakSet(),
+
     show(modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add('show');
-            modal.style.display = 'flex';
-            
-            // 聚焦第一个输入框
-            const firstInput = modal.querySelector('input, textarea, select');
-            if (firstInput) setTimeout(() => firstInput.focus(), 100);
+        if (!modal) return;
 
-            // 点击背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) this.hide(modalId);
-            });
-            
-            // ESC键关闭
-            const handleEscape = (e) => {
-                if (e.key === 'Escape') {
-                    this.hide(modalId);
-                    document.removeEventListener('keydown', handleEscape);
-                }
-            };
-            document.addEventListener('keydown', handleEscape);
-        }
+        this._bindOnce(modal, modalId);
+
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+
+        // 聚焦第一个输入框
+        const firstInput = modal.querySelector('input, textarea, select');
+        if (firstInput) setTimeout(() => firstInput.focus(), 100);
     },
-    
+
+    // 每个弹窗只在首次打开时绑定遮罩关闭与 ESC 监听，避免监听器重复叠加
+    _bindOnce(modal, modalId) {
+        if (!modal || this._boundModals.has(modal)) return;
+        this._boundModals.add(modal);
+
+        bindBackdropClose(modal, () => this.hide(modalId));
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            // 仅处理处于打开状态的弹窗
+            if (!modal.classList.contains('show') || modal.style.display === 'none') return;
+            this.hide(modalId);
+        });
+    },
+
     hide(modalId) {
         const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.remove('show');
-            modal.style.display = 'none';
-            
-            // 清空表单
-            const form = modal.querySelector('form');
-            if (form) form.reset();
-        }
+        if (!modal) return;
+
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+
+        // 清空表单
+        const form = modal.querySelector('form');
+        if (form) form.reset();
     },
     
     hideAll() {
@@ -422,6 +464,7 @@ window.Utils = {
     getPriorityInfo,
     isOverdue,
     ModalManager,
+    bindBackdropClose,
     confirmDialog,
     detectOS,
     loadPywebviewApi,

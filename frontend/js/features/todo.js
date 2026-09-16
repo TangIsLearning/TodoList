@@ -1411,8 +1411,11 @@ class TodoManager {
         Utils.ModalManager.show('task-modal');
     }
     
-    // 初始化父任务选择器
+    // 初始化父任务选择器（只在首次打开时绑定，避免每次打开弹窗重复叠加监听器）
     initParentTaskCombobox() {
+        if (this._parentComboboxBound) return;
+        this._parentComboboxBound = true;
+
         // 点击输入框打开下拉
         this.taskParentInput.addEventListener('focus', async (e) => {
             this.parentTaskState.isOpen = true;
@@ -1444,9 +1447,17 @@ class TodoManager {
             }, 300);
         });
         
-        // 点击其他地方关闭
+        // 点击其他地方关闭（按下与抬起都发生在下拉框之外才算，避免拖选文本时误关闭）
+        let pressOutside = false;
+        const markPressOrigin = (e) => {
+            pressOutside = !this.parentTaskCombobox.contains(e.target);
+        };
+        document.addEventListener('pointerdown', markPressOrigin);
+        document.addEventListener('mousedown', markPressOrigin);
         document.addEventListener('click', (e) => {
-            if (!this.parentTaskCombobox.contains(e.target)) {
+            const shouldClose = pressOutside && !this.parentTaskCombobox.contains(e.target);
+            pressOutside = false;
+            if (shouldClose) {
                 this.taskParentDropdown.style.display = 'none';
                 this.parentTaskState.isOpen = false;
             }

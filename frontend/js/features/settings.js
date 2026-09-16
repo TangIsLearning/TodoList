@@ -119,10 +119,8 @@ class SettingsUIManager {
         // 关闭设置中心
         this.closeBtn?.addEventListener('click', () => this.closeModal());
 
-        // 点击模态框外部关闭
-        this.modal?.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.closeModal();
-        });
+        // 点击模态框外部关闭（仅在遮罩层本身按下并抬起时触发，避免拖选文本误关闭）
+        Utils.bindBackdropClose(this.modal, () => this.closeModal());
 
         // 窗口置顶开关
         this.windowTopToggle?.addEventListener('change', () => this.toggleWindowOnTop());
@@ -605,11 +603,9 @@ class SettingsUIManager {
         });
 
         // 点击模态框外部关闭
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                modal.classList.remove('show');
-            }
+        Utils.bindBackdropClose(modal, () => {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
         });
     }
     

@@ -59,9 +59,11 @@ class DataTransfer {
         // 关闭模态框
         this.closeBtn?.addEventListener('click', () => this.closeModal());
 
-        // 点击模态框外部关闭
+        // 点击模态框外部关闭（仅在遮罩层本身按下并抬起时触发，避免拖选文本误关闭）
+        Utils.bindBackdropClose(this.modal, () => this.closeModal());
+
         this.modal?.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.closeModal();
+            if (e.target !== this.modal) return;
             if (window.App && document.querySelector('.sidebar')?.classList.contains('open')) {
                 window.App.closeMobileSidebar();
             }

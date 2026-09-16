@@ -98,10 +98,8 @@ class App {
         
         moreMenuBtn?.addEventListener('click', () => this.showMoreMenu());
 
-        // 点击遮罩层关闭
-        moreMenuModal?.addEventListener('click', (e) => {
-            if (e.target === moreMenuModal) this.hideMoreMenu();
-        });
+        // 点击遮罩层关闭（按下与抬起都发生在遮罩层才算点击，避免拖选文本导致误关闭）
+        Utils.bindBackdropClose(moreMenuModal, () => this.hideMoreMenu());
 
         moreMenuClose?.addEventListener('click', () => this.hideMoreMenu());
 
@@ -122,9 +120,7 @@ class App {
         qrCodeCloseBtn?.addEventListener('click', () => this.hideContactAuthorModal());
 
         // 点击遮罩层关闭
-        qrCodeModal?.addEventListener('click', (e) => {
-            if (e.target === qrCodeModal) this.hideContactAuthorModal();
-        });
+        Utils.bindBackdropClose(qrCodeModal, () => this.hideContactAuthorModal());
 
         // 站外链接点击跳转事件
         const externalLinks = document.querySelectorAll('.external-link');
