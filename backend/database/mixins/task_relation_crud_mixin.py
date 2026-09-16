@@ -87,29 +87,6 @@ class TaskRelationCrudMixin:
         conn.close()
         return result
 
-    def find_parent_task_by_title(self, title: str) -> Optional[Dict[str, Any]]:
-        """按标题精确查找"确有子任务关联"的父任务（不区分大小写）。
-
-        当存在多个同名任务时，仅凭标题无法确定用户所指的父任务；
-        这里优先返回在 task_relations 中确实挂有子任务的那条，避免解析到同名的空任务。
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT r.main_task_id, COUNT(r.sub_task_id) AS sub_count
-            FROM task_relations r
-            JOIN tasks t ON t.id = r.main_task_id
-            WHERE t.title = ? COLLATE NOCASE
-            GROUP BY r.main_task_id
-            ORDER BY sub_count DESC
-            LIMIT 1
-        ''', (title,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return self.get_task(row[0])
-        return None
-
     def search_tasks_with_subtasks(self, keyword: str = '', limit: int = 5) -> List[Dict[str, Any]]:
         """搜索具有子任务的父任务（按标题模糊匹配，不区分大小写），返回前 limit 条。
 
