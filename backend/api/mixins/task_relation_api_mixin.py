@@ -6,7 +6,7 @@ class TaskRelationApiMixin:
     """任务关联核心操作 Mixin"""
 
     @api_handler
-    def get_children(self, task_id: str) -> List[Optional[Dict[str, Any]]]:
+    def get_children(self, task_id: str) -> List[Dict[str, Any]]:
         """获取指定任务的直接子任务列表（完整任务信息）"""
         return self.db.get_children(task_id)
 

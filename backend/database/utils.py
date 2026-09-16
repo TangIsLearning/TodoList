@@ -1,6 +1,9 @@
 import sqlite3
 from pathlib import Path
 
+from backend.database import schema
+
+
 def get_app_data_file() -> Path:
     """获取应用数据文件路径"""
     try:
@@ -11,91 +14,11 @@ def get_app_data_file() -> Path:
         project_root = Path(__file__).parent.parent.parent
         return project_root / 'data' / 'todo.db'
 
+
 def migrate_database(cursor: sqlite3.Cursor) -> None:
-    """数据库迁移，添加新字段"""
-    # 获取现有表结构
-    cursor.execute("PRAGMA table_info(tasks)")
-    columns = [column[1] for column in cursor.fetchall()]
+    """数据库迁移：建表 / 建索引 / 补齐新字段 / 清理孤儿数据。
 
-    # 添加周期性任务相关字段
-    new_columns = [
-        ('is_recurring', 'BOOLEAN DEFAULT FALSE'),
-        ('recurrence_type', 'TEXT'),
-        ('recurrence_interval', 'INTEGER DEFAULT 1'),
-        ('recurrence_count', 'INTEGER'),
-        ('parent_task_id', 'TEXT')
-    ]
-
-    for column_name, column_def in new_columns:
-        if column_name not in columns:
-            cursor.execute(f'ALTER TABLE tasks ADD COLUMN {column_name} {column_def}')
-
-    # 检查并创建标签相关表
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'")
-    if not cursor.fetchone():
-        cursor.execute('''
-            CREATE TABLE tags (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                color TEXT DEFAULT '#6c757d',
-                created_at TEXT
-            )
-        ''')
-
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_tags'")
-    if not cursor.fetchone():
-        cursor.execute('''
-            CREATE TABLE task_tags (
-                task_id TEXT NOT NULL,
-                tag_id TEXT NOT NULL,
-                PRIMARY KEY (task_id, tag_id),
-                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
-                FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
-            )
-        ''')
-
-    # 新增 task_relations 表
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_relations'")
-    if not cursor.fetchone():
-        cursor.execute('''
-                CREATE TABLE task_relations (
-                    sub_task_id TEXT NOT NULL,
-                    main_task_id TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    PRIMARY KEY (sub_task_id, main_task_id),
-                    UNIQUE(sub_task_id),   -- 确保每个子任务只能有一个父任务
-                    FOREIGN KEY (sub_task_id) REFERENCES tasks (id) ON DELETE CASCADE,
-                    FOREIGN KEY (main_task_id) REFERENCES tasks (id) ON DELETE CASCADE
-                )
-            ''')
-        cursor.execute('CREATE INDEX idx_task_relations_parent ON task_relations(main_task_id)')
-
-    # 新增 attachments 表（附件仅存储元信息，文件本身存储在磁盘）
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='attachments'")
-    if not cursor.fetchone():
-        cursor.execute('''
-            CREATE TABLE attachments (
-                id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL,
-                type TEXT NOT NULL DEFAULT 'file',
-                name TEXT NOT NULL,
-                file_path TEXT,
-                url TEXT,
-                size INTEGER,
-                mime_type TEXT,
-                is_image INTEGER DEFAULT 0,
-                created_at TEXT,
-                updated_at TEXT,
-                FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
-            )
-        ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id)')
-
-    # 新增日历提醒事件关联表（移动端：记录任务对应的系统日历事件ID）
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS calendar_events (
-            task_id TEXT PRIMARY KEY,
-            event_id TEXT NOT NULL,
-            updated_at TEXT
-        )
-    ''')
+    具体 DDL 与迁移语句统一维护在 ``backend.database.schema``，
+    此处仅保留兼容入口。
+    """
+    schema.initialize(cursor)

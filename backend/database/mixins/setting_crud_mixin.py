@@ -1,68 +1,54 @@
+# backend/database/mixins/setting_crud_mixin.py
 import json
-import sqlite3
 from typing import Any, Dict
 
+
 class SettingCrudMixin:
+    """应用设置（键值对，值为 JSON 字符串）"""
+
+    @staticmethod
+    def _decode(raw: str) -> Any:
+        """尽量把存储值还原为 Python 对象，失败时返回原始字符串。"""
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return raw
+
+    @staticmethod
+    def _encode(value: Any) -> str:
+        """把设置值序列化为存储字符串。"""
+        if isinstance(value, str):
+            return value
+        return json.dumps(value, ensure_ascii=False)
+
     def get_setting(self, key: str, default_value: Any = None) -> Any:
         """获取单个设置值"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT value FROM settings WHERE key = ?', (key,))
-            result = cursor.fetchone()
-
-            if result is None:
-                return default_value
-
-            # 尝试解析 JSON
-            try:
-                return json.loads(result[0])
-            except json.JSONDecodeError:
-                return result[0]
+        with self.query() as conn:
+            row = conn.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+        if row is None:
+            return default_value
+        return self._decode(row['value'])
 
     def set_setting(self, key: str, value: Any) -> None:
         """保存单个设置值"""
-        # 将值转换为 JSON 字符串
-        if isinstance(value, (dict, list, bool)):
-            value_str = json.dumps(value)
-        elif isinstance(value, str):
-            value_str = value
-        else:
-            value_str = json.dumps(value)
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO settings (key, value, updated_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-            ''', (key, value_str))
-            conn.commit()
+        with self.tx() as conn:
+            conn.execute(
+                'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+                (key, self._encode(value))
+            )
 
     def delete_setting(self, key: str) -> None:
         """删除单个设置"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM settings WHERE key = ?', (key,))
-            conn.commit()
+        with self.tx() as conn:
+            conn.execute('DELETE FROM settings WHERE key = ?', (key,))
 
     def get_all_settings(self) -> Dict[str, Any]:
         """获取所有设置"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT key, value FROM settings')
-            results = cursor.fetchall()
-
-            settings = {}
-            for key, value in results:
-                try:
-                    settings[key] = json.loads(value)
-                except json.JSONDecodeError:
-                    settings[key] = value
-
-            return settings
+        with self.query() as conn:
+            rows = conn.execute('SELECT key, value FROM settings').fetchall()
+        return {row['key']: self._decode(row['value']) for row in rows}
 
     def reset_settings(self) -> None:
         """重置所有设置"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM settings')
-            conn.commit()
+        with self.tx() as conn:
+            conn.execute('DELETE FROM settings')

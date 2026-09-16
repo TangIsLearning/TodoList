@@ -1,60 +1,75 @@
-import sqlite3
+# backend/database/mixins/task_relation_crud_mixin.py
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
+
+# SQLite 单条语句的参数上限，批量操作按此拆分
+_SQLITE_MAX_VARS = 500
+
+
+def _chunks(items: Sequence[Any], size: int = _SQLITE_MAX_VARS) -> List[Sequence[Any]]:
+    return [items[start:start + size] for start in range(0, len(items), size)]
+
 
 class TaskRelationCrudMixin:
+    """任务父子关联 CRUD（普通父子任务，与周期性任务的 parent_task_id 无关）"""
+
+    # ------------------------------------------------------------------ #
+    # 写入
+    # ------------------------------------------------------------------ #
+
+    def _set_parent(self, conn, sub_task_id: str, main_task_id: str) -> None:
+        """设置 / 覆盖子任务的父任务（UNIQUE(sub_task_id) 保证单父）。"""
+        conn.execute(
+            'INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at) '
+            'VALUES (?, ?, ?)',
+            (sub_task_id, main_task_id, datetime.now().isoformat())
+        )
 
     def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
         """添加或更新一条关联（确保单父）"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        # 由于 UNIQUE(task_id) 约束，直接用 INSERT OR REPLACE 即可
-        cursor.execute('''
-            INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at)
-            VALUES (?, ?, ?)
-        ''', (sub_task_id, main_task_id, datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
+        with self.tx() as conn:
+            self._set_parent(conn, sub_task_id, main_task_id)
+
+    def _delete_relations_by_child(self, conn, task_id: str) -> None:
+        """删除该任务作为子任务的关联"""
+        conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
 
     def delete_relation_by_children(self, task_id: str) -> None:
         """删除该任务作为子任务的关联"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
-        conn.commit()
-        conn.close()
+        with self.tx() as conn:
+            self._delete_relations_by_child(conn, task_id)
+
+    def _delete_relations_by_parent(self, conn, task_id: str) -> None:
+        """删除所有以 task_id 为父的关联"""
+        conn.execute('DELETE FROM task_relations WHERE main_task_id = ?', (task_id,))
 
     def delete_relations_by_parent(self, task_id: str) -> None:
-        """删除所有以 main_task_id 为父的关联"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM task_relations WHERE main_task_id = ?', (task_id,))
-        conn.commit()
-        conn.close()
+        """删除所有以 task_id 为父的关联"""
+        with self.tx() as conn:
+            self._delete_relations_by_parent(conn, task_id)
 
-    def get_children(self, task_id: str) -> List[Optional[Dict[str, Any]]]:
-        """获取指定任务的所有直接子任务（单层查询）"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        # 查询关联表中的子任务 ID
-        cursor.execute('SELECT sub_task_id FROM task_relations WHERE main_task_id = ?', (task_id,))
-        children = [self.get_task(row[0]) for row in cursor.fetchall()]
-        conn.close()
+    # ------------------------------------------------------------------ #
+    # 查询
+    # ------------------------------------------------------------------ #
 
-        if not children:
-            return []
-        return children
+    def get_children(self, task_id: str) -> List[Dict[str, Any]]:
+        """获取指定任务的所有直接子任务（单层查询，批量取回）
+
+        关联表中残留的已删除任务记录会被自动忽略。
+        """
+        with self.query() as conn:
+            rows = conn.execute(
+                'SELECT sub_task_id FROM task_relations WHERE main_task_id = ?', (task_id,)
+            ).fetchall()
+        return self.get_tasks_by_ids([row['sub_task_id'] for row in rows])
 
     def get_parent(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取任务的父任务（如果有）"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT main_task_id FROM task_relations WHERE sub_task_id = ?', (task_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return self.get_task(row[0])
-        return None
+        with self.query() as conn:
+            row = conn.execute(
+                'SELECT main_task_id FROM task_relations WHERE sub_task_id = ?', (task_id,)
+            ).fetchone()
+        return self.get_task(row['main_task_id']) if row else None
 
     def get_parents_map(self, task_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """批量获取多个任务的父任务（仅返回存在关联的任务）。
@@ -68,23 +83,19 @@ class TaskRelationCrudMixin:
         if not ids:
             return {}
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
         result: Dict[str, Dict[str, Any]] = {}
-        # SQLite 参数上限约 999，按批拆分以防列表过长
-        batch_size = 500
-        for start in range(0, len(ids), batch_size):
-            batch = ids[start:start + batch_size]
-            placeholders = ','.join(['?'] * len(batch))
-            cursor.execute(
-                f'SELECT r.sub_task_id, t.id, t.title '
-                f'FROM task_relations r JOIN tasks t ON t.id = r.main_task_id '
-                f'WHERE r.sub_task_id IN ({placeholders})',
-                tuple(batch)
-            )
-            for sub_task_id, parent_id, parent_title in cursor.fetchall():
-                result[sub_task_id] = {'id': parent_id, 'title': parent_title}
-        conn.close()
+        with self.query() as conn:
+            # SQLite 参数上限约 999，按批拆分以防列表过长
+            for batch in _chunks(ids):
+                placeholders = ','.join(['?'] * len(batch))
+                rows = conn.execute(
+                    f'SELECT r.sub_task_id, t.id, t.title '
+                    f'FROM task_relations r JOIN tasks t ON t.id = r.main_task_id '
+                    f'WHERE r.sub_task_id IN ({placeholders})',
+                    tuple(batch)
+                ).fetchall()
+                for row in rows:
+                    result[row['sub_task_id']] = {'id': row['id'], 'title': row['title']}
         return result
 
     def search_tasks_with_subtasks(self, keyword: str = '', limit: int = 5) -> List[Dict[str, Any]]:
@@ -96,41 +107,29 @@ class TaskRelationCrudMixin:
         返回:
             [{id, title, priority, dueDate, completed, subtaskCount}, ...]
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        base_sql = '''
-            SELECT t.id, t.title, t.priority, t.due_date, t.completed, COUNT(r.sub_task_id) AS sub_count
-            FROM task_relations r
-            JOIN tasks t ON t.id = r.main_task_id
-        '''
-        if keyword:
-            # 转义 LIKE 通配符，避免关键字中的 %/_ 被当通配符
-            esc = '\\'
-            escaped = keyword.replace(esc, esc + esc).replace('%', esc + '%').replace('_', esc + '_')
-            like = f'%{escaped}%'
-            cursor.execute(
-                base_sql +
-                ' WHERE t.title COLLATE NOCASE LIKE ? ESCAPE ?'
-                ' GROUP BY r.main_task_id'
-                ' ORDER BY sub_count DESC, t.updated_at DESC'
-                ' LIMIT ?',
-                (like, esc, limit)
-            )
-        else:
-            cursor.execute(
-                base_sql +
-                ' GROUP BY r.main_task_id'
-                ' ORDER BY sub_count DESC, t.updated_at DESC'
-                ' LIMIT ?',
-                (limit,)
-            )
-        rows = cursor.fetchall()
-        conn.close()
+        base_sql = (
+            'SELECT t.id, t.title, t.priority, t.due_date, t.completed, COUNT(r.sub_task_id) AS sub_count '
+            'FROM task_relations r JOIN tasks t ON t.id = r.main_task_id '
+        )
+        tail_sql = ' GROUP BY r.main_task_id ORDER BY sub_count DESC, t.updated_at DESC LIMIT ?'
+
+        with self.query() as conn:
+            if keyword:
+                # 转义 LIKE 通配符，避免关键字中的 %/_ 被当通配符
+                esc = '\\'
+                escaped = keyword.replace(esc, esc + esc).replace('%', esc + '%').replace('_', esc + '_')
+                rows = conn.execute(
+                    base_sql + ' WHERE t.title COLLATE NOCASE LIKE ? ESCAPE ?' + tail_sql,
+                    (f'%{escaped}%', esc, limit)
+                ).fetchall()
+            else:
+                rows = conn.execute(base_sql + tail_sql, (limit,)).fetchall()
+
         return [{
-            'id': r[0],
-            'title': r[1],
-            'priority': r[2],
-            'dueDate': r[3],
-            'completed': bool(r[4]),
-            'subtaskCount': r[5]
-        } for r in rows]
+            'id': row['id'],
+            'title': row['title'],
+            'priority': row['priority'],
+            'dueDate': row['due_date'],
+            'completed': bool(row['completed']),
+            'subtaskCount': row['sub_count'],
+        } for row in rows]

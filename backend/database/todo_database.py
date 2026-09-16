@@ -1,76 +1,90 @@
 """
 TodoList应用的数据库操作
 """
-
 from __future__ import annotations
+
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
+
+from backend.database import schema
 from backend.database.mixins import AllCrudMixins
-from backend.database.utils import get_app_data_file, migrate_database
+from backend.database.utils import get_app_data_file
+
+# 连接等待锁的超时时间（秒）。桌面端存在后台提醒线程与主线程并发访问，
+# 设置超时可避免偶发的 "database is locked"。
+_CONNECT_TIMEOUT = 15.0
+
 
 class TodoDatabase(AllCrudMixins):
     """Todo数据库操作类"""
+
     def __init__(self) -> None:
         db_file = get_app_data_file()
 
         # 确保父目录存在
         db_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # 数据库文件路径
         self.db_path = str(db_file) if isinstance(db_file, Path) else db_file
         self.init_database()
 
-    def get_connection(self) -> sqlite3.Connection:
-        """获取数据库连接"""
-        return sqlite3.connect(self.db_path)
-    
-    def init_database(self) -> None:
-        """初始化数据库表"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # 创建任务表，额外说明：tasks.parent_task_id 字段仅用于周期性任务，标记父模板ID，与普通父子任务关联（task_relations）无关。
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tasks (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT,
-                completed BOOLEAN DEFAULT FALSE,
-                priority TEXT DEFAULT 'none',
-                category_id TEXT,
-                due_date TEXT,
-                is_recurring BOOLEAN DEFAULT FALSE,
-                recurrence_type TEXT,
-                recurrence_interval INTEGER DEFAULT 1,
-                recurrence_count INTEGER,
-                parent_task_id TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                FOREIGN KEY (category_id) REFERENCES categories (id)
-            )
-        ''')
-        
-        # 创建分类表
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS categories (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                color TEXT DEFAULT '#007bff',
-                created_at TEXT
-            )
-        ''')
+    # ------------------------------------------------------------------ #
+    # 连接与事务
+    #
+    # 全库唯一入口：业务代码不再自行 sqlite3.connect，避免连接泄漏、
+    # 忘记提交，以及外键约束未开启等问题。
+    # ------------------------------------------------------------------ #
 
-        # 创建设置表
-        cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS settings (
-                            key TEXT PRIMARY KEY,
-                            value TEXT NOT NULL,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                    ''')
-        
-        # 检查并添加新字段（用于数据库迁移）
-        migrate_database(cursor)
-        
-        conn.commit()
-        conn.close()
+    def _connect(self) -> sqlite3.Connection:
+        """建立连接并应用统一的 PRAGMA。"""
+        conn = sqlite3.connect(self.db_path, timeout=_CONNECT_TIMEOUT)
+        # 统一的 PRAGMA：
+        # - foreign_keys：启用外键级联删除（默认关闭，导致 ON DELETE CASCADE 失效）
+        # - journal_mode=WAL：读写并发，避免后台线程轮询与主线程互相阻塞
+        conn.execute('PRAGMA foreign_keys = ON')
+        conn.execute('PRAGMA journal_mode = WAL')
+        conn.execute('PRAGMA synchronous = NORMAL')
+        # 以列名访问结果，彻底摆脱 row[0] 这类位置依赖
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    @contextmanager
+    def tx(self) -> Iterator[sqlite3.Connection]:
+        """写事务上下文：正常结束提交，异常回滚，无论如何关闭连接。
+
+        用于所有 INSERT / UPDATE / DELETE 场景。
+        """
+        conn = self._connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    @contextmanager
+    def query(self) -> Iterator[sqlite3.Connection]:
+        """只读查询上下文：不做提交，始终关闭连接。"""
+        conn = self._connect()
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    def get_connection(self) -> sqlite3.Connection:
+        """获取数据库连接（已应用统一 PRAGMA）。
+
+        仅用于需要长期持有连接的特殊场景，调用方需自行关闭；
+        常规读写请优先使用 tx() / query()。
+        """
+        return self._connect()
+
+    def init_database(self) -> None:
+        """初始化数据库表结构与索引"""
+        with self.tx() as conn:
+            cursor = conn.cursor()
+            schema.initialize(cursor)

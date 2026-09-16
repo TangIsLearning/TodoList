@@ -67,21 +67,17 @@ class StatisticsCrudMixin:
         """返回指定时间口径下，可用于筛选的年/月/周候选项。"""
         dates: List[datetime] = []
         try:
-            import sqlite3
-            conn = sqlite3.connect(self.db_path)
-            try:
+            with self.query() as conn:
                 rows = conn.execute(
                     'SELECT completed, created_at, due_date, updated_at FROM tasks'
                 ).fetchall()
-            finally:
-                conn.close()
-            for completed, created_at, due_date, updated_at in rows:
+            for row in rows:
                 if date_basis == 'due':
-                    dt = _safe_dt(due_date)
+                    dt = _safe_dt(row['due_date'])
                 elif date_basis == 'completed':
-                    dt = _safe_dt(updated_at) if completed else None
+                    dt = _safe_dt(row['updated_at']) if row['completed'] else None
                 else:
-                    dt = _safe_dt(created_at)
+                    dt = _safe_dt(row['created_at'])
                 if dt:
                     dates.append(dt)
         except Exception:
@@ -175,6 +171,7 @@ class StatisticsCrudMixin:
 
         included: List[Dict[str, Any]] = []
         pairs: List = []  # (task, basis_datetime)，保持与 included 一一对应
+        due_dts: List[Optional[datetime]] = []  # 截止时间，与 included 一一对应，避免重复解析
         for task in all_tasks:
             # 完成时间口径只统计已完成的任务（未完成没有完成时间）
             if basis == 'completed' and not task.get('completed'):
@@ -203,6 +200,7 @@ class StatisticsCrudMixin:
                     continue
             included.append(task)
             pairs.append((task, dt))
+            due_dts.append(_safe_dt(task.get('dueDate')))
         basis_dates = [p[1] for p in pairs if p[1] is not None]
 
         # ---- 2. KPI ----
@@ -213,9 +211,8 @@ class StatisticsCrudMixin:
 
         overdue = 0
         no_due = 0
-        for t in included:
-            due_str = t.get('dueDate')
-            due_dt = _safe_dt(due_str) if due_str else None
+        for idx, t in enumerate(included):
+            due_dt = due_dts[idx]
             if due_dt is None:
                 no_due += 1
             elif not t.get('completed') and due_dt.date() < today:
@@ -237,28 +234,41 @@ class StatisticsCrudMixin:
 
         items: List[Dict[str, Any]] = []
 
-        def _count_bucket(predicate):
-            cnt = 0
-            cnt_done = 0
-            for task, dt in pairs:
-                if dt is not None and predicate(dt):
-                    cnt += 1
-                    if task.get('completed'):
-                        cnt_done += 1
-            return cnt, cnt_done
+        # 先按粒度一次性分桶（O(N)），再按横轴序列输出，避免"每个桶全量扫描一次"
+        def _bucket_key(dt: datetime) -> str:
+            if trend_granularity == 'year':
+                return dt.strftime('%Y')
+            if trend_granularity == 'month':
+                return dt.strftime('%Y-%m')
+            return dt.date().isoformat()
 
-        if trend_granularity == 'year':
-            # 全部时间：按年聚合（横轴为有数据的年份）
-            yr_set = sorted({d.strftime('%Y') for d in basis_dates})
-            for yr in yr_set:
-                cnt, cnt_done = _count_bucket(lambda dt, y=yr: dt.strftime('%Y') == y)
-                items.append({
-                    'key': yr,
-                    'label': yr,
+        totals: Dict[str, int] = {}
+        dones: Dict[str, int] = {}
+        for task, dt in pairs:
+            if dt is None:
+                continue
+            key = _bucket_key(dt)
+            totals[key] = totals.get(key, 0) + 1
+            if task.get('completed'):
+                dones[key] = dones.get(key, 0) + 1
+
+        def _make_items(keys: List[str]) -> List[Dict[str, Any]]:
+            result: List[Dict[str, Any]] = []
+            for key in keys:
+                cnt = totals.get(key, 0)
+                cnt_done = dones.get(key, 0)
+                result.append({
+                    'key': key,
+                    'label': key,
                     'total': cnt,
                     'completed': cnt_done,
                     'uncompleted': cnt - cnt_done,
                 })
+            return result
+
+        if trend_granularity == 'year':
+            # 全部时间：按年聚合（横轴为有数据的年份）
+            items = _make_items(sorted(totals.keys()))
         elif trend_granularity == 'month':
             # 按年份：展示该年 1-12 月（跨月连续、无任务月份补 0）
             cur = last = None
@@ -269,38 +279,24 @@ class StatisticsCrudMixin:
                 ym_set = {d.strftime('%Y-%m') for d in basis_dates}
                 if ym_set:
                     cur, last = min(ym_set), max(ym_set)
+            ym_keys: List[str] = []
             while cur and cur <= last:
-                ym = cur
-                first_day, last_day = _month_range(ym)
-                cnt, cnt_done = _count_bucket(
-                    lambda dt, f=first_day, l=last_day: f <= dt.date() <= l)
-                items.append({
-                    'key': ym,
-                    'label': ym,
-                    'total': cnt,
-                    'completed': cnt_done,
-                    'uncompleted': cnt - cnt_done,
-                })
+                ym_keys.append(cur)
                 # 推进到下一个月
-                if int(ym[5:7]) == 12:
-                    cur = f'{int(ym[:4]) + 1}-01'
+                if int(cur[5:7]) == 12:
+                    cur = f'{int(cur[:4]) + 1}-01'
                 else:
-                    cur = f'{ym[:4]}-{int(ym[5:7]) + 1:02d}'
+                    cur = f'{cur[:4]}-{int(cur[5:7]) + 1:02d}'
+            items = _make_items(ym_keys)
         else:
             # 按月份/按周：展示完整逐日序列（含无任务日期）
-            if start_day is not None:
+            day_keys: List[str] = []
+            if start_day is not None and end_day is not None:
                 day = start_day
-                max_day = end_day
-                while day <= max_day:
-                    cnt, cnt_done = _count_bucket(lambda dt, d=day: dt.date() == d)
-                    items.append({
-                        'key': day.isoformat(),
-                        'label': day.isoformat(),
-                        'total': cnt,
-                        'completed': cnt_done,
-                        'uncompleted': cnt - cnt_done,
-                    })
+                while day <= end_day:
+                    day_keys.append(day.isoformat())
                     day += timedelta(days=1)
+            items = _make_items(day_keys)
 
         # ---- 4. 完成状态 ----
         status = {'completed': completed, 'uncompleted': uncompleted}
@@ -347,9 +343,7 @@ class StatisticsCrudMixin:
         # ---- 7. 截止日期相关的周/时分布（仅统计有截止日期的任务） ----
         weekday_counts = [0] * 7
         hour_counts = [0] * 24
-        for t in included:
-            due_str = t.get('dueDate')
-            due_dt = _safe_dt(due_str) if due_str else None
+        for due_dt in due_dts:
             if due_dt is None:
                 continue
             weekday_counts[due_dt.weekday()] += 1
@@ -369,11 +363,10 @@ class StatisticsCrudMixin:
 
         # ---- 9. 逾期未完成任务明细 ----
         overdue_tasks = []
-        for t in included:
+        for idx, t in enumerate(included):
             if t.get('completed'):
                 continue
-            due_str = t.get('dueDate')
-            due_dt = _safe_dt(due_str) if due_str else None
+            due_dt = due_dts[idx]
             if due_dt is None or due_dt.date() >= today:
                 continue
             cid = t.get('categoryId')
