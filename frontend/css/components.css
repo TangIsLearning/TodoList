@@ -789,23 +789,39 @@
     background-color: rgba(0, 0, 0, 0.2);
 }
 
-/* 侧边栏标签模块：hover 时将最右侧计数切换为编辑/删除图标 */
+/* 侧边栏标签模块：hover 时将最右侧计数切换为编辑/删除图标。
+   计数与图标共用同一网格单元（1行2列）且始终留在文档流中，hover 只切换 visibility，
+   因此标签宽度恒定。若用 display 切换，两者宽度不同会导致右边界左右跳动，
+   鼠标停在标签右边缘时会反复进出 hover 状态而闪烁。 */
+.tag-module-item {
+    display: inline-grid;
+    grid-template-columns: auto max-content;
+}
+
+.tag-module-item .tag-count {
+    grid-area: 1 / 2;
+    /* 两者 margin 必须一致，否则切换时列宽仍会变化 */
+    margin-left: 4px;
+}
+
 .tag-module-item .tag-action-icon {
-    display: none;
+    grid-area: 1 / 2;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: 2px;
+    margin-left: 4px;
     font-size: 12px;
     line-height: 1;
     cursor: pointer;
+    visibility: hidden;
 }
 
 .tag-module-item:hover .tag-count {
-    display: none;
+    visibility: hidden;
 }
 
 .tag-module-item:hover .tag-action-icon {
-    display: inline-flex;
+    visibility: visible;
 }
 
 .tag-module-item .tag-action-icon:hover {

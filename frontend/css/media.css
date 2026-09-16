@@ -745,5 +745,7 @@
 
     .tag-module-item .tag-action-icon {
         display: inline-flex;
+        /* 移动端常驻显示操作图标，需覆盖桌面端的 visibility: hidden */
+        visibility: visible;
     }
 }
