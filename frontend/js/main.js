@@ -275,7 +275,7 @@ class App {
             // 重置筛选器
             if (window.todoManager) {
                 window.todoManager.currentFilter = 'all';
-                window.todoManager.searchQuery = '';
+                window.todoManager.searchQuery = null;
                 window.todoManager.priorityFilter = 'all';
                 window.todoManager.statusFilter = 'all';
                 
@@ -455,7 +455,15 @@ class App {
 
             window.todoManager.statusFilter = statusValue;
             window.todoManager.dueDateFilter = dueDateValue;
-            window.todoManager.searchQuery = tagValue;
+            // tagValue 为 '#' 表示快捷筛选"含标签任务"，其余按普通关键词处理；
+            // 与搜索框 chips 一样转成结构化查询对象交给后端解析
+            if (tagValue === '#') {
+                window.todoManager.searchQuery = { tags: [], keywords: [], parent: null, anyTag: true };
+            } else if (tagValue) {
+                window.todoManager.searchQuery = { tags: [], keywords: [tagValue], parent: null };
+            } else {
+                window.todoManager.searchQuery = null;
+            }
             window.todoManager.priorityFilter = 'all';
             window.todoManager.currentPage = 1;
             window.todoManager.customDateFilter = null; // 清除自定义日期筛选

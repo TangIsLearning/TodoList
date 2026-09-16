@@ -26,7 +26,8 @@ class TodoManager {
         this.instances = [];
         this.tasks = [];
         this.currentFilter = 'all';
-        this.searchQuery = '';
+        // 结构化查询对象：{ tags: [{id?, name}], keywords: [...], parent: {id?, name?} | null }
+        this.searchQuery = null;
         this.priorityFilter = 'all';
         this.statusFilter = 'uncompleted';
         this.dueDateFilter = 'all';
@@ -646,36 +647,13 @@ class TodoManager {
         this.timeInput.addEventListener('change', onTimeChange);
     }
 
-    // 构建任务列表查询参数（子任务搜索 / 普通搜索共用，保证分页与首屏一致）
+    // 构建任务列表查询参数。
     buildListQuery(page) {
         const categoryIdArg = this.currentFilter === 'all' ? null : this.currentFilter;
         const statusArg = this.statusFilter === 'all' ? null : this.statusFilter;
         const priorityArg = this.priorityFilter === 'all' ? null : this.priorityFilter;
         const dueDateArg = this.dueDateFilter === 'all' ? null : this.dueDateFilter;
 
-        const isLoadSubtasks = this.searchQuery && this.searchQuery.startsWith('>') && this.searchQuery.substring(1).trim();
-        if (isLoadSubtasks) {
-            // 参数顺序需与后端 TodoApi.search_subtasks_by_parent_name 签名对齐：
-            // (parent_name, page, page_size, category_id, status, priority, due_date_filter, parent_id)
-            const parentName = this.searchQuery.substring(1).trim();
-            // 仅当搜索文本仍与所选父任务标题完全一致时，才使用精确ID；
-            // 用户手动改写搜索文本后自动回退为按名称解析。
-            const parentId = (this.subtaskParent.id && this.subtaskParent.title
-                && parentName === this.subtaskParent.title) ? this.subtaskParent.id : null;
-            return {
-                apiMethod: 'search_subtasks_by_parent_name',
-                apiArgs: [
-                    parentName,
-                    page,
-                    this.pageSize,
-                    categoryIdArg,
-                    statusArg,
-                    priorityArg,
-                    dueDateArg,
-                    parentId
-                ]
-            };
-        }
         return {
             apiMethod: 'get_todos',
             apiArgs: [
@@ -1639,9 +1617,8 @@ class TodoManager {
                     const taskTitle = el.dataset.taskTitle;
                     const taskId = el.dataset.taskId;
                     if (taskTitle) {
-                        // 进入子任务搜索模式：清空 chips 并透传 ">父任务名"
-                        this.searchChips = [];
-                        this.renderSearchChips();
+                        // 进入子任务搜索模式：填充 ">父任务名"
+                        // 已有的标签 chips 会保留，与父任务条件在后端按 AND 组合
                         this.setSubtaskParent(taskId, taskTitle);
                         this.searchInput.value = `>${taskTitle}`;
                         this.syncSearchQuery(0);
@@ -2194,7 +2171,7 @@ class TodoManager {
         }
 
         if (filterChanged) {
-            // 重新计算提交给后端的搜索串（chips + 输入框文本）
+            // 重新计算提交给后端的查询对象
             this.searchQuery = this.buildSearchQuery();
             this.updateSearchClearButton();
             // 筛选条件已变化，回到第一页重新加载
@@ -2507,6 +2484,12 @@ class TodoManager {
         this.searchInput.addEventListener('input', () => {
             this.updateSearchClearButton();
             if (this.isSubtaskSuggestMode(this.searchInput.value)) {
+                // 仍以 ">" 开头但文本已被改写时，之前选中的父任务精确ID不再可信，
+                // 清除后自动回退为按名称解析
+                if (this.subtaskParent.title
+                    && this.searchInput.value.trim() !== `>${this.subtaskParent.title}`) {
+                    this.setSubtaskParent(null, null);
+                }
                 this.scheduleSubtaskSuggestions(250);
             } else {
                 // 退出 ">" 子任务搜索模式，清除记录的父任务
@@ -2689,17 +2672,39 @@ class TodoManager {
         this.syncSearchQuery(0);
     }
 
-    // 将 chips + 输入框文本转换为后端支持的搜索字符串
-    // 后端约定：关键词以 ";" 分隔；#前缀表示标签搜索，其余为普通文本搜索；
-    // 特殊：当无 chip 且输入以 ">" 开头时，按子任务搜索原样透传。
+    // 将 chips + 输入框文本转换为后端 query 解析层支持的结构化查询对象。
+    // 三种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
+    //   tags     - 标签 chips（有 tagId 时带精确 id，否则按名称匹配）
+    //   keywords - 文本 chips + 输入框文本
+    //   parent   - 输入以 ">" 开头时，查询该父任务的直接子任务
     buildSearchQuery() {
-        const text = this.searchInput ? this.searchInput.value.trim() : '';
-        if (this.searchChips.length === 0 && text.startsWith('>')) {
-            return text;
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        const isParentMode = this.isSubtaskSuggestMode(inputText);
+
+        const tags = this.searchChips
+            .filter(chip => chip.type === 'tag' && chip.value)
+            .map(chip => (chip.tagId
+                ? { id: chip.tagId, name: chip.value }
+                : { name: chip.value }));
+
+        // 单独的 "#" 是快捷筛选"含标签任务"，不参与普通文本匹配
+        const isAnyTag = inputText === '#';
+
+        // 父任务模式下，输入框文本已被父任务消费，不再作为普通关键词
+        const keywords = this.searchChips
+            .filter(chip => chip.type !== 'tag' && chip.value)
+            .map(chip => chip.value);
+        if (!isParentMode && !isAnyTag && inputText) keywords.push(inputText);
+
+        let parent = null;
+        if (isParentMode) {
+            const name = inputText.substring(1).trim();
+            if (name) {
+                parent = { id: this.subtaskParent.id || null, name };
+            }
         }
-        const parts = this.searchChips.map(c => c.type === 'tag' ? '#' + c.value : c.value);
-        if (text) parts.push(text);
-        return parts.join(';');
+
+        return { tags, keywords, parent, anyTag: isAnyTag };
     }
 
     // 同步 searchQuery、清空按钮、标签模块选中态，并触发搜索
@@ -2733,11 +2738,11 @@ class TodoManager {
     }
 
     // ===== 子任务搜索建议下拉（输入 ">" 触发） =====
-    // 判断当前是否处于子任务建议模式：无 chip 且输入以 ">" 开头
-    // 与 buildSearchQuery 的 ">" 透传条件保持一致
+    // 判断当前是否处于子任务建议模式：输入以 ">" 开头且后面有内容。
+    // 标签 chips 允许与父任务条件并存（后端按 AND 组合），因此不再要求 chips 为空。
     isSubtaskSuggestMode(value) {
         const v = (value || '').trim();
-        return this.searchChips.length === 0 && v.startsWith('>');
+        return v.startsWith('>') && v.length > 1;
     }
 
     // 防抖拉取「有子任务的父任务」建议
@@ -2873,7 +2878,7 @@ class TodoManager {
         this.searchChips = [];
         this.renderSearchChips();
         this.searchInput.value = '';
-        this.searchQuery = '';
+        this.searchQuery = null;
         this.currentPage = 1;
         this.customDateFilter = null;
         this.resetInfiniteScroll(); // 重置无限下拉状态

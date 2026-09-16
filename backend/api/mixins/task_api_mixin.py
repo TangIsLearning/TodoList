@@ -58,10 +58,18 @@ class TaskApiMixin:
                   category_id: Optional[str] = None, status: Optional[str] = None,
                   priority: Optional[str] = None, due_date_filter: Optional[str] = None,
                   year: Optional[int] = None, month: Optional[int] = None,
-                  search_query: Optional[str] = None, custom_date: Optional[str] = None,
+                  search_query: Optional[Union[str, Dict[str, Any]]] = None,
+                  custom_date: Optional[str] = None,
                   custom_start_date: Optional[str] = None,
                   custom_end_date: Optional[str] = None) -> Dict[str, Any]:
-        """分页获取任务，支持多种筛选条件"""
+        """分页获取任务，支持多种筛选条件。
+
+        search_query 为搜索条件，标签 / 父任务 / 普通文本三种语义由
+        backend.database.query 解析层统一处理，多条件之间为 AND：
+            结构化（推荐）: {'tags': [{'id','name'}], 'keywords': [...],
+                            'parent': {'id','name'}, 'anyTag': True}
+            字符串（兼容）: '#标签;关键词' / '>父任务名' / '#'
+        """
         return self.db.get_tasks_paginated(
             page=page,
             page_size=page_size,

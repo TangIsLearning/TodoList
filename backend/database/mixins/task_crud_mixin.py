@@ -1,7 +1,107 @@
 import sqlite3
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from backend.database.models import Task
+from backend.database.query.builder import SearchClauseBuilder
+from backend.database.query.parser import parse_search_query
+
+
+def _build_base_filter_clauses(category_id: Optional[str], status: Optional[str],
+                               priority: Optional[str], due_date_filter: Optional[str],
+                               year: Optional[int], month: Optional[int],
+                               custom_date: Optional[str],
+                               sync_start_time: Optional[Union[str, date]] = None,
+                               sync_end_time: Optional[Union[str, date]] = None
+                               ) -> Tuple[List[str], List[Any]]:
+    """构建分类 / 优先级 / 状态 / 日期 / 年月 等基础筛选的 WHERE 条件。
+
+    只依赖传入参数，不依赖实例状态，便于与查询解析层组合使用。
+    custom_date 存在时（日历点击）日期类筛选被忽略，保持原有优先级。
+    """
+    clauses: List[str] = []
+    params: List[Any] = []
+    today = datetime.now().date()
+
+    # 分类筛选
+    if not custom_date:
+        if category_id == 'uncategorized':
+            clauses.append('(category_id IS NULL OR category_id = "")')
+        elif category_id and category_id != 'all':
+            clauses.append('category_id = ?')
+            params.append(category_id)
+
+    # 优先级筛选
+    if priority and priority != 'all':
+        clauses.append('priority = ?')
+        params.append(priority)
+
+    # 状态筛选
+    if status == 'completed':
+        clauses.append('completed = 1')
+    elif status == 'uncompleted':
+        clauses.append('completed = 0')
+    elif status == 'pending':
+        # 未完成且未逾期
+        clauses.append('completed = 0')
+        clauses.append('(due_date IS NULL OR date(due_date) >= ?)')
+        params.append(today.isoformat())
+    elif status == 'overdue':
+        # 未完成且已逾期
+        clauses.append('completed = 0')
+        clauses.append('due_date IS NOT NULL')
+        clauses.append('date(due_date) < ?')
+        params.append(today.isoformat())
+
+    # 日期筛选
+    if due_date_filter and not custom_date:
+        if due_date_filter == 'today':
+            clauses.append('date(due_date) = ?')
+            params.append(today.isoformat())
+        elif due_date_filter == 'tomorrow':
+            tomorrow = today.replace(day=today.day + 1) if today.day < 28 else (
+                today.replace(day=1, month=today.month + 1) if today.month < 12 else today.replace(
+                    year=today.year + 1, month=1, day=1))
+            clauses.append('date(due_date) = ?')
+            params.append(tomorrow.isoformat())
+        elif due_date_filter == 'week':
+            week_start = today - timedelta(days=today.weekday())
+            week_end = today.replace(day=week_start.day + 7) if today.day <= 21 else today.replace(day=28)
+            clauses.append('due_date IS NOT NULL')
+            clauses.append('date(due_date) BETWEEN ? AND ?')
+            params.append(week_start.isoformat())
+            params.append(week_end.isoformat())
+        elif due_date_filter == 'month':
+            month_start = today.replace(month=today.month, day=1)
+            if today.month == 12:
+                next_month = today.replace(year=today.year + 1, month=1, day=1)
+            else:
+                next_month = month_start.replace(month=month_start.month + 1)
+            month_end = next_month - timedelta(days=1)
+            clauses.append('due_date IS NOT NULL')
+            clauses.append('date(due_date) BETWEEN ? AND ?')
+            params.append(month_start.isoformat())
+            params.append(month_end.isoformat())
+        elif due_date_filter == 'sync':  # 仅同步
+            clauses.append('due_date IS NOT NULL')
+            clauses.append('date(due_date) >= ?')
+            params.append(today.isoformat())
+            clauses.append('date(created_at) BETWEEN ? AND ?')
+            params.append(sync_start_time.isoformat())
+            params.append(sync_end_time.isoformat())
+        elif due_date_filter == 'no-due-date':
+            clauses.append('(due_date IS NULL OR due_date = "")')
+
+    # 年月筛选
+    if year and not custom_date:
+        clauses.append('strftime("%Y", date(created_at)) = ?')
+        params.append(str(year))
+
+    if month and not custom_date:
+        clauses.append('strftime("%m", date(created_at)) = ?')
+        params.append(str(month).zfill(2))
+
+    return clauses, params
+
 
 class TaskCrudMixin:
 
@@ -222,7 +322,8 @@ class TaskCrudMixin:
                             category_id: Optional[str] = None, status: Optional[str] = None,
                             priority: Optional[str] = None, due_date_filter: Optional[str] = None,
                             year: Optional[int] = None, month: Optional[int] = None,
-                            search_query: Optional[str] = None, custom_date: Optional[str] = None,
+                            search_query: Optional[Union[str, Dict[str, Any]]] = None,
+                            custom_date: Optional[str] = None,
                             sync_start_time: Optional[Union[str, date]] = None,
                             sync_end_time: Optional[Union[str, date]] = None,
                             custom_start_date: Optional[str] = None,
@@ -238,7 +339,12 @@ class TaskCrudMixin:
             due_date_filter: 日期筛选
             year: 年份筛选
             month: 月份筛选
-            search_query: 搜索关键词，多关键词请用分号分隔（如 "工作;紧急"）
+            search_query: 搜索条件，多条件之间为 AND 语义。支持两种形式：
+                结构化 dict（推荐，由前端 chips 序列化而来）:
+                    {'tags': [{'id': 't1', 'name': '工作'}, '紧急'],
+                     'keywords': ['报表'],
+                     'parent': {'id': 'p1', 'name': '项目A'}}
+                旧字符串协议（兼容）: '#标签;关键词' 或 '>父任务名'
             custom_date: 自定义日期筛选（用于日历点击）
             sync_start_time: 自定义日期筛选（数据同步开始时间）
             sync_end_time: 自定义日期筛选（数据同步结束时间）
@@ -264,117 +370,26 @@ class TaskCrudMixin:
             params.append(custom_start_date)
             params.append(custom_end_date)
 
-        # 分类筛选
-        if not custom_date:  # 如果有自定义日期筛选，则忽略其他日期筛选
-            if category_id == 'uncategorized':
-                where_clauses.append('(category_id IS NULL OR category_id = "")')
-            elif category_id and category_id != 'all':
-                where_clauses.append('category_id = ?')
-                params.append(category_id)
+        # 基础筛选（分类 / 优先级 / 状态 / 日期 / 年月）
+        base_clauses, base_params = _build_base_filter_clauses(
+            category_id=category_id,
+            status=status,
+            priority=priority,
+            due_date_filter=due_date_filter,
+            year=year,
+            month=month,
+            custom_date=custom_date,
+            sync_start_time=sync_start_time,
+            sync_end_time=sync_end_time,
+        )
+        where_clauses.extend(base_clauses)
+        params.extend(base_params)
 
-        # 优先级筛选
-        if priority and priority != 'all':
-            where_clauses.append('priority = ?')
-            params.append(priority)
-
-        # 状态筛选
-        today = datetime.now().date()
-        if status == 'completed':
-            where_clauses.append('completed = 1')
-        elif status == 'uncompleted':
-            where_clauses.append('completed = 0')
-        elif status == 'pending':
-            # 未完成且未逾期
-            where_clauses.append('completed = 0')
-            where_clauses.append('(due_date IS NULL OR date(due_date) >= ?)')
-            params.append(today.isoformat())
-        elif status == 'overdue':
-            # 未完成且已逾期
-            where_clauses.append('completed = 0')
-            where_clauses.append('due_date IS NOT NULL')
-            where_clauses.append('date(due_date) < ?')
-            params.append(today.isoformat())
-
-        # 日期筛选
-        if due_date_filter and not custom_date:
-            if due_date_filter == 'today':
-                where_clauses.append('date(due_date) = ?')
-                params.append(today.isoformat())
-            elif due_date_filter == 'tomorrow':
-                tomorrow = today.replace(day=today.day + 1) if today.day < 28 else (
-                    today.replace(day=1, month=today.month + 1) if today.month < 12 else today.replace(
-                        year=today.year + 1, month=1, day=1))
-                where_clauses.append('date(due_date) = ?')
-                params.append(tomorrow.isoformat())
-            elif due_date_filter == 'week':
-                week_start = today - timedelta(days=today.weekday())
-                week_end = today.replace(day=week_start.day + 7) if today.day <= 21 else today.replace(day=28)
-                where_clauses.append('due_date IS NOT NULL')
-                where_clauses.append('date(due_date) BETWEEN ? AND ?')
-                params.append(week_start.isoformat())
-                params.append(week_end.isoformat())
-            elif due_date_filter == 'month':
-                month_start = today.replace(month=today.month, day=1)
-                if today.month == 12:
-                    next_month = today.replace(year=today.year + 1, month=1, day=1)
-                else:
-                    next_month = month_start.replace(month=month_start.month + 1)
-                month_end = next_month - timedelta(days=1)
-                where_clauses.append('due_date IS NOT NULL')
-                where_clauses.append('date(due_date) BETWEEN ? AND ?')
-                params.append(month_start.isoformat())
-                params.append(month_end.isoformat())
-            elif due_date_filter == 'sync':  # 仅同步
-                where_clauses.append('due_date IS NOT NULL')
-                where_clauses.append('date(due_date) >= ?')
-                params.append(today.isoformat())
-                where_clauses.append('date(created_at) BETWEEN ? AND ?')
-                params.append(sync_start_time.isoformat())
-                params.append(sync_end_time.isoformat())
-            elif due_date_filter == 'no-due-date':
-                where_clauses.append('(due_date IS NULL OR due_date = "")')
-
-        # 年月筛选
-        if year and not custom_date:
-            where_clauses.append('strftime("%Y", date(created_at)) = ?')
-            params.append(str(year))
-
-        if month and not custom_date:
-            where_clauses.append('strftime("%m", date(created_at)) = ?')
-            params.append(str(month).zfill(2))
-
-        # 搜索关键词
-        if search_query:
-            search_query = search_query.strip(';')
-            if search_query:
-                # 检查是否包含分号，支持多关键词
-                keywords = [kw.strip() for kw in search_query.split(';') if kw.strip()]
-                keyword_conditions = []
-                for kw in keywords:
-                    if kw.startswith('#'):
-                        # 标签搜索
-                        tag_name = kw[1:]
-                        condition = '''
-                                            id IN (SELECT task_id FROM task_tags WHERE tag_id IN (
-                                                SELECT id FROM tags WHERE name LIKE ?
-                                            ))
-                                        '''
-                        keyword_conditions.append(condition)
-                        params.append(f'%{tag_name}%')
-                    else:
-                        # 普通文本搜索（标题、描述、标签）
-                        condition = '''
-                                            (title LIKE ? OR description LIKE ? OR id IN (
-                                                SELECT task_id FROM task_tags WHERE tag_id IN (
-                                                    SELECT id FROM tags WHERE name LIKE ?
-                                                )
-                                            ))
-                                        '''
-                        keyword_conditions.append(condition)
-                        params.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%'])
-                # 将所有关键词条件用 OR 连接，并作为一个整体条件
-                combined_condition = '(' + ' OR '.join(keyword_conditions) + ')'
-                where_clauses.append(combined_condition)
+        # 搜索筛选（标签 / 父任务 / 普通文本），语义由 query 解析层统一处理
+        search_clauses, search_params = SearchClauseBuilder().build(
+            parse_search_query(search_query))
+        where_clauses.extend(search_clauses)
+        params.extend(search_params)
 
         # 构建完整的WHERE子句
         where_sql = ' AND '.join(where_clauses) if where_clauses else '1=1'
@@ -493,44 +508,6 @@ class TaskCrudMixin:
             }
             tasks.append(task_dict)
         return tasks
-
-    def find_task_by_title_exact(self, title: str) -> Optional[Dict[str, Any]]:
-        """通过任务标题精确查找任务（不区分大小写）"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            SELECT id, title, description, completed, priority, category_id, due_date,
-                   is_recurring, recurrence_type, recurrence_interval, recurrence_count, 
-                   parent_task_id, created_at, updated_at
-            FROM tasks 
-            WHERE title = ? COLLATE NOCASE
-            LIMIT 1
-        ''', (title,))
-
-        row = cursor.fetchone()
-        conn.close()
-
-        if row:
-            return {
-                'id': row[0],
-                'title': row[1],
-                'description': row[2],
-                'completed': bool(row[3]),
-                'priority': row[4],
-                'categoryId': row[5],
-                'dueDate': row[6],
-                'isRecurring': bool(row[7]) if row[7] is not None else False,
-                'recurrenceType': row[8],
-                'recurrenceInterval': row[9] if row[9] is not None else 1,
-                'recurrenceCount': row[10],
-                'parentTaskId': row[11],
-                'createdAt': row[12],
-                'updatedAt': row[13],
-                'tags': self.get_task_tags(row[0]),
-                'attachments': self.get_task_attachments(row[0])
-            }
-        return None
 
     def create_recurring_tasks(self, parent_task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建周期性任务系列"""
