@@ -1,6 +1,6 @@
 # backend/database/mixins/setting_crud_mixin.py
 import json
-from typing import Any, Dict
+from typing import Any
 
 
 class SettingCrudMixin:
@@ -36,19 +36,3 @@ class SettingCrudMixin:
                 'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
                 (key, self._encode(value))
             )
-
-    def delete_setting(self, key: str) -> None:
-        """删除单个设置"""
-        with self.tx() as conn:
-            conn.execute('DELETE FROM settings WHERE key = ?', (key,))
-
-    def get_all_settings(self) -> Dict[str, Any]:
-        """获取所有设置"""
-        with self.query() as conn:
-            rows = conn.execute('SELECT key, value FROM settings').fetchall()
-        return {row['key']: self._decode(row['value']) for row in rows}
-
-    def reset_settings(self) -> None:
-        """重置所有设置"""
-        with self.tx() as conn:
-            conn.execute('DELETE FROM settings')

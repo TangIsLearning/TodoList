@@ -1,19 +1,17 @@
 # backend/database/mixins/task_crud_mixin.py
 import sqlite3
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from dateutil.relativedelta import relativedelta
 
+from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Task
 from backend.database.query.builder import SearchClauseBuilder
 from backend.database.query.parser import parse_search_query
 
 # recurrence_count 为空（无限循环）时，周期性任务最多生成的任务总数（含父任务）
 MAX_RECURRENCE_OCCURRENCES = 200
-
-# SQLite 单条语句的参数上限，批量操作按此拆分
-_SQLITE_MAX_VARS = 500
 
 # 任务统一查询列：顺序即 _row_to_task 依赖的顺序，INSERT 复用同一份列名
 _TASK_COLUMNS = (
@@ -81,16 +79,6 @@ def _normalize_task_value(column: str, value: Any) -> Any:
     if column == 'due_date' and isinstance(value, (datetime, date)):
         return value.isoformat()
     return value
-
-
-def _chunks(items: Sequence[Any], size: int = _SQLITE_MAX_VARS) -> Iterable[Sequence[Any]]:
-    """按 SQLite 参数上限拆分批量参数。"""
-    for start in range(0, len(items), size):
-        yield items[start:start + size]
-
-
-def _placeholders(count: int) -> str:
-    return ','.join(['?'] * count)
 
 
 def _build_base_filter_clauses(category_id: Optional[str], status: Optional[str],
@@ -341,21 +329,21 @@ class TaskCrudMixin:
             return 0
 
         deleted = 0
-        for batch in _chunks(ids):
-            placeholders = _placeholders(len(batch))
+        for batch in chunks(ids):
+            marks = placeholders(len(batch))
             # 既清理"作为子任务"也清理"作为父任务"的关联记录
             conn.execute(
-                f'DELETE FROM task_relations WHERE sub_task_id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM task_relations WHERE sub_task_id IN ({marks})', tuple(batch))
             conn.execute(
-                f'DELETE FROM task_relations WHERE main_task_id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM task_relations WHERE main_task_id IN ({marks})', tuple(batch))
             conn.execute(
-                f'DELETE FROM task_tags WHERE task_id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM task_tags WHERE task_id IN ({marks})', tuple(batch))
             conn.execute(
-                f'DELETE FROM attachments WHERE task_id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM attachments WHERE task_id IN ({marks})', tuple(batch))
             conn.execute(
-                f'DELETE FROM calendar_events WHERE task_id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM calendar_events WHERE task_id IN ({marks})', tuple(batch))
             cursor = conn.execute(
-                f'DELETE FROM tasks WHERE id IN ({placeholders})', tuple(batch))
+                f'DELETE FROM tasks WHERE id IN ({marks})', tuple(batch))
             deleted += cursor.rowcount or 0
         return deleted
 
@@ -469,9 +457,9 @@ class TaskCrudMixin:
 
         tasks: List[Dict[str, Any]] = []
         with self.query() as conn:
-            for batch in _chunks(ids):
+            for batch in chunks(ids):
                 rows = conn.execute(
-                    f'{_TASK_SELECT} WHERE id IN ({_placeholders(len(batch))})', tuple(batch)
+                    f'{_TASK_SELECT} WHERE id IN ({placeholders(len(batch))})', tuple(batch)
                 ).fetchall()
                 tasks.extend(self._rows_to_tasks(conn, rows))
         return tasks
@@ -506,7 +494,7 @@ class TaskCrudMixin:
         with self.tx() as conn:
             conn.executemany(_INSERT_TASK_SQL, [self._task_to_params(t) for t in all_tasks])
             rows = conn.execute(
-                f'{_TASK_SELECT} WHERE id IN ({_placeholders(len(all_tasks))})',
+                f'{_TASK_SELECT} WHERE id IN ({placeholders(len(all_tasks))})',
                 tuple(t.id for t in all_tasks)
             ).fetchall()
             by_id = {row['id']: row for row in rows}

@@ -1,20 +1,10 @@
 # backend/database/mixins/tag_crud_mixin.py
-import re
 from typing import Any, Dict, List, Optional, Sequence
 
+from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Tag
 
-# 匹配 #标签名 格式，标签名可以是中文、英文、数字、下划线
-_TAG_PATTERN = re.compile(r'#([\u4e00-\u9fa5a-zA-Z0-9_]+)')
-
-# SQLite 单条语句的参数上限，批量操作按此拆分
-_SQLITE_MAX_VARS = 500
-
 _TAG_COLUMNS = 'id, name, color, created_at'
-
-
-def _chunks(items: Sequence[Any], size: int = _SQLITE_MAX_VARS) -> List[Sequence[Any]]:
-    return [items[start:start + size] for start in range(0, len(items), size)]
 
 
 def _row_to_tag(row: Any) -> Dict[str, Any]:
@@ -32,16 +22,6 @@ class TagCrudMixin:
     对外方法自行管理连接；``_`` 开头且首参为 ``conn`` 的方法供其他 mixin
     在同一事务内复用（例如新增 / 查询任务时批量补齐标签）。
     """
-
-    # ------------------------------------------------------------------ #
-    # 文本解析
-    # ------------------------------------------------------------------ #
-
-    def parse_tags_from_text(self, text: str) -> List[str]:
-        """从文本中解析标签（格式：#标签名）"""
-        if not text:
-            return []
-        return list(set(_TAG_PATTERN.findall(text)))  # 去重
 
     # ------------------------------------------------------------------ #
     # 关联维护
@@ -74,11 +54,6 @@ class TagCrudMixin:
                 [(task_id, tag_id) for tag_id in tag_ids]
             )
 
-    def update_task_tags(self, task_id: str, tag_names: List[str]) -> None:
-        """更新任务的标签"""
-        with self.tx() as conn:
-            self._replace_tags(conn, task_id, tag_names)
-
     def _task_tags_map(self, conn, task_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
         """批量获取多个任务的标签，返回 {task_id: [tag]}（一次查询，避免 N+1）。"""
         result: Dict[str, List[Dict[str, Any]]] = {tid: [] for tid in task_ids}
@@ -86,12 +61,12 @@ class TagCrudMixin:
         if not ids:
             return result
 
-        for batch in _chunks(ids):
-            placeholders = ','.join(['?'] * len(batch))
+        for batch in chunks(ids):
+            marks = placeholders(len(batch))
             rows = conn.execute(
                 f'SELECT tt.task_id, t.id, t.name, t.color, t.created_at '
                 f'FROM task_tags tt JOIN tags t ON t.id = tt.tag_id '
-                f'WHERE tt.task_id IN ({placeholders}) '
+                f'WHERE tt.task_id IN ({marks}) '
                 f'ORDER BY t.name',
                 tuple(batch)
             ).fetchall()
@@ -109,11 +84,6 @@ class TagCrudMixin:
         cursor = conn.execute(
             'DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM task_tags)')
         return cursor.rowcount or 0
-
-    def check_delete_tag(self) -> None:
-        """在标签未关联任何任务时，删除标签（单条 SQL，单事务）"""
-        with self.tx() as conn:
-            self._delete_orphan_tags(conn)
 
     # ------------------------------------------------------------------ #
     # 标签本体

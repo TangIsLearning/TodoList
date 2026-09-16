@@ -1,13 +1,8 @@
 # backend/database/mixins/task_relation_crud_mixin.py
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
-# SQLite 单条语句的参数上限，批量操作按此拆分
-_SQLITE_MAX_VARS = 500
-
-
-def _chunks(items: Sequence[Any], size: int = _SQLITE_MAX_VARS) -> List[Sequence[Any]]:
-    return [items[start:start + size] for start in range(0, len(items), size)]
+from backend.database.mixins._helpers import chunks, placeholders
 
 
 class TaskRelationCrudMixin:
@@ -17,36 +12,19 @@ class TaskRelationCrudMixin:
     # 写入
     # ------------------------------------------------------------------ #
 
-    def _set_parent(self, conn, sub_task_id: str, main_task_id: str) -> None:
-        """设置 / 覆盖子任务的父任务（UNIQUE(sub_task_id) 保证单父）。"""
-        conn.execute(
-            'INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at) '
-            'VALUES (?, ?, ?)',
-            (sub_task_id, main_task_id, datetime.now().isoformat())
-        )
-
     def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
-        """添加或更新一条关联（确保单父）"""
+        """添加或更新一条关联（UNIQUE(sub_task_id) 保证单父）"""
         with self.tx() as conn:
-            self._set_parent(conn, sub_task_id, main_task_id)
-
-    def _delete_relations_by_child(self, conn, task_id: str) -> None:
-        """删除该任务作为子任务的关联"""
-        conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
+            conn.execute(
+                'INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at) '
+                'VALUES (?, ?, ?)',
+                (sub_task_id, main_task_id, datetime.now().isoformat())
+            )
 
     def delete_relation_by_children(self, task_id: str) -> None:
         """删除该任务作为子任务的关联"""
         with self.tx() as conn:
-            self._delete_relations_by_child(conn, task_id)
-
-    def _delete_relations_by_parent(self, conn, task_id: str) -> None:
-        """删除所有以 task_id 为父的关联"""
-        conn.execute('DELETE FROM task_relations WHERE main_task_id = ?', (task_id,))
-
-    def delete_relations_by_parent(self, task_id: str) -> None:
-        """删除所有以 task_id 为父的关联"""
-        with self.tx() as conn:
-            self._delete_relations_by_parent(conn, task_id)
+            conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
 
     # ------------------------------------------------------------------ #
     # 查询
@@ -85,13 +63,13 @@ class TaskRelationCrudMixin:
 
         result: Dict[str, Dict[str, Any]] = {}
         with self.query() as conn:
-            # SQLite 参数上限约 999，按批拆分以防列表过长
-            for batch in _chunks(ids):
-                placeholders = ','.join(['?'] * len(batch))
+            # 按批拆分以防任务列表过长导致参数超限
+            for batch in chunks(ids):
+                marks = placeholders(len(batch))
                 rows = conn.execute(
                     f'SELECT r.sub_task_id, t.id, t.title '
                     f'FROM task_relations r JOIN tasks t ON t.id = r.main_task_id '
-                    f'WHERE r.sub_task_id IN ({placeholders})',
+                    f'WHERE r.sub_task_id IN ({marks})',
                     tuple(batch)
                 ).fetchall()
                 for row in rows:

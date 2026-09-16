@@ -104,6 +104,7 @@ base_hiddenimports = [
     'backend.database.mixins.setting_crud_mixin',
     'backend.database.mixins.statistics_crud_mixin',
     'backend.database.mixins.calendar_event_crud_mixin',
+    'backend.database.mixins._helpers',
     'backend.database.data_export',
     'backend.database.models',
     'backend.database.schema',

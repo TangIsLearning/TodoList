@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 
+from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Attachment
 
 # 附件统一查询列
@@ -14,13 +15,6 @@ _ATTACHMENT_INSERT = (
     f'INSERT INTO attachments ({_ATTACHMENT_COLUMNS}) '
     f"VALUES ({', '.join(['?'] * _ATTACHMENT_COLUMN_COUNT)})"
 )
-
-# SQLite 单条语句的参数上限，批量操作按此拆分
-_SQLITE_MAX_VARS = 500
-
-
-def _chunks(items: Sequence[Any], size: int = _SQLITE_MAX_VARS) -> List[Sequence[Any]]:
-    return [items[start:start + size] for start in range(0, len(items), size)]
 
 
 class AttachmentCrudMixin:
@@ -53,10 +47,10 @@ class AttachmentCrudMixin:
         if not ids:
             return result
 
-        for batch in _chunks(ids):
-            placeholders = ','.join(['?'] * len(batch))
+        for batch in chunks(ids):
+            marks = placeholders(len(batch))
             rows = conn.execute(
-                f'{_ATTACHMENT_SELECT} WHERE task_id IN ({placeholders}) ORDER BY created_at ASC',
+                f'{_ATTACHMENT_SELECT} WHERE task_id IN ({marks}) ORDER BY created_at ASC',
                 tuple(batch)
             ).fetchall()
             for row in rows:
@@ -96,13 +90,6 @@ class AttachmentCrudMixin:
             return []
         with self.query() as conn:
             return self._attachments_map(conn, [task_id]).get(task_id, [])
-
-    def get_attachments_by_task_ids(self, task_ids: List[str]) -> Dict[str, List[Dict[str, Any]]]:
-        """批量获取多个任务的附件，返回 {task_id: [attachments]}"""
-        if not task_ids:
-            return {}
-        with self.query() as conn:
-            return self._attachments_map(conn, task_ids)
 
     def get_attachment(self, attachment_id: str) -> Optional[Dict[str, Any]]:
         """获取单个附件"""
