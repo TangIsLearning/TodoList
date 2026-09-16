@@ -338,9 +338,12 @@ class LanguageManager {
         const contactAuthor = document.querySelector('.contact-text');
         if (contactAuthor) contactAuthor.textContent = lang.contactAuthor;
 
-        // 标签按钮
-        const tags = document.getElementById('tags-text');
+        // 标签标题（含分隔符，中文用全角冒号，英文用半角冒号）
+        const tags = document.getElementById('tags-title');
         if (tags) tags.textContent = lang.taskTags;
+
+        // 标签末尾的展开更多/更少标识跟随语言刷新
+        if (window.todoManager) window.todoManager.renderTagsMoreIndicator();
     }
     
     // 更新筛选器选项

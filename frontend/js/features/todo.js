@@ -198,7 +198,6 @@ class TodoManager {
             addTaskFab: 'add-task-fab',
             taskModalClose: 'modal-close',
             taskCancelBtn: 'cancel-btn',
-            showMoreTagsSpan: 'show-tags',
             recurrenceError: 'recurrence-error',
             datetimeError: 'datetime-error',
             emptyState: 'empty-state',
@@ -214,6 +213,8 @@ class TodoManager {
             addTagBtn: 'add-tag-btn',
             tagsSection: 'tags-section',
             tagsList: 'tags-list',
+            tagsMore: 'tags-more',
+            tagsMoreText: 'tags-more-text',
             // 任务列表显示列配置弹窗
             columnConfigModal: 'task-columns-modal',
             columnConfigTitle: 'task-columns-title',
@@ -286,8 +287,8 @@ class TodoManager {
             this.addInputValueListeners();
         });
 
-        // 展示更多/更少标签
-        this.showMoreTagsSpan?.addEventListener('click', () => this.toggleMoreTags());
+        // 展示更多/更少标签：仅末尾标识可点击，标题不再承担展开/收缩
+        this.tagsMore?.addEventListener('click', () => this.toggleMoreTags());
 
         // 绑定分页相关的监听事件
         this.firstBtn?.addEventListener('click', () => this.goToPage(1));
@@ -3414,15 +3415,10 @@ class TodoManager {
             apiMethod: 'get_all_tags',
             onSuccess: (response) => {
                 this.availableTags = response.data;
-                const shouldDisable = this.availableTags.length <= this.defaultShowTags;
-
-                // 批量设置两个按钮的状态
-                [this.showMoreTags, this.showLessTags].forEach(btn => {
-                    btn.disabled = shouldDisable;
-                    btn.style.pointerEvents = 'auto';
-                    btn.style.cursor = shouldDisable ? 'not-allowed' : 'pointer';
-                });
-
+                // 标签数量未超过限定个数时回到收缩态，避免出现无意义的展开状态
+                if (this.availableTags.length <= this.defaultShowTags) {
+                    this.isShowMoreTags = false;
+                }
                 this.renderTagsModule(fromZero);
             }
         });
@@ -3443,16 +3439,9 @@ class TodoManager {
 
         let html = '';
 
-        // 渲染现有标签
+        // 渲染现有标签：收缩状态下只渲染限定个数内的标签
         this.availableTags.forEach((tag, index) => {
-            if (!this.isShowMoreTags && index >= this.defaultShowTags) {
-                // 在判断条件是不展开全部标签情况下，超过限定数量的标签不展示
-                this.showMoreTags.style.display = 'none';
-                this.showLessTags.style.display = 'block';
-                return;
-            }
-            this.showMoreTags.style.display = 'block';
-            this.showLessTags.style.display = 'none';
+            if (!this.isShowMoreTags && index >= this.defaultShowTags) return;
             const isSelected = selectedTagIds.includes(tag.id);
             const count = tag.taskCount || 0;
             // 标签存在引用（count>0）时可编辑名称；无引用（count=0）时可删除
@@ -3473,6 +3462,9 @@ class TodoManager {
         });
 
         this.tagsList.innerHTML = html;
+
+        // 渲染"展开更多/更少"标识（位于最后一个标签之后）
+        this.renderTagsMoreIndicator();
 
         // 搜索内容的变更由 chips 相关方法负责，这里只负责渲染标签列表与事件绑定
         this.bindTagModuleEvents(this.tagsList);
@@ -3496,6 +3488,26 @@ class TodoManager {
                 }
             });
         }, 200);
+    }
+
+    // 渲染标签末尾的"展开更多/更少"标识：
+    // 标签数量未超过限定个数时完全隐藏；收缩态显示"展开更多"，展开态显示"展开更少"
+    renderTagsMoreIndicator() {
+        if (!this.tagsMore) return;
+
+        const hasOverflow = this.availableTags.length > this.defaultShowTags;
+        this.tagsMore.style.display = hasOverflow ? 'inline-flex' : 'none';
+        if (!hasOverflow) return;
+
+        const isExpanded = this.isShowMoreTags;
+        if (this.showMoreTags) this.showMoreTags.style.display = isExpanded ? 'none' : 'block';
+        if (this.showLessTags) this.showLessTags.style.display = isExpanded ? 'block' : 'none';
+
+        const tip = window.languageManager
+            ? window.languageManager.getText(isExpanded ? 'showLessTags' : 'showMoreTags', isExpanded ? '展开更少' : '展开更多')
+            : (isExpanded ? '展开更少' : '展开更多');
+        if (this.tagsMoreText) this.tagsMoreText.textContent = tip;
+        this.tagsMore.title = tip;
     }
 
     // 标签管理模块绑定事件：
@@ -3631,10 +3643,11 @@ class TodoManager {
     }
 
     toggleMoreTags(fromZero = false) {
+        // 标签数量未超过限定个数时，无需展开/收起
+        if (this.availableTags.length <= this.defaultShowTags) return;
         this.isShowMoreTags = !this.isShowMoreTags;
-        this.showMoreTags.style.display = this.isShowMoreTags ? 'none' : 'block';
-        this.showLessTags.style.display = this.isShowMoreTags ? 'block' : 'none';
-        this.loadTagsModule(fromZero);
+        // 仅切换展示范围，数据已在本地，无需重新请求
+        this.renderTagsModule(fromZero);
     }
 }
 

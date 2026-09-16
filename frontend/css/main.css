@@ -183,12 +183,35 @@ input:checked + .slider:before {
     border-top: 1px solid var(--border-color);
 }
 
-#show-tags {
+/* 标签标题：与"分类"标题保持一致的普通标题样式（不再具备点击能力） */
+#tags-title {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 2px;
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-weight: bold;
+    vertical-align: middle;/* 与右侧的 .tags-list 对齐 */
+    cursor: default;
+    unicode-bidi: isolate;
+}
+
+/* 标签展开更多/更少标识：紧跟在当前展示的最后一个标签之后 */
+.tags-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 4px;
     color: var(--primary-color);
-    display: inline-flex;  /* 保持行内显示，同时启用 Flex 布局 */
-    align-items: center;   /* 核心：让子元素（SVG和文字）垂直居中 */
-    gap: 4px;              /* 可选：设置图标与文字之间的间距 */
-    vertical-align: middle;/* 确保整个 #show-tags 与右侧的 .tags-list 对齐 */
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tags-more:hover {
+    opacity: 0.85;
 }
 
 .categories-section .categories-section-header {
