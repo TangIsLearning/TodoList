@@ -234,10 +234,8 @@ class StatsManager {
     // 左侧已点选标签的名称列表（用于提示文案）
     _currentTagNames() {
         const tm = window.todoManager;
-        if (!tm || !Array.isArray(tm.searchChips)) return [];
-        return tm.searchChips
-            .filter(c => c && c.type === 'tag' && c.value)
-            .map(c => c.value);
+        if (!tm || typeof tm.getTagFilterNames !== 'function') return [];
+        return tm.getTagFilterNames();
     }
 
     // 当前筛选（分类/标签）发生变化、且统计视图处于前台时调用：

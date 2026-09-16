@@ -343,7 +343,7 @@ class LanguageManager {
         if (tags) tags.textContent = lang.taskTags;
 
         // 标签末尾的展开更多/更少标识跟随语言刷新
-        if (window.todoManager) window.todoManager.renderTagsMoreIndicator();
+        window.tagManager?.renderMoreIndicator();
     }
     
     // 更新筛选器选项
