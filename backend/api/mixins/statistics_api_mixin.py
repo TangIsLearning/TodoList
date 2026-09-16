@@ -35,7 +35,7 @@ class StatisticsApiMixin:
             month:      scope=month 时，月份，如 '2026-02'
             week:       scope=week 时，所在周的周一日期，如 '2026-02-02'
             category_id: 分类过滤，'all'/None 为全部分类，'uncategorized' 为未分类
-            tag_ids:    标签 id 列表，任务命中其中任意一个标签即计入（与列表 #标签 搜索一致）
+            tag_ids:    标签 id 列表，任务需同时命中全部标签才计入（与列表搜索的 AND 语义一致）
         """
         return self.db.get_task_statistics(
             date_basis=date_basis,

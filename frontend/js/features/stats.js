@@ -221,13 +221,14 @@ class StatsManager {
         return c ? c.name : `#${cid}`;
     }
 
-    // 左侧已点选标签（搜索 chips 中 type='tag'）的 id 集合，用于统计过滤
+    // 当前列表筛选中的标签 id 集合，用于统计过滤。
+    // 统一从 todoManager 的查询状态读取，避免跨模块访问 chips 私有结构。
     _currentTagIds() {
         const tm = window.todoManager;
-        if (!tm || !Array.isArray(tm.searchChips)) return [];
-        return tm.searchChips
-            .filter(c => c && c.type === 'tag' && c.tagId)
-            .map(c => c.tagId);
+        const tags = (tm && tm.searchQuery && Array.isArray(tm.searchQuery.tags))
+            ? tm.searchQuery.tags
+            : [];
+        return tags.map(t => (t && t.id) || null).filter(Boolean);
     }
 
     // 左侧已点选标签的名称列表（用于提示文案）

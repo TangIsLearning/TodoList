@@ -139,7 +139,8 @@ class StatisticsCrudMixin:
         sel_cat = None
         if category_id not in (None, '', 'all'):
             sel_cat = str(category_id)
-        # 归一化标签筛选值：命中任意一个即计入（与列表 #标签 搜索的 OR 语义一致）
+        # 归一化标签筛选值：必须命中全部选中标签（与列表搜索的 AND 语义一致，
+        # 搜索语义的统一定义见 backend/database/query）
         sel_tags = None
         if tag_ids:
             norm = {str(t) for t in tag_ids if t is not None and str(t) not in ('', 'all')}
@@ -190,7 +191,7 @@ class StatisticsCrudMixin:
                     for tg in (task.get('tags') or [])
                     if tg.get('id') is not None
                 }
-                if not (task_tag_ids & sel_tags):
+                if not sel_tags.issubset(task_tag_ids):
                     continue
 
             dt = self._statistics_basis_dt(task, basis)
