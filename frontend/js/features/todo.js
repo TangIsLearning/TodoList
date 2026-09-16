@@ -21,6 +21,18 @@ const TASK_LIST_MIN_WIDTH = 1060;
 // 列配置本地缓存键（数据库为唯一来源，本地仅作首屏兜底）
 const TASK_LIST_COLUMNS_CACHE_KEY = 'todolist_task_list_columns';
 
+// ===== 标签常量 =====
+// 标签名的合法字符：中文、英文、数字、下划线
+const TAG_NAME_CHARS = '\\u4e00-\\u9fa5a-zA-Z0-9_';
+// 输入框中"完整的 #标签"（用于判定是否可提交为 chip）
+const TAG_INPUT_PATTERN = new RegExp(`^#[${TAG_NAME_CHARS}]+$`);
+// 标签栏默认展示的标签个数（超出部分由"展开更多"控制）
+const DEFAULT_VISIBLE_TAGS = 5;
+// 临时标签 id 前缀：弹窗中新建、尚未落库的标签用它标记，不进入标签数据源
+const TEMP_TAG_PREFIX = 'pending:';
+// 新建标签未指定颜色时的默认色（与后端 Tag 模型默认色保持一致）
+const DEFAULT_TAG_COLOR = '#6c757d';
+
 class TodoManager {
     constructor() {
         this.instances = [];
@@ -62,10 +74,15 @@ class TodoManager {
         this._scrollFrameId = null; // 滚动事件节流用的 rAF 句柄
         this._globalCloseHandlerBound = false; // 全局关闭侧滑菜单的监听是否已绑定
         // 标签相关
+        // availableTags 是标签的唯一数据源，只允许通过 setTags() 写入，避免多处各拉一次互相覆盖；
+        // formSelectedTagIds 只是任务弹窗表单的选择态（每次打开弹窗重置），与列表筛选无关。
         this.availableTags = [];
-        this.selectedTags = [];
+        this.formSelectedTagIds = [];
+        // 弹窗中新建、尚未落库的标签名（保存任务时由后端按名称创建），随弹窗关闭丢弃
+        this.pendingTagNames = [];
         this.isShowMoreTags = false;
-        this.defaultShowTags = 5;
+        this.defaultShowTags = DEFAULT_VISIBLE_TAGS;
+        this._tagsFetching = null; // 标签列表拉取中的 promise（并发去重）
         // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
         this.searchChips = [];
         this._searchDebounceTimer = null;
@@ -1378,9 +1395,7 @@ class TodoManager {
 
         // 记录打开弹窗时的列表筛选快照（分类 + 标签），提交后据此决定是否同步或清除筛选
         const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
-        const currentTagIds = this.searchChips
-            .filter(chip => chip.type === 'tag' && chip.tagId)
-            .map(chip => chip.tagId);
+        const currentTagIds = this.getTagFilterIds();
         // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
         this.taskFilterSnapshot = {
             categoryId: currentCategory,
@@ -1389,8 +1404,9 @@ class TodoManager {
             hasTagFilter: currentTagIds.length > 0
         };
 
-        // 已选标签继承当前标签筛选
-        this.selectedTags = [...currentTagIds];
+        // 已选标签继承当前标签筛选（弹窗新建的临时标签在打开时统一丢弃）
+        this.pendingTagNames = [];
+        this.formSelectedTagIds = [...currentTagIds];
 
         // 添加输入值变化监听
         this.addInputValueListeners();
@@ -1859,17 +1875,16 @@ class TodoManager {
         this.taskDescription.value = task.description || '';
         this.taskPrioritySelect.value = task.priority;
 
-        // 设置已选标签
-        this.selectedTags = task.tags ? task.tags.map(t => t.id) : [];
+        // 设置已选标签（弹窗新建的临时标签在打开时统一丢弃）
+        this.pendingTagNames = [];
+        this.formSelectedTagIds = task.tags ? task.tags.map(t => t.id) : [];
 
         // 记录打开弹窗时的任务原分类/原标签与列表筛选状态，提交后据此决定是否同步筛选
         const filterCategoryId = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
-        const filterTagIds = this.searchChips
-            .filter(chip => chip.type === 'tag' && chip.tagId)
-            .map(chip => chip.tagId);
+        const filterTagIds = this.getTagFilterIds();
         this.taskFilterSnapshot = {
             categoryId: task.categoryId || '',
-            tagIds: [...this.selectedTags],
+            tagIds: [...this.formSelectedTagIds],
             hasCategoryFilter: !!filterCategoryId,
             hasTagFilter: filterTagIds.length > 0
         };
@@ -2063,6 +2078,11 @@ class TodoManager {
 
                 const taskId = isEdit ? editingId : response.data.id;
 
+                // 后端保存后返回的标签带真实 id（新建的标签也已落库），用于同步列表筛选；
+                // 周期性任务返回的是任务数组，取首个任务的标签即可（各实例标签一致）
+                const savedTask = Array.isArray(response.data) ? response.data[0] : response.data;
+                const savedTags = Array.isArray(savedTask && savedTask.tags) ? savedTask.tags : null;
+
                 // 处理父任务关联
                 try {
                     if (isEdit) {
@@ -2116,9 +2136,11 @@ class TodoManager {
 
                 // 按表单中最终选择的分类/标签同步列表筛选
                 const tagsModuleRefreshed = await this.syncFiltersAfterSave(
-                    this.taskFilterSnapshot, taskData.categoryId, taskData.tags
+                    this.taskFilterSnapshot, taskData.categoryId, savedTags
                 );
                 this.taskFilterSnapshot = null;
+                // 标签已随任务落库，清掉弹窗内的临时标签，避免与后端返回的真实标签重复
+                this.pendingTagNames = [];
 
                 this.loadTasks(true);
                 window.timelineManager.renderTimeline();
@@ -2139,9 +2161,11 @@ class TodoManager {
     // - 分类：分类被修改时，若原本存在分类筛选则跟随新分类，改为"未分类"则重置为全部（清除分类筛选）；
     //         原本不存在分类筛选时不做任何筛选调整
     // - 标签：标签被修改时，若原本存在标签筛选则改为筛选用户新选的标签，未选任何标签则清除标签筛选；
-    //         原本不存在标签筛选时不做任何筛选调整
+    //         原本不存在标签筛选时不做任何筛选调整。
+    //         savedTags 为后端保存后返回的标签（含真实 id，新建标签也能直接拿到 id），
+    //         传 null 表示调用方拿不到返回结构，此时不调整标签筛选项（保持现状，避免误清）。
     // 返回值：是否已刷新过左侧标签模块
-    async syncFiltersAfterSave(snapshot, categoryId, tagNames) {
+    async syncFiltersAfterSave(snapshot, categoryId, savedTags) {
         if (!snapshot) return false;
         let tagsModuleRefreshed = false;
         let filterChanged = false;
@@ -2161,24 +2185,25 @@ class TodoManager {
 
         // ===== 标签筛选 =====
         const presetTagIds = snapshot.tagIds || [];
-        const chosenTagIds = this.selectedTags || [];
+        const chosenTagIds = this.formSelectedTagIds || [];
         const isSameTags = chosenTagIds.length === presetTagIds.length &&
             chosenTagIds.every(id => presetTagIds.includes(id));
 
-        if (!isSameTags && snapshot.hasTagFilter) {
-            // 表单中可能包含新建的标签，先刷新标签列表以取其真实 id
-            await this.loadTagsModule(true);
-            tagsModuleRefreshed = true;
-
-            const nameSet = new Set((tagNames || []).map(name => String(name).toLowerCase()));
-            const chosenTagChips = this.availableTags
-                .filter(tag => nameSet.has(String(tag.name).toLowerCase()))
-                .map(tag => ({ type: 'tag', value: tag.name, tagId: tag.id, color: tag.color }));
+        if (!isSameTags && snapshot.hasTagFilter && Array.isArray(savedTags)) {
+            // 直接用后端返回的标签（含真实 id）重建筛选，不再按名称反查，
+            // 避免后端归一化/同名标签导致 chip 错配或丢失
+            const chosenTagChips = savedTags
+                .filter(tag => tag && tag.name)
+                .map(tag => ({ type: 'tag', value: tag.name, tagId: tag.id || null, color: tag.color }));
 
             // 保留非标签类型的搜索 chip（如文本搜索），仅替换标签筛选部分
             this.searchChips = this.searchChips.filter(chip => chip.type !== 'tag').concat(chosenTagChips);
             this.renderSearchChips();
-            this.refreshTagModuleSelection();
+
+            // 表单中可能包含新建的标签，刷新左侧标签模块以纳入新标签与新计数；
+            // 此时 chips 已更新，模块渲染会直接带上正确的选中态
+            await this.loadTagsModule(true);
+            tagsModuleRefreshed = true;
             filterChanged = true;
         }
 
@@ -2485,6 +2510,28 @@ class TodoManager {
         }, 200);
     }
 
+    // ===== 标签状态访问（统一入口） =====
+    // 标签唯一数据源的写入入口：所有 get_all_tags 的结果都必须经此写入
+    setTags(tags) {
+        this.availableTags = Array.isArray(tags) ? tags : [];
+        // 标签数量未超过限定个数时回到收缩态，避免出现无意义的展开状态
+        if (this.availableTags.length <= this.defaultShowTags) {
+            this.isShowMoreTags = false;
+        }
+    }
+
+    // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
+    getTagFilterChips() {
+        return this.searchChips.filter(chip => chip.type === 'tag' && chip.value);
+    }
+
+    // 列表筛选中的标签 id（尚无 id 的名称型 chip 不在其中）
+    getTagFilterIds() {
+        return this.getTagFilterChips()
+            .filter(chip => chip.tagId)
+            .map(chip => chip.tagId);
+    }
+
     // ===== 搜索标签 chips 相关 =====
     // 初始化搜索标签输入框
     initSearchTagInput() {
@@ -2532,7 +2579,7 @@ class TodoManager {
     handleSearchKeydown(e) {
         const searchInput = e.target;
         const val = searchInput.value;
-        const tagPattern = /^#[\u4e00-\u9fa5a-zA-Z0-9_]+$/;
+        const tagPattern = TAG_INPUT_PATTERN;
 
         // 子任务建议下拉的键盘交互（仅当处于 ">" 模式且下拉有项时）
         if (this.isSubtaskSuggestMode(val) && this._subtaskSuggestItems.length > 0) {
@@ -2596,7 +2643,7 @@ class TodoManager {
     // 若输入框内容是完整的 #标签，提交为 chip（用于搜索按钮点击）
     commitInputAsChipIfTag() {
         const val = this.searchInput.value.trim();
-        if (/^#[\u4e00-\u9fa5a-zA-Z0-9_]+$/.test(val)) {
+        if (TAG_INPUT_PATTERN.test(val)) {
             this.addSearchChip({ type: 'tag', value: val.substring(1) });
             this.searchInput.value = '';
         }
@@ -2693,8 +2740,7 @@ class TodoManager {
         const inputText = this.searchInput ? this.searchInput.value.trim() : '';
         const isParentMode = this.isSubtaskSuggestMode(inputText);
 
-        const tags = this.searchChips
-            .filter(chip => chip.type === 'tag' && chip.value)
+        const tags = this.getTagFilterChips()
             .map(chip => (chip.tagId
                 ? { id: chip.tagId, name: chip.value }
                 : { name: chip.value }));
@@ -2870,9 +2916,7 @@ class TodoManager {
 
     // 根据当前 chips 刷新左侧标签模块的选中态（仅切换 selected 类，不整体重渲染）
     refreshTagModuleSelection() {
-        const selectedIds = this.searchChips
-            .filter(c => c.type === 'tag' && c.tagId)
-            .map(c => c.tagId);
+        const selectedIds = this.getTagFilterIds();
         document.querySelectorAll('.tag-module-item').forEach(item => {
             const id = item.dataset.tagId;
             item.classList.toggle('selected', selectedIds.includes(id));
@@ -3206,35 +3250,32 @@ class TodoManager {
         }
     }
 
-    // 解析标签
-    parseTags(text) {
-        if (!text) return [];
-        // 匹配 #标签名 格式，标签名可以是中文、英文、数字、下划线
-        const pattern = /#([\u4e00-\u9fa5a-zA-Z0-9_]+)/g;
-        const matches = text.match(pattern);
-        if (!matches) return [];
-        // 提取标签名称（移除 # 符号）
-        return matches.map(tag => tag.substring(1)).filter(tag => tag.length > 0);
+    // 拉取标签列表：标签的唯一加载入口
+    // 左侧标签模块与弹窗标签选择器共用同一次请求，避免两者各拉一次并互相覆盖 availableTags。
+    // 只做并发去重（同一时刻的重复请求合并），不做长期缓存——标签计数随任务增删频繁变化，缓存易读到脏数据。
+    fetchTags() {
+        if (this._tagsFetching) return this._tagsFetching;
+        this._tagsFetching = Utils.apiCall({
+            apiMethod: 'get_all_tags',
+            onSuccess: (response) => this.setTags(response.data),
+            onError: () => Utils.showToast(window.languageManager.getText('loadTagsFailed', '加载标签失败'), 'error')
+        }).finally(() => { this._tagsFetching = null; });
+        return this._tagsFetching;
     }
 
-    // 加载标签选择器
+    // 加载标签选择器（任务弹窗内）
     async loadTagsSelector() {
-        await Utils.apiCall({
-            apiMethod: 'get_all_tags',
-            onSuccess: (response) => {
-                this.availableTags = response.data;
-                this.renderTagsSelector();
-            }
-        });
+        await this.fetchTags();
+        this.renderTagsSelector();
     }
 
     // 渲染标签选择器
     renderTagsSelector() {
         let html = '';
 
-        // 渲染现有标签
-        this.availableTags.forEach(tag => {
-            const isSelected = this.selectedTags.includes(tag.id);
+        // 渲染现有标签（含本次弹窗新建的临时标签）
+        this.getSelectorTags().forEach(tag => {
+            const isSelected = this.formSelectedTagIds.includes(tag.id);
             const count = tag.taskCount || 0;
 
             html += `
@@ -3294,17 +3335,27 @@ class TodoManager {
 
     // 切换标签选择状态
     toggleTagSelection(tagId) {
-        const index = this.selectedTags.indexOf(tagId);
+        const index = this.formSelectedTagIds.indexOf(tagId);
         if (index === -1) {
-            this.selectedTags.push(tagId);
+            this.formSelectedTagIds.push(tagId);
         } else {
-            this.selectedTags.splice(index, 1);
+            this.formSelectedTagIds.splice(index, 1);
         }
         this.renderTagsSelector();
     }
 
     // 删除标签（tagName 用于展示更明确的确认文案）
     async deleteTag(tagId, tagName = null) {
+        // 临时标签（弹窗中新建、尚未落库）：本地直接丢弃，无需调用后端
+        const pendingName = this.getPendingTagName(tagId);
+        if (pendingName !== null) {
+            this.pendingTagNames = this.pendingTagNames.filter(name => name !== pendingName);
+            const pendingIndex = this.formSelectedTagIds.indexOf(tagId);
+            if (pendingIndex !== -1) this.formSelectedTagIds.splice(pendingIndex, 1);
+            this.renderTagsSelector();
+            return;
+        }
+
         const tag = this.availableTags.find(t => t.id === tagId);
         const name = tagName || (tag && tag.name) || '';
         Utils.confirmDialog(
@@ -3316,8 +3367,8 @@ class TodoManager {
                     onSuccess: (response) => {
                         Utils.showToast(window.languageManager.getText('taskTagDeleted', '标签删除成功'), 'success');
                         // 从已选标签中移除
-                        const index = this.selectedTags.indexOf(tagId);
-                        if (index !== -1) this.selectedTags.splice(index, 1);
+                        const index = this.formSelectedTagIds.indexOf(tagId);
+                        if (index !== -1) this.formSelectedTagIds.splice(index, 1);
                         // 若该标签在搜索选中态中，同步移除
                         this.removeSearchChipByTagId(tagId);
                         // 重新加载标签
@@ -3332,9 +3383,9 @@ class TodoManager {
         );
     }
 
+    // 生成新增标签输入框的临时 DOM id（仅用于定位输入框，与标签 id 无关）
     generateRandomId() {
-        // 时间戳确保唯一性，随机数增加安全性
-        return `new-tag-input-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return `new-tag-input-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     }
 
     // 显示新增标签输入框
@@ -3376,52 +3427,64 @@ class TodoManager {
         if (cancelBtn) cancelBtn.onclick = () => this.renderTagsSelector();
     }
 
-    // 添加新标签
+    // 添加新标签：
+    // 标签实体由后端在保存任务时按名称创建，这里只在弹窗内登记为"临时标签"，
+    // 不再伪造 id 塞进 availableTags——避免假 id 混入唯一数据源、取消弹窗后残留
     async addNewTag(tagName) {
-        if (!tagName) {
+        const name = (tagName || '').trim();
+        if (!name) {
             Utils.showToast(window.languageManager.getText('errorTagNameRequired', '请输入标签名'), 'warning');
             return;
         }
 
-        // 检查标签是否已存在
-        if (this.availableTags.some(tag => tag.name === tagName)) {
+        // 重名校验：已落库的标签 + 本次弹窗已新建的临时标签
+        if (this.availableTags.some(tag => tag.name === name) || this.pendingTagNames.includes(name)) {
             Utils.showToast(window.languageManager.getText('errorTagExisted', '标签已存在'), 'warning');
             return;
         }
 
-        // 添加到已选标签
-        const newTag = {
-            id: 'new-' + Date.now(),
-            name: tagName,
-            color: '#6c757d',
-            taskCount: 0
-        };
-        this.availableTags.push(newTag);
-        this.selectedTags.push(newTag.id);
+        this.pendingTagNames.push(name);
+        // 新建后直接置为选中，符合"点了新增就是要用它"的预期
+        const tempId = TEMP_TAG_PREFIX + name;
+        if (!this.formSelectedTagIds.includes(tempId)) this.formSelectedTagIds.push(tempId);
 
         this.renderTagsSelector();
     }
 
-    // 获取已选标签的名称列表
-    getSelectedTagsNames() {
-        return this.availableTags
-            .filter(tag => this.selectedTags.includes(tag.id))
-            .map(tag => tag.name);
+    // 弹窗选择器中展示的标签：已落库的标签 + 本次弹窗新建的临时标签
+    getSelectorTags() {
+        const pendingTags = this.pendingTagNames.map(name => ({
+            id: TEMP_TAG_PREFIX + name,
+            name,
+            color: DEFAULT_TAG_COLOR,
+            taskCount: 0,
+            pending: true
+        }));
+        return this.availableTags.concat(pendingTags);
     }
 
-    // 加载标签管理模块数据
+    // 临时标签 id → 标签名；非临时标签返回 null
+    getPendingTagName(tagId) {
+        const id = String(tagId || '');
+        return id.startsWith(TEMP_TAG_PREFIX) ? id.slice(TEMP_TAG_PREFIX.length) : null;
+    }
+
+    // 获取已选标签的名称列表（已落库标签取最新名称，临时标签直接取名称）
+    getSelectedTagsNames() {
+        return this.formSelectedTagIds
+            .map(id => {
+                const pendingName = this.getPendingTagName(id);
+                if (pendingName !== null) return pendingName;
+                const tag = this.availableTags.find(t => t.id === id);
+                return tag ? tag.name : null;
+            })
+            .filter(name => !!name);
+    }
+
+    // 加载标签管理模块数据（左侧标签栏）
     async loadTagsModule(fromZero = false) {
-        await Utils.apiCall({
-            apiMethod: 'get_all_tags',
-            onSuccess: (response) => {
-                this.availableTags = response.data;
-                // 标签数量未超过限定个数时回到收缩态，避免出现无意义的展开状态
-                if (this.availableTags.length <= this.defaultShowTags) {
-                    this.isShowMoreTags = false;
-                }
-                this.renderTagsModule(fromZero);
-            }
-        });
+        await this.fetchTags();
+        this.renderTagsModule(fromZero);
     }
 
     // 渲染标签管理模块
@@ -3433,9 +3496,7 @@ class TodoManager {
         }
         this.tagsSection.style.display = 'block';
 
-        const selectedTagIds = this.searchChips
-            .filter(c => c.type === 'tag' && c.tagId)
-            .map(c => c.tagId);
+        const selectedTagIds = this.getTagFilterIds();
 
         let html = '';
 
