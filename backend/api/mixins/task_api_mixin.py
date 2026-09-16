@@ -127,7 +127,7 @@ class TaskApiMixin:
         if not validation_result['valid']:
             raise Exception(f'{validation_result["message"]}')
         old_task = self.db.get_task(task_id)
-        result = self.db.update_task_due_date(task_id, due_date)
+        result = self.db.update_task(task_id, {'dueDate': due_date})
         self._refresh_due_date_reminder(task_id, old_task, due_date)
         return result
 
@@ -144,11 +144,7 @@ class TaskApiMixin:
         except Exception as e:
             self.get_logger.error(f"清理任务附件失败: {e}")
 
-        task = self.db.get_task(task_id)
-        if task and (task.get('isRecurring') or task.get('parentTaskId')): # 检查是否为周期性任务
-            self.db.delete_recurring_task(task_id, delete_all)
-        else:
-            self.db.delete_task(task_id)
+        self.db.delete_task(task_id, delete_all)
 
     @api_handler
     def add_recurring_todo(self, task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -180,8 +176,8 @@ class TaskApiMixin:
         task = self.db.get_task(task_id)
         if not task:
             raise Exception(f'Task not found')
-        task['completed'] = not task['completed']
-        return self.db.update_task(task_id, task, False)
+        # 只提交变更字段：避免回灌整份任务（含 tags）触发无必要的标签重写
+        return self.db.update_task(task_id, {'completed': not task['completed']})
 
     @api_handler
     def get_stats(self) -> Dict[str, Any]:

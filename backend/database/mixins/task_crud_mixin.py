@@ -283,12 +283,14 @@ class TaskCrudMixin:
             tasks = self._rows_to_tasks(conn, [row]) if row else []
         return tasks[0] if tasks else None
 
-    def update_task(self, task_id: str, task_data: Dict[str, Any],
-                    is_update_task_tags: bool = True) -> Optional[Dict[str, Any]]:
-        """部分更新任务。
+    def update_task(self, task_id: str, task_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """部分更新任务（任务唯一更新入口）。
 
         仅更新 task_data 中显式传入且受支持的字段，未传入的字段保持原值，
         避免调用方传参不全时把分类、周期等字段意外清空。
+
+        标签是否同步完全由「task_data 中是否出现 tags 键」决定：出现则整体替换，
+        不出现则保持原值。因此调用方只需提交待变更字段，无需额外开关参数。
 
         返回更新后的完整任务（含标签 / 附件）；任务不存在时返回 None。
         """
@@ -299,7 +301,7 @@ class TaskCrudMixin:
                 assignments.append(f'{column} = ?')
                 params.append(_normalize_task_value(column, task_data[key]))
 
-        need_update_tags = is_update_task_tags and 'tags' in task_data
+        need_update_tags = 'tags' in task_data
         if not assignments and not need_update_tags:
             # 没有需要变更的内容，直接回读
             return self.get_task(task_id)
@@ -318,14 +320,15 @@ class TaskCrudMixin:
 
         return self.get_task(task_id)
 
-    def update_task_due_date(self, task_id: str, due_date: str) -> Optional[Dict[str, Any]]:
-        """更新任务截止时间"""
-        return self.update_task(task_id, {'dueDate': due_date}, is_update_task_tags=False)
+    def delete_task(self, task_id: str, delete_all: bool = False) -> None:
+        """删除任务及其全部关联数据（单事务完成）。
 
-    def delete_task(self, task_id: str) -> None:
-        """删除任务及其全部关联数据（单事务完成）"""
+        delete_all 为 True 且该任务属于周期任务族时，整个任务族一起删除；
+        否则只删除该任务。两种情况都会同步清理父子关联 / 标签 / 附件 / 日历事件。
+        """
         with self.tx() as conn:
-            self._delete_tasks(conn, [task_id])
+            task_ids = self._recurring_family_ids(conn, task_id) if delete_all else [task_id]
+            self._delete_tasks(conn, task_ids)
             self._delete_orphan_tags(conn)
 
     def _delete_tasks(self, conn: sqlite3.Connection, task_ids: Sequence[str]) -> int:
@@ -545,33 +548,22 @@ class TaskCrudMixin:
             ))
         return children
 
-    def get_recurring_family_ids(self, task_id: str) -> List[str]:
-        """获取周期性任务族（父任务 + 全部子任务）的ID列表"""
-        with self.query() as conn:
-            row = conn.execute('SELECT parent_task_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
-            parent_id = row['parent_task_id'] if row and row['parent_task_id'] else task_id
-            rows = conn.execute(
-                'SELECT id FROM tasks WHERE id = ? OR parent_task_id = ?', (parent_id, parent_id)
-            ).fetchall()
+    def _recurring_family_ids(self, conn: sqlite3.Connection, task_id: str) -> List[str]:
+        """在同一事务内取出周期任务族（父任务 + 全部子任务）的 id。
+
+        非周期任务或任务不存在时返回 ``[task_id]``，因此调用方无需再自行判断类型。
+        """
+        row = conn.execute('SELECT parent_task_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
+        if not row:
+            return [task_id]
+        # 自身是子任务时以父任务为根，否则以自身为根
+        root_id = row['parent_task_id'] or task_id
+        rows = conn.execute(
+            'SELECT id FROM tasks WHERE id = ? OR parent_task_id = ?', (root_id, root_id)
+        ).fetchall()
         return [r['id'] for r in rows]
 
-    def delete_recurring_task(self, task_id: str, delete_all: bool = False) -> None:
-        """删除周期性任务。
-
-        delete_all 为 True 时删除整个周期任务族，否则只删除单个任务；
-        两种情况都会同步清理关联数据（父子关联 / 标签 / 附件 / 日历事件）。
-        """
-        with self.tx() as conn:
-            task_ids = [task_id]
-            if delete_all:
-                row = conn.execute(
-                    'SELECT parent_task_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
-                # 自身是子任务时以父任务为根，否则以自身为根
-                root_id = (row['parent_task_id'] or task_id) if row else task_id
-                task_ids = [
-                    r['id'] for r in conn.execute(
-                        'SELECT id FROM tasks WHERE id = ? OR parent_task_id = ?', (root_id, root_id)
-                    ).fetchall()
-                ]
-            self._delete_tasks(conn, task_ids)
-            self._delete_orphan_tags(conn)
+    def get_recurring_family_ids(self, task_id: str) -> List[str]:
+        """获取周期性任务族（父任务 + 全部子任务）的ID列表（非周期任务返回 [task_id]）"""
+        with self.query() as conn:
+            return self._recurring_family_ids(conn, task_id)
