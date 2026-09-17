@@ -32,6 +32,30 @@
     --anim-icon-rotate: 30deg;
 }
 
+/* ==================== 视图切换占位骨架 ====================
+   仅在目标视图首次进入（容器内没有任何内容）时插入，避免与已有内容重叠
+   ================================================================= */
+.view-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    pointer-events: none;
+}
+
+.view-skeleton > i {
+    display: block;
+    height: 64px;
+    border-radius: var(--border-radius);
+    background-color: var(--bg-tertiary);
+    animation: view-skeleton-pulse var(--anim-duration-loop) ease-in-out infinite;
+}
+
+@keyframes view-skeleton-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 0.85; }
+}
+
 /* ==================== 图标交互反馈 ====================
    齿轮类图标悬停转动：设置中心入口、任务列表列配置
    角度与时长统一由 --anim-icon-rotate / --anim-duration-fast 控制
@@ -466,6 +490,7 @@
     .more-menu-modal.is-closing,
     .more-menu-modal.is-closing .more-menu-content,
     .toast-stack .toast.toast-leaving,
+    .view-skeleton > i,
     .confetti-piece,
     .complete-bubble,
     /* 既有入场动画（components.css / main.css / index.html） */

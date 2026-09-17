@@ -111,6 +111,12 @@ function showToast(message, type = 'info') {
 // 加载遮罩显示延迟：短时间内完成的本地操作不闪遮罩（淡出时长由 CSS 控制）
 const LOADING_SHOW_DELAY = 150;
 let _loadingShowTimer = null;
+// 临时覆盖延迟（如视图切换期间放宽到 400ms，避免黑遮罩一闪而过），传 null 恢复默认
+let _loadingDelayOverride = null;
+
+function setLoadingDelay(ms) {
+    _loadingDelayOverride = (ms === null || ms === undefined) ? null : ms;
+}
 
 // 显示/隐藏加载状态
 function setLoading(isLoading, message = '加载中...') {
@@ -123,10 +129,13 @@ function setLoading(isLoading, message = '加载中...') {
         loadingEl.querySelector('p').textContent = message;
         // 已经在展示中：只更新文案，不重新计时
         if (loadingEl.classList.contains('loading-visible')) return;
+        const delay = _loadingDelayOverride !== null
+            ? _loadingDelayOverride
+            : LOADING_SHOW_DELAY;
         // 延迟展示，避免快速完成的本地操作闪一下遮罩
         _loadingShowTimer = setTimeout(() => {
             loadingEl.classList.add('loading-visible');
-        }, prefersReducedMotion() ? 0 : LOADING_SHOW_DELAY);
+        }, prefersReducedMotion() ? 0 : delay);
     } else {
         // 移除可见类即触发淡出（visibility 与 opacity 过渡由 CSS 处理）
         loadingEl.classList.remove('loading-visible');
@@ -713,5 +722,6 @@ window.Utils = {
     closeModalWithAnimation,
     beginRefresh,
     endRefresh,
-    playAnimation
+    playAnimation,
+    setLoadingDelay
 };
