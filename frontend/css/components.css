@@ -41,6 +41,13 @@
     --border-color: transparent !important;
 }
 
+/* 顶部主操作按钮组（新建任务 / 导出任务）文字颜色保持一致：
+   --on-* 是按各自底色算出的前景色，自定义配色下可能出现"一个白字一个深字"，
+   这里让"导出任务"跟随"新建任务"统一取 --on-primary。 */
+#export-tasks-btn {
+    --text-color: var(--on-primary);
+}
+
 .btn--border-dashed { --border-style: dashed; }
 
 .btn--width-100 { --width: 100%; }

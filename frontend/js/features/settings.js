@@ -205,14 +205,52 @@ class SettingsUIManager {
         return !!this.themeModal && this.themeModal.style.display === 'flex';
     }
 
-    /** 打开主题配置二级弹窗，并按当前模式/已保存配置重建内容 */
+    isSettingsModalOpen() {
+        return !!this.modal
+            && this.modal.classList.contains('show')
+            // 退场动画期间视为已关闭，避免重复触发关闭流程
+            && !this.modal.classList.contains('is-closing')
+            && this.modal.style.display !== 'none';
+    }
+
+    /**
+     * 关闭设置中心（带退场动画），动画结束后执行 done。
+     * 不走 ModalManager.hide()，避免其中的表单重置把已填配置清空。
+     */
+    hideSettingsModal(done) {
+        const modal = this.modal;
+        const finish = typeof done === 'function' ? done : () => {};
+        if (!modal) {
+            finish();
+            return;
+        }
+        Utils.closeModalWithAnimation(modal, () => {
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            finish();
+        });
+    }
+
+    /**
+     * 打开主题配置二级弹窗：先关闭设置中心，动画结束后再打开二级弹窗，
+     * 保证同一时刻只展示一个弹窗（避免两层遮罩叠加）。
+     */
     openThemeModal() {
         if (!this.themeModal) return;
 
-        this.loadThemeColorEditor();
-        this.themeModal.classList.remove('is-closing');
-        this.themeModal.classList.add('show');
-        this.themeModal.style.display = 'flex';
+        const open = () => {
+            this.loadThemeColorEditor();
+            this.themeModal.classList.remove('is-closing');
+            this.themeModal.classList.add('show');
+            this.themeModal.style.display = 'flex';
+        };
+
+        if (!this.isSettingsModalOpen()) {
+            open();
+            return;
+        }
+
+        this.hideSettingsModal(open);
     }
 
     /**
