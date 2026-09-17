@@ -1,3 +1,34 @@
+/* ============================================================================
+   全项目动效规范（新增动效请遵守）
+   ----------------------------------------------------------------------------
+   1. 时长：只能使用下面 5 档变量，禁止再写死秒数
+      - --anim-duration-fast      0.2s  弹窗退场等需要立即完成的反馈
+      - --anim-duration-base      0.28s 常规进出场：滑入、淡入、离场
+      - --anim-duration-slow      0.38s 需要被看清的形变：勾选弹跳、删除线扫过
+      - --anim-duration-emphasis  0.7s  强调类：高亮脉冲、彩纸、落位确认
+      - --anim-duration-loop      1s    循环型：等待期间的呼吸提示
+   2. 缓动：只能使用下面 3 个变量，禁止再写 cubic-bezier
+      - --anim-ease-standard    常规加减速（默认）
+      - --anim-ease-accelerate  离场（先慢后快）
+      - --anim-ease-spring      带回弹的强调
+   3. 无障碍：新增动效必须加入文件末尾 @media (prefers-reduced-motion: reduce)
+      关闭名单；JS 侧涉及等待的动效需先用 Utils.prefersReducedMotion() 判断
+   4. 触发方式：动效类由 JS 添加、动画结束后移除（Utils.playAnimation 已封装
+      移除 → 强制重排 → 重新添加 的重启逻辑）
+   ============================================================================ */
+
+:root {
+    --anim-duration-fast: 0.2s;
+    --anim-duration-base: 0.28s;
+    --anim-duration-slow: 0.38s;
+    --anim-duration-emphasis: 0.7s;
+    --anim-duration-loop: 1s;
+
+    --anim-ease-standard: cubic-bezier(0.2, 0.8, 0.3, 1);
+    --anim-ease-accelerate: cubic-bezier(0.4, 0, 0.9, 0.4);
+    --anim-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 /* ==================== 任务完成 / 重新开启动效 ====================
    说明：动效类由 js/features/todo.js 的 playToggleAnimation() 动态添加与移除，
    动画结束后统一刷新列表，避免状态变化时的视觉跳变。
@@ -5,7 +36,7 @@
 
 /* 复选框：等待后端响应期间的呼吸提示 */
 .task-checkbox.is-checking {
-    animation: checkbox-pending 1s ease-in-out infinite;
+    animation: checkbox-pending var(--anim-duration-loop) ease-in-out infinite;
 }
 
 @keyframes checkbox-pending {
@@ -15,7 +46,7 @@
 
 /* 复选框：勾选/取消瞬间的弹跳 */
 .task-checkbox.check-pop {
-    animation: checkbox-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: checkbox-pop var(--anim-duration-slow) var(--anim-ease-spring);
 }
 
 @keyframes checkbox-pop {
@@ -33,7 +64,7 @@
     border-radius: 50%;
     border: 2px solid var(--success-color);
     pointer-events: none;
-    animation: checkbox-ripple 0.6s ease-out forwards;
+    animation: checkbox-ripple var(--anim-duration-slow) ease-out forwards;
 }
 
 @keyframes checkbox-ripple {
@@ -43,7 +74,7 @@
 
 /* 对勾：由小到大弹出（仅在勾选动画期间生效，避免列表重绘时全部闪烁） */
 .task-checkbox.checked.check-pop::after {
-    animation: check-mark-in 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: check-mark-in var(--anim-duration-base) var(--anim-ease-spring) both;
 }
 
 @keyframes check-mark-in {
@@ -54,7 +85,7 @@
 /* 任务行：完成时的绿色高亮脉冲 */
 .task-item.complete-flash,
 .small-screen-task-item.complete-flash {
-    animation: row-complete-flash 0.7s ease-out;
+    animation: row-complete-flash var(--anim-duration-emphasis) ease-out;
 }
 
 @keyframes row-complete-flash {
@@ -66,7 +97,7 @@
 /* 任务行：重新开启时的橙色高亮脉冲 */
 .task-item.reopen-flash,
 .small-screen-task-item.reopen-flash {
-    animation: row-reopen-flash 0.6s ease-out;
+    animation: row-reopen-flash var(--anim-duration-emphasis) ease-out;
 }
 
 @keyframes row-reopen-flash {
@@ -78,7 +109,7 @@
 .task-item.is-leaving,
 .small-screen-task-item.is-leaving {
     pointer-events: none;
-    animation: task-leave 0.3s cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+    animation: task-leave var(--anim-duration-base) var(--anim-ease-accelerate) forwards;
 }
 
 @keyframes task-leave {
@@ -106,7 +137,7 @@
     background-color: currentColor;
     transform: translateY(-1px);
     pointer-events: none;
-    animation: strike-sweep 0.38s ease-out forwards;
+    animation: strike-sweep var(--anim-duration-slow) ease-out forwards;
 }
 
 @keyframes strike-sweep {
@@ -121,7 +152,7 @@
     border-radius: 2px;
     pointer-events: none;
     opacity: 0;
-    animation: confetti-fly 0.75s cubic-bezier(0.15, 0.7, 0.35, 1) forwards;
+    animation: confetti-fly var(--anim-duration-emphasis) var(--anim-ease-standard) forwards;
     animation-delay: var(--delay, 0ms);
 }
 
@@ -151,7 +182,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
     white-space: nowrap;
     pointer-events: none;
-    animation: bubble-rise 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+    animation: bubble-rise var(--anim-duration-emphasis) var(--anim-ease-standard) forwards;
 }
 
 @keyframes bubble-rise {
@@ -164,7 +195,7 @@
    筛选切换 / 翻页 / 保存等场景：旧内容淡出 → 换新数据 → 新内容淡入
    ================================================================= */
 .tasks-list {
-    transition: opacity 0.15s ease;
+    transition: opacity var(--anim-duration-fast) ease;
 }
 
 .tasks-list.list-refreshing {
@@ -172,7 +203,7 @@
 }
 
 .tasks-list.list-enter {
-    animation: list-fade-in 0.22s ease;
+    animation: list-fade-in var(--anim-duration-base) var(--anim-ease-standard);
 }
 
 @keyframes list-fade-in {
@@ -183,7 +214,7 @@
 /* 新建/编辑保存后，高亮定位到对应任务行 */
 .task-item.task-highlight,
 .small-screen-task-item.task-highlight {
-    animation: task-highlight 1.1s ease-out;
+    animation: task-highlight var(--anim-duration-emphasis) ease-out;
 }
 
 @keyframes task-highlight {
@@ -196,7 +227,7 @@
 .task-item.is-removing,
 .small-screen-task-item.is-removing {
     pointer-events: none;
-    animation: task-leave 0.28s cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+    animation: task-leave var(--anim-duration-base) var(--anim-ease-accelerate) forwards;
 }
 
 /* ==================== 内容区切换（统计 / 时间轴等） ====================
@@ -204,11 +235,11 @@
    ================================================================= */
 .is-refreshing {
     opacity: 0.45;
-    transition: opacity 0.15s ease;
+    transition: opacity var(--anim-duration-fast) ease;
 }
 
 .is-enter {
-    animation: content-fade-in 0.24s ease;
+    animation: content-fade-in var(--anim-duration-base) var(--anim-ease-standard);
 }
 
 @keyframes content-fade-in {
@@ -218,11 +249,11 @@
 
 /* 方向性切换：日历翻月、时间轴翻周，按前进/后退从对应方向滑入 */
 .slide-from-right {
-    animation: slide-in-right 0.28s ease;
+    animation: slide-in-right var(--anim-duration-base) var(--anim-ease-standard);
 }
 
 .slide-from-left {
-    animation: slide-in-left 0.28s ease;
+    animation: slide-in-left var(--anim-duration-base) var(--anim-ease-standard);
 }
 
 @keyframes slide-in-right {
@@ -237,7 +268,7 @@
 
 /* 统计面板：各分区依次入场，避免整块内容一次性闪现 */
 #stats-content.is-enter > * {
-    animation: stats-section-in 0.32s ease both;
+    animation: stats-section-in var(--anim-duration-slow) var(--anim-ease-standard) both;
 }
 
 #stats-content.is-enter > *:nth-child(2) { animation-delay: 0.05s; }
@@ -254,7 +285,7 @@
 
 /* 时间轴：拖拽落位后给卡片一个确认脉冲 */
 .task-card.task-card-drop {
-    animation: task-card-drop 0.7s ease-out;
+    animation: task-card-drop var(--anim-duration-emphasis) ease-out;
 }
 
 @keyframes task-card-drop {
@@ -279,21 +310,21 @@
 .modal.is-closing,
 .qr-code-modal.is-closing,
 .more-menu-modal.is-closing {
-    animation: modal-backdrop-out 0.2s ease forwards;
+    animation: modal-backdrop-out var(--anim-duration-fast) var(--anim-ease-standard) forwards;
     /* 退场期间不再响应点击，避免误触弹窗内按钮 */
     pointer-events: none;
 }
 
 .modal.is-closing .modal-content {
-    animation: modal-content-out 0.2s ease forwards;
+    animation: modal-content-out var(--anim-duration-fast) var(--anim-ease-standard) forwards;
 }
 
 .qr-code-modal.is-closing .qr-code-content {
-    animation: modal-zoom-out 0.2s ease forwards;
+    animation: modal-zoom-out var(--anim-duration-fast) var(--anim-ease-standard) forwards;
 }
 
 .more-menu-modal.is-closing .more-menu-content {
-    animation: menu-slide-out 0.2s ease forwards;
+    animation: menu-slide-out var(--anim-duration-fast) var(--anim-ease-standard) forwards;
 }
 
 @keyframes modal-backdrop-out {
@@ -341,7 +372,7 @@
 }
 
 .toast-stack .toast.toast-leaving {
-    animation: toast-leave 0.3s ease forwards;
+    animation: toast-leave var(--anim-duration-base) var(--anim-ease-standard) forwards;
 }
 
 @keyframes toast-leave {
@@ -374,18 +405,22 @@
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+    transition: opacity var(--anim-duration-fast) ease, visibility 0s linear var(--anim-duration-fast);
 }
 
 .loading-overlay.loading-visible {
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
-    transition: opacity 0.18s ease, visibility 0s linear 0s;
+    transition: opacity var(--anim-duration-fast) ease, visibility 0s linear 0s;
 }
 
-/* 遵循系统"减弱动态效果"设置 */
+/* ============================================================================
+   遵循系统"减弱动态效果"设置
+   动效一律关闭，仅保留功能性展示（元素本身仍可见，加载 spinner 的 spin 不关闭）
+   ============================================================================ */
 @media (prefers-reduced-motion: reduce) {
+    /* 新增动效 */
     .task-checkbox.is-checking,
     .task-checkbox.check-pop,
     .task-checkbox.check-pop::before,
@@ -414,7 +449,14 @@
     .more-menu-modal.is-closing .more-menu-content,
     .toast-stack .toast.toast-leaving,
     .confetti-piece,
-    .complete-bubble {
+    .complete-bubble,
+    /* 既有入场动画（components.css / main.css / index.html） */
+    .modal-content,
+    .qr-code-modal,
+    .qr-code-content,
+    .more-menu-content,
+    .toast,
+    [class*="skeleton-"] {
         animation: none !important;
     }
 
@@ -424,6 +466,7 @@
 
     .loading-overlay,
     .loading-overlay.loading-visible,
+    .is-refreshing,
     .tasks-list {
         transition: none !important;
     }

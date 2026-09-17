@@ -846,8 +846,8 @@ class TodoManager {
         row.classList.add('task-highlight');
         const clear = () => row.classList.remove('task-highlight');
         row.addEventListener('animationend', clear, { once: true });
-        // 兜底：动画事件丢失时也要清掉高亮类
-        setTimeout(clear, 1400);
+        // 兜底：动画事件丢失时也要清掉高亮类（时长需大于 --anim-duration-emphasis）
+        setTimeout(clear, 900);
     }
 
     // 删除前播放任务离场动画，避免任务从列表中瞬间消失

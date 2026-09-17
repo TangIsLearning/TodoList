@@ -108,7 +108,7 @@ function showToast(message, type = 'info') {
     });
 }
 
-// 加载遮罩：显示延迟（短时间内完成的本地操作不闪遮罩）与淡出时长
+// 加载遮罩显示延迟：短时间内完成的本地操作不闪遮罩（淡出时长由 CSS 控制）
 const LOADING_SHOW_DELAY = 150;
 let _loadingShowTimer = null;
 
@@ -172,10 +172,10 @@ function playAnimation(el, className, fallbackMs = 600) {
     setTimeout(finish, fallbackMs);
 }
 
-// 弹窗退场动画时长（需与 animations.css 中 modal-backdrop-out 等动画保持一致）
+// 以下时长需与 animations.css 中的时长变量保持一致：
+// 弹窗退场 --anim-duration-fast，提示退场 --anim-duration-base
 const MODAL_CLOSE_DURATION = 200;
-// 提示退场动画时长（需与 animations.css 中 toast-leave 保持一致）
-const TOAST_LEAVE_DURATION = 300;
+const TOAST_LEAVE_DURATION = 280;
 
 // 带退场动画地关闭弹窗：动画结束后执行 finish（隐藏、清表单等收尾逻辑）
 function closeModalWithAnimation(modal, finish) {
