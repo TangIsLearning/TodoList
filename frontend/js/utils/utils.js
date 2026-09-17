@@ -485,6 +485,65 @@ function formatNumber(value, decimals) {
     return Math.round(value).toString();
 }
 
+// 是否开启了"减弱动态效果"（系统无障碍设置）
+function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// 等待指定毫秒（动画编排用）
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 在指定元素位置迸发彩纸粒子（用于完成任务等正向反馈）
+const CONFETTI_COLORS = ['#4caf50', '#8bc34a', '#00bcd4', '#448aff', '#ffb300', '#ff7043'];
+function burstConfetti(anchorEl, options = {}) {
+    if (!anchorEl || prefersReducedMotion()) return;
+
+    const rect = anchorEl.getBoundingClientRect();
+    const originX = rect.left + rect.width / 2;
+    const originY = rect.top + rect.height / 2;
+    const count = options.count || 14;
+    // 粒子扩散半径随屏幕尺寸自适应，小屏幕收敛一些避免溢出
+    const radius = Math.max(40, Math.min(90, rect.width * 3));
+
+    for (let i = 0; i < count; i++) {
+        const piece = document.createElement('i');
+        piece.className = 'confetti-piece';
+        const angle = (-90 + (i / count) * 260 + Math.random() * 24) * (Math.PI / 180);
+        const distance = radius * (0.55 + Math.random() * 0.65);
+        const size = 5 + Math.random() * 5;
+
+        piece.style.left = `${originX}px`;
+        piece.style.top = `${originY}px`;
+        piece.style.width = `${size}px`;
+        piece.style.height = `${size * (0.5 + Math.random())}px`;
+        piece.style.backgroundColor = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        piece.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+        piece.style.setProperty('--dy', `${Math.sin(angle) * distance + 22}px`);
+        piece.style.setProperty('--rot', `${Math.round((Math.random() - 0.5) * 720)}deg`);
+        piece.style.setProperty('--delay', `${Math.round(Math.random() * 60)}ms`);
+
+        document.body.appendChild(piece);
+        piece.addEventListener('animationend', () => piece.remove());
+    }
+}
+
+// 在指定元素上方冒出一个短暂的气泡文案（如"已完成"）
+function popBubble(anchorEl, text) {
+    if (!anchorEl || !text || prefersReducedMotion()) return;
+
+    const rect = anchorEl.getBoundingClientRect();
+    const bubble = document.createElement('span');
+    bubble.className = 'complete-bubble';
+    bubble.textContent = text;
+    bubble.style.left = `${rect.left + rect.width / 2}px`;
+    bubble.style.top = `${rect.top}px`;
+
+    document.body.appendChild(bubble);
+    bubble.addEventListener('animationend', () => bubble.remove());
+}
+
 // 导出工具函数到全局
 window.Utils = {
     formatDate,
@@ -505,5 +564,9 @@ window.Utils = {
     detectOS,
     loadPywebviewApi,
     apiCall,
-    animateNumber
+    animateNumber,
+    prefersReducedMotion,
+    wait,
+    burstConfetti,
+    popBubble
 };

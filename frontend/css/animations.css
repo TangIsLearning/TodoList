@@ -1,0 +1,183 @@
+/* ==================== 任务完成 / 重新开启动效 ====================
+   说明：动效类由 js/features/todo.js 的 playToggleAnimation() 动态添加与移除，
+   动画结束后统一刷新列表，避免状态变化时的视觉跳变。
+   ================================================================= */
+
+/* 复选框：等待后端响应期间的呼吸提示 */
+.task-checkbox.is-checking {
+    animation: checkbox-pending 1s ease-in-out infinite;
+}
+
+@keyframes checkbox-pending {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.45); }
+    50% { box-shadow: 0 0 0 5px rgba(76, 175, 80, 0); }
+}
+
+/* 复选框：勾选/取消瞬间的弹跳 */
+.task-checkbox.check-pop {
+    animation: checkbox-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes checkbox-pop {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.8); }
+    65% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+
+/* 复选框：向外扩散的波纹 */
+.task-checkbox.check-pop::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--success-color);
+    pointer-events: none;
+    animation: checkbox-ripple 0.6s ease-out forwards;
+}
+
+@keyframes checkbox-ripple {
+    0% { transform: scale(0.6); opacity: 0.85; }
+    100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* 对勾：由小到大弹出（仅在勾选动画期间生效，避免列表重绘时全部闪烁） */
+.task-checkbox.checked.check-pop::after {
+    animation: check-mark-in 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes check-mark-in {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(-30deg); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+}
+
+/* 任务行：完成时的绿色高亮脉冲 */
+.task-item.complete-flash,
+.small-screen-task-item.complete-flash {
+    animation: row-complete-flash 0.7s ease-out;
+}
+
+@keyframes row-complete-flash {
+    0% { background-color: rgba(76, 175, 80, 0.28); }
+    70% { background-color: rgba(76, 175, 80, 0.12); }
+    100% { background-color: transparent; }
+}
+
+/* 任务行：重新开启时的橙色高亮脉冲 */
+.task-item.reopen-flash,
+.small-screen-task-item.reopen-flash {
+    animation: row-reopen-flash 0.6s ease-out;
+}
+
+@keyframes row-reopen-flash {
+    0% { background-color: rgba(255, 193, 7, 0.22); }
+    100% { background-color: transparent; }
+}
+
+/* 任务行：被当前筛选移出列表时的离场动画 */
+.task-item.is-leaving,
+.small-screen-task-item.is-leaving {
+    pointer-events: none;
+    animation: task-leave 0.3s cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+}
+
+@keyframes task-leave {
+    0% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(36px); }
+}
+
+/* 任务标题：删除线由左向右扫过（宽度由 JS 按实际文字宽度设置） */
+.task-item .task-title.strike-sweep,
+.small-screen-task-item .task-title.strike-sweep {
+    position: relative;
+    /* 扫过动画期间先隐藏原生删除线，扫完再显现 */
+    text-decoration-color: transparent !important;
+}
+
+.task-item .task-title.strike-sweep::after,
+.small-screen-task-item .task-title.strike-sweep::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0;
+    height: 2px;
+    border-radius: 2px;
+    background-color: currentColor;
+    transform: translateY(-1px);
+    pointer-events: none;
+    animation: strike-sweep 0.38s ease-out forwards;
+}
+
+@keyframes strike-sweep {
+    from { width: 0; }
+    to { width: var(--strike-w, 100%); }
+}
+
+/* 彩纸粒子（Utils.burstConfetti 动态创建，挂在 body 上避免被容器裁剪） */
+.confetti-piece {
+    position: fixed;
+    z-index: 9999;
+    border-radius: 2px;
+    pointer-events: none;
+    opacity: 0;
+    animation: confetti-fly 0.75s cubic-bezier(0.15, 0.7, 0.35, 1) forwards;
+    animation-delay: var(--delay, 0ms);
+}
+
+@keyframes confetti-fly {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+    }
+    70% { opacity: 1; }
+    100% {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(var(--rot));
+    }
+}
+
+/* 完成气泡（Utils.popBubble 动态创建） */
+.complete-bubble {
+    position: fixed;
+    z-index: 9999;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    color: #fff;
+    background-color: var(--success-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    white-space: nowrap;
+    pointer-events: none;
+    animation: bubble-rise 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes bubble-rise {
+    0% { opacity: 0; transform: translate(-50%, -60%) scale(0.7); }
+    25% { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
+}
+
+/* 遵循系统"减弱动态效果"设置 */
+@media (prefers-reduced-motion: reduce) {
+    .task-checkbox.is-checking,
+    .task-checkbox.check-pop,
+    .task-checkbox.check-pop::before,
+    .task-checkbox.checked.check-pop::after,
+    .task-item.complete-flash,
+    .small-screen-task-item.complete-flash,
+    .task-item.reopen-flash,
+    .small-screen-task-item.reopen-flash,
+    .task-item.is-leaving,
+    .small-screen-task-item.is-leaving,
+    .confetti-piece,
+    .complete-bubble {
+        animation: none !important;
+    }
+
+    .task-title.strike-sweep::after {
+        display: none;
+    }
+}
