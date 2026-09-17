@@ -43,6 +43,7 @@ class TodoManager {
             pageSize: 10,
             searchQuery: '',
             selectedId: '',
+            selectedTitle: '', // 已选父任务的标题（供保存后回写搜索框的父任务查询）
             hasMore: false,
             isLoading: false,
             isOpen: false,
@@ -589,6 +590,14 @@ class TodoManager {
         this.recurrenceType.value = '';
     }
     
+    // 展开"更多选项"（用于让自动填充的父任务等字段对用户可见）
+    expandMoreOptions() {
+        this.moreOptionsContent.style.display = 'block';
+        this.moreOptionsToggle.classList.add('expanded');
+        const toggleIcon = this.moreOptionsToggle.querySelector('.toggle-icon');
+        if (toggleIcon) toggleIcon.textContent = '-';
+    }
+
     // 为编辑模式添加周期性任务提示
     addRecurringEditNotice() {
         const recurringSection = document.querySelector('.recurring-options')?.parentElement;
@@ -1551,15 +1560,20 @@ class TodoManager {
         // 截止日期默认为空，不设置默认值
         this.timeInput.value = '';
 
-        // 记录打开弹窗时的列表筛选快照（分类 + 标签），提交后据此决定是否同步或清除筛选
+        // 搜索框正处于"按父任务查子任务"时，新建任务默认挂到该父任务下
+        const subtaskParentFilter = this.getSubtaskParentFilter();
+
+        // 记录打开弹窗时的列表筛选快照（分类 + 标签 + 父任务），提交后据此决定是否同步或清除筛选
         const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
         const currentTagIds = this.getTagFilterIds();
         // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
         this.taskFilterSnapshot = {
             categoryId: currentCategory,
             tagIds: currentTagIds,
+            parentTaskId: subtaskParentFilter ? subtaskParentFilter.id : null,
             hasCategoryFilter: !!currentCategory,
-            hasTagFilter: currentTagIds.length > 0
+            hasTagFilter: currentTagIds.length > 0,
+            hasParentFilter: !!subtaskParentFilter
         };
 
         // 已选标签继承当前标签筛选（弹窗新建的临时标签在打开时统一丢弃）
@@ -1575,6 +1589,13 @@ class TodoManager {
         this.parentTaskState.editingTaskId = '';
         this.resetParentTaskCombobox();
         this.initParentTaskCombobox();
+
+        // 搜索框存在父任务查询时，把该父任务预填到表单，新建的任务直接成为其子任务
+        if (subtaskParentFilter) {
+            this.selectParentTask({ id: subtaskParentFilter.id, title: subtaskParentFilter.title });
+            // 展开更多选项，让自动填充的父任务对用户可见
+            this.expandMoreOptions();
+        }
 
         // 加载标签选择器
         this.tagManager.loadSelector();
@@ -1722,6 +1743,7 @@ class TodoManager {
         this.taskParentInput.value = task.title;
         this.taskParent.value = task.id;
         this.parentTaskState.selectedId = task.id;
+        this.parentTaskState.selectedTitle = task.title || '';
         this.taskParentDropdown.style.display = 'none';
         this.parentTaskState.isOpen = false;
     }
@@ -1733,6 +1755,7 @@ class TodoManager {
         this.taskParentInput.value = '';
         this.taskParent.value = '';
         this.parentTaskState.selectedId = '';
+        this.parentTaskState.selectedTitle = '';
         this.parentTaskState.searchQuery = '';
         this.parentTaskState.currentPage = 1;
         this.parentTaskState.hasMore = false;
@@ -1757,6 +1780,11 @@ class TodoManager {
                     this.taskParent.value = parent.id;
                     this.taskParentInput.value = parent.title;
                     this.parentTaskState.selectedId = parent.id;
+                    this.parentTaskState.selectedTitle = parent.title || '';
+                }
+                // 回填任务原本关联的父任务，供保存后判断是否需要同步搜索框的父任务查询
+                if (this.taskFilterSnapshot) {
+                    this.taskFilterSnapshot.parentTaskId = parent ? parent.id : null;
                 }
             }
         });
@@ -2041,8 +2069,13 @@ class TodoManager {
         this.taskFilterSnapshot = {
             categoryId: task.categoryId || '',
             tagIds: this.tagManager.getFormSelectedTagIds(),
+            // 普通父子关联不在任务字段上（parentTaskId 只标记周期任务实例），
+            // 这里先留空，由 initParentTaskForEdit 异步回填任务原本关联的父任务
+            parentTaskId: null,
             hasCategoryFilter: !!filterCategoryId,
-            hasTagFilter: filterTagIds.length > 0
+            hasTagFilter: filterTagIds.length > 0,
+            // 编辑模式下以搜索框是否处于父任务查询为准，与任务自身是否有父任务无关
+            hasParentFilter: !!this.getSubtaskParentFilter()
         };
 
         // 如果有截止日期，自动展开更多选项
@@ -2322,6 +2355,8 @@ class TodoManager {
     //         原本不存在标签筛选时不做任何筛选调整。
     //         savedTags 为后端保存后返回的标签（含真实 id，新建标签也能直接拿到 id），
     //         传 null 表示调用方拿不到返回结构，此时不调整标签筛选项（保持现状，避免误清）。
+    // - 父任务：父任务被修改时，若搜索框本身处于"按父任务查子任务"，则改为查询新的父任务；
+    //         移除父任务则清空搜索框的父任务查询；搜索框没有父任务查询时不联动。
     // 返回值：是否已刷新过左侧标签模块
     async syncFiltersAfterSave(snapshot, categoryId, savedTags) {
         if (!snapshot) return false;
@@ -2362,6 +2397,25 @@ class TodoManager {
             // 此时 chips 已更新，模块渲染会直接带上正确的选中态
             await this.tagManager.loadModule(true);
             tagsModuleRefreshed = true;
+            filterChanged = true;
+        }
+
+        // ===== 父任务（子任务搜索）筛选 =====
+        // chosenParentId 为表单中最终选择的父任务；搜索框本身没有父任务查询时不联动
+        const chosenParentId = this.taskParent.value || null;
+        if (snapshot.hasParentFilter && chosenParentId !== snapshot.parentTaskId) {
+            this.hideSubtaskSuggestions();
+            if (chosenParentId) {
+                // 改为其他父任务：搜索框同步为新的父任务查询
+                const parentTitle = (this.parentTaskState.selectedTitle || '').trim() ||
+                    (this.taskParentInput.value || '').trim();
+                this.setSubtaskParent(chosenParentId, parentTitle || null);
+                this.searchInput.value = parentTitle ? `>${parentTitle}` : '';
+            } else {
+                // 移除父任务：同步移除搜索框的父任务查询
+                this.setSubtaskParent(null, null);
+                this.searchInput.value = '';
+            }
             filterChanged = true;
         }
 
@@ -3065,6 +3119,19 @@ class TodoManager {
         items.forEach((el, i) => el.classList.toggle('active', i === this._subtaskSuggestIndex));
         const active = this.dropdown.querySelector('.subtask-suggestion-item.active');
         if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    // 搜索框当前是否处于"按父任务查子任务"模式，且已确定到具体的父任务。
+    // 返回 { id, title }；仅输入 ">" 但未选中具体父任务（无 id），或文本已被改写时返回 null。
+    getSubtaskParentFilter() {
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        if (!this.isSubtaskSuggestMode(inputText)) return null;
+        if (!this.subtaskParent.id) return null;
+        if (this.subtaskParent.title && inputText !== `>${this.subtaskParent.title}`) return null;
+        return {
+            id: this.subtaskParent.id,
+            title: this.subtaskParent.title || inputText.substring(1).trim()
+        };
     }
 
     // 记录当前子任务搜索对应的父任务（id 用于精确查询，title 用于校验搜索文本是否被改写）
