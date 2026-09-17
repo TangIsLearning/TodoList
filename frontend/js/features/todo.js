@@ -65,6 +65,7 @@ class TodoManager {
         this._scrollFrameId = null; // 滚动事件节流用的 rAF 句柄
         this._globalCloseHandlerBound = false; // 全局关闭侧滑菜单的监听是否已绑定
         this._completingTasks = new Set(); // 正在播放完成/重开动效的任务 id，用于忽略重复点击
+        this._pendingHighlightTaskId = null; // 保存后需要在列表中定位并高亮的任务 id
         // 标签的数据与两个视图（左侧标签模块、弹窗标签选择器）全部由 TagManager 承载，
         // 这里只保留列表筛选态（chips）与两者之间的联动回调
         this.tagManager = window.tagManager;
@@ -750,11 +751,15 @@ class TodoManager {
         // 更新日历视图数据
         if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
 
+        // 列表内容变化（筛选/翻页/保存等）时先淡出，数据就绪后再淡入，避免内容瞬间跳变
+        if (!Utils.prefersReducedMotion()) this.tasksList.classList.add('list-refreshing');
+
         if (this.tasks.length === 0) {
             this.tasksList.style.setProperty('display', 'none', 'important');
             this.emptyState.style.display = 'block';
             // 隐藏分页
             this.pagination.style.display = 'none';
+            this.finishListRefresh();
             return;
         }
 
@@ -803,6 +808,57 @@ class TodoManager {
 
         // 绑定任务事件
         await this.bindTaskEvents();
+
+        // 取消淡出并播放入场淡入
+        this.finishListRefresh();
+        // 新建/编辑保存后定位并高亮对应任务
+        this.highlightPendingTask();
+    }
+
+    // 列表刷新收尾：取消淡出态并重新播放淡入动画
+    finishListRefresh() {
+        if (Utils.prefersReducedMotion()) return;
+
+        this.tasksList.classList.remove('list-refreshing');
+        // 先移除再强制重排，保证每次刷新都能重新播放动画
+        this.tasksList.classList.remove('list-enter');
+        void this.tasksList.offsetWidth;
+        this.tasksList.classList.add('list-enter');
+    }
+
+    // 定位并高亮刚保存（新建/编辑）的任务，便于确认结果落在了哪里
+    highlightPendingTask() {
+        const taskId = this._pendingHighlightTaskId;
+        if (taskId === null || taskId === undefined) return;
+        this._pendingHighlightTaskId = null;
+
+        const row = this.tasksList.querySelector(
+            `.task-item[data-task-id="${taskId}"], .small-screen-task-item[data-task-id="${taskId}"]`
+        );
+        if (!row) return; // 该任务可能已被当前筛选条件过滤掉
+
+        row.scrollIntoView({
+            block: 'center',
+            behavior: Utils.prefersReducedMotion() ? 'auto' : 'smooth'
+        });
+
+        if (Utils.prefersReducedMotion()) return;
+        row.classList.add('task-highlight');
+        const clear = () => row.classList.remove('task-highlight');
+        row.addEventListener('animationend', clear, { once: true });
+        // 兜底：动画事件丢失时也要清掉高亮类
+        setTimeout(clear, 1400);
+    }
+
+    // 删除前播放任务离场动画，避免任务从列表中瞬间消失
+    async animateTaskRemoval(taskId) {
+        if (Utils.prefersReducedMotion()) return;
+
+        const { row } = this.getTaskToggleTarget(taskId);
+        if (!row) return;
+
+        row.classList.add('is-removing');
+        await Utils.wait(280);
     }
     
     // 创建任务元素
@@ -2242,6 +2298,8 @@ class TodoManager {
                 // 标签已随任务落库，清掉弹窗内的临时标签，避免与后端返回的真实标签重复
                 this.tagManager.clearPending();
 
+                // 列表刷新后定位并高亮这条任务
+                this._pendingHighlightTaskId = taskId;
                 this.loadTasks(true);
                 window.timelineManager.renderTimeline();
 
@@ -2402,6 +2460,9 @@ class TodoManager {
     
     // 执行删除操作
     async performDelete(taskId, deleteAll) {
+        // 先播放离场动画，再真正删除
+        await this.animateTaskRemoval(taskId);
+
         Utils.setLoading(true, '删除中...');
         await Utils.apiCall({
             apiMethod: 'delete_todo',

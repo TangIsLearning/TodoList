@@ -160,6 +160,45 @@
     100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
 }
 
+/* ==================== 任务列表刷新 ====================
+   筛选切换 / 翻页 / 保存等场景：旧内容淡出 → 换新数据 → 新内容淡入
+   ================================================================= */
+.tasks-list {
+    transition: opacity 0.15s ease;
+}
+
+.tasks-list.list-refreshing {
+    opacity: 0.45;
+}
+
+.tasks-list.list-enter {
+    animation: list-fade-in 0.22s ease;
+}
+
+@keyframes list-fade-in {
+    from { opacity: 0.45; }
+    to { opacity: 1; }
+}
+
+/* 新建/编辑保存后，高亮定位到对应任务行 */
+.task-item.task-highlight,
+.small-screen-task-item.task-highlight {
+    animation: task-highlight 1.1s ease-out;
+}
+
+@keyframes task-highlight {
+    0% { background-color: rgba(0, 123, 255, 0.28); }
+    60% { background-color: rgba(0, 123, 255, 0.14); }
+    100% { background-color: transparent; }
+}
+
+/* 删除任务时的离场动画 */
+.task-item.is-removing,
+.small-screen-task-item.is-removing {
+    pointer-events: none;
+    animation: task-leave 0.28s cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+}
+
 /* ==================== 通用反馈动效 ====================
    弹窗退场：遮罩淡出 + 内容按各自入场方式反向退出
    由 Utils.closeModalWithAnimation() 添加 .is-closing 触发
@@ -284,6 +323,11 @@
     .small-screen-task-item.reopen-flash,
     .task-item.is-leaving,
     .small-screen-task-item.is-leaving,
+    .task-item.is-removing,
+    .small-screen-task-item.is-removing,
+    .task-item.task-highlight,
+    .small-screen-task-item.task-highlight,
+    .tasks-list.list-enter,
     .modal.is-closing,
     .modal.is-closing .modal-content,
     .qr-code-modal.is-closing,
@@ -301,7 +345,8 @@
     }
 
     .loading-overlay,
-    .loading-overlay.loading-visible {
+    .loading-overlay.loading-visible,
+    .tasks-list {
         transition: none !important;
     }
 }
