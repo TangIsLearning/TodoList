@@ -264,7 +264,7 @@
 
     .more-menu-link.active {
         background-color: var(--primary-color);
-        color: white;
+        color: var(--on-primary);
     }
 
     .more-menu-icon {
@@ -360,7 +360,7 @@
 
     .more-menu-link.active {
         background-color: var(--primary-color);
-        color: white;
+        color: var(--on-primary);
     }
 
     .more-menu-icon {
@@ -403,7 +403,7 @@
     .status-filter:hover,
     .due-date-filter:hover {
         transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+        box-shadow: 0 2px 4px rgba(var(--primary-rgb), 0.2);
     }
 
     /* 小屏幕任务项优化 */
@@ -469,7 +469,7 @@
     .task-checkbox.checked::after {
         font-size: 8px !important;
         content: '✓';
-        color: white;
+        color: var(--on-primary);
         font-weight: bold;
     }
 
@@ -556,7 +556,7 @@
         width: 80px !important;
         max-width: none !important;
         height: 100%;
-        color: white;
+        color: var(--text-white);
         justify-content: center;
         border-radius: 0 8px 8px 0;
         z-index: 1 !important;
@@ -574,14 +574,17 @@
 
     .task-actions .btn.view {
         background-color: var(--primary-color);
+        color: var(--on-primary);
     }
 
     .task-actions .btn.edit {
         background-color: var(--warning-color);
+        color: var(--on-warning);
     }
 
     .task-actions .btn.delete {
         background-color: var(--danger-color);
+        color: var(--on-danger);
     }
 
     .task-actions .btn:hover {

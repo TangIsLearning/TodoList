@@ -20,8 +20,8 @@ const TAG_INPUT_PATTERN = new RegExp(`^#[${TAG_NAME_CHARS}]+$`);
 const DEFAULT_VISIBLE_TAGS = 5;
 // 临时标签 id 前缀：弹窗中新建、尚未落库的标签用它标记，不进入标签数据源
 const TEMP_TAG_PREFIX = 'pending:';
-// 新建标签未指定颜色时的默认色（与后端 Tag 模型默认色保持一致）
-const DEFAULT_TAG_COLOR = '#6c757d';
+// 新建标签未指定颜色时的默认色：走主题令牌，随自定义强调色/明暗模式变化
+const DEFAULT_TAG_COLOR = 'var(--secondary-color)';
 
 class TagManager {
     constructor() {

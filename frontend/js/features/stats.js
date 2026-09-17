@@ -604,7 +604,7 @@ class StatsManager {
             const pct = Math.round(c.count / max * 100);
             const innerPct = c.count > 0 ? Math.round(c.completed / c.count * 100) : 0;
             return `<li class="h-row">
-                <span class="h-row__name" title="${statsEsc(c.name)}"><i style="background:${c.color || '#95a5a6'}"></i>${statsEsc(c.name)}</span>
+                <span class="h-row__name" title="${statsEsc(c.name)}"><i style="background:${c.color || 'var(--text-muted)'}"></i>${statsEsc(c.name)}</span>
                 <div class="h-row__track"><div class="h-row__fill" style="width:${Math.max(pct, 2)}%;background:${c.color || 'var(--stats-bar)'}"><div class="h-row__fill--rate" style="width:${innerPct}%"></div></div></div>
                 <span class="h-row__value" title="完成率 ${c.rate}%">${c.count} · ${c.rate}%</span></li>`;
         }).join('');
@@ -665,7 +665,7 @@ class StatsManager {
             const prio = Utils.getPriorityInfo(t.priority);
             return `<tr>
                 <td class="st-title" title="${statsEsc(t.title)}">${statsEsc(t.title)}</td>
-                <td><span class="stats-cat-tag"><i style="background:${t.color || '#95a5a6'}"></i>${statsEsc(t.categoryName || '未分类')}</span></td>
+                <td><span class="stats-cat-tag"><i style="background:${t.color || 'var(--text-muted)'}"></i>${statsEsc(t.categoryName || '未分类')}</span></td>
                 <td><span class="stats-priority">${prio.icon} ${prio.label}</span></td>
                 <td class="st-due">${statsEsc(t.dueDate)}</td></tr>`;
         }).join('');

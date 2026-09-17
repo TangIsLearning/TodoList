@@ -626,8 +626,8 @@ class TodoManager {
 
         const hasError = isChecked && (!this.datePicker.value || !this.timeInput.value);
         this.recurrenceError.style.display = hasError ? 'block' : 'none';
-        this.datePicker.style.borderColor = hasError ? '#e74c3c' : '';
-        this.timeInput.style.borderColor = hasError ? '#e74c3c' : '';
+        this.datePicker.style.borderColor = hasError ? 'var(--danger-color)' : '';
+        this.timeInput.style.borderColor = hasError ? 'var(--danger-color)' : '';
     }
     
     // 添加输入值变化监听
@@ -635,7 +635,7 @@ class TodoManager {
         const setError = (valid, msg) => {
             Object.assign(this.datetimeError.style, { display: valid ? 'none' : 'block' });
             this.datetimeError.textContent = valid ? '' : msg;
-            const color = valid ? '' : '#e74c3c';
+            const color = valid ? '' : 'var(--danger-color)';
             this.datePicker.style.borderColor = color;
             this.timeInput.style.borderColor = color;
             if (valid) this.toggleRecurringOptions();
@@ -1907,7 +1907,7 @@ class TodoManager {
                     <div>
                         <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskStatus', '状态')}</strong>
                         <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
-                              ${task.completed ? 'background-color: var(--success-color); color: white;' : 'background-color: var(--priority-medium); color: var(--text-primary);'}">
+                              ${task.completed ? 'background-color: var(--success-color); color: var(--on-success);' : 'background-color: var(--priority-medium); color: var(--on-priority-medium);'}">
                             ${task.completed ? window.languageManager.getText('statusCompleted', '已完成') : window.languageManager.getText('statusUncompleted', '未完成')}
                         </span>
                     </div>

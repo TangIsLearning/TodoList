@@ -22,11 +22,11 @@
 
 .btn--primary-color {
     --bg-color: var(--primary-color);
-    --text-color: var(--text-white);
+    --text-color: var(--on-primary);
 }
 .btn--success-color {
     --bg-color: var(--success-color);
-    --text-color: var(--text-white);
+    --text-color: var(--on-success);
 }
 .btn--tertiary-color {
     --bg-color: var(--bg-tertiary);
@@ -34,7 +34,7 @@
 }
 .btn--danger-color {
     --bg-color: var(--danger-color);
-    --text-color: var(--text-white);
+    --text-color: var(--on-danger);
 }
 .btn--colorless {
     --bg-color: transparent !important;
@@ -57,7 +57,7 @@
     text-align: center;
     padding: var(--spacing-sm);
     margin-bottom: var(--spacing-sm);
-    background: linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 123, 255, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1) 0%, rgba(var(--primary-rgb), 0.05) 100%);
     border-radius: var(--border-radius);
 }
 
@@ -213,7 +213,7 @@
 .page-size-select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .pagination-controls {
@@ -235,7 +235,7 @@
 
 .pagination-numbers .btn.active {
     background-color: var(--primary-color);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary-color);
 }
 
@@ -434,7 +434,7 @@
     font-size: var(--font-size-sm);
     margin-top: var(--spacing-xs);
     padding: var(--spacing-xs) var(--spacing-sm);
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: rgba(var(--danger-rgb), 0.1);
     border: 1px solid var(--danger-color);
     border-radius: var(--border-radius-sm);
     display: none;
@@ -447,7 +447,7 @@
 
 .form-group input.error {
     border-color: var(--danger-color) !important;
-    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25) !important;
+    box-shadow: 0 0 0 2px rgba(var(--danger-rgb), 0.25) !important;
 }
 
 @keyframes fadeIn {
@@ -466,7 +466,7 @@
 .form-group select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .form-row {
@@ -568,19 +568,19 @@
 }
 
 .webdav-status.success {
-    background-color: rgba(40, 167, 69, 0.1);
+    background-color: rgba(var(--success-rgb), 0.1);
     border: 1px solid var(--success-color);
     color: var(--success-color);
 }
 
 .webdav-status.error {
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: rgba(var(--danger-rgb), 0.1);
     border: 1px solid var(--danger-color);
     color: var(--danger-color);
 }
 
 .webdav-status.info {
-    background-color: rgba(0, 123, 255, 0.1);
+    background-color: rgba(var(--primary-rgb), 0.1);
     border: 1px solid var(--primary-color);
     color: var(--primary-color);
 }
@@ -626,7 +626,7 @@
 
 .task-checkbox.checked::after {
     content: '✓';
-    color: white;
+    color: var(--on-primary);
     font-weight: bold;
     position: absolute;
     top: 50%;
@@ -641,7 +641,7 @@
   border-radius: 8px;
   overflow: hidden; /* 隐藏超出部分 */
   user-select: none; /* 防止拖拽时选中文字 */
-  border: 1px solid #eee;
+  border: 1px solid var(--border-light);
 }
 
 .task-item.completed .task-title {
@@ -685,22 +685,22 @@
 
 .task-priority.high {
     background-color: var(--priority-high);
-    color: white;
+    color: var(--on-priority-high);
 }
 
 .task-priority.medium {
     background-color: var(--priority-medium);
-    color: var(--text-primary);
+    color: var(--on-priority-medium);
 }
 
 .task-priority.low {
     background-color: var(--priority-low);
-    color: white;
+    color: var(--on-priority-low);
 }
 
 .task-priority.none {
     background-color: var(--priority-none);
-    color: white;
+    color: var(--on-priority-none);
 }
 
 .task-due-date {
@@ -759,7 +759,7 @@
 }
 
 .tag-selector-item.selected, .tag-module-item.selected, .categories-more.selected {
-    background-color: white !important;
+    background-color: var(--bg-primary) !important;
     border: 1px solid var(--primary-color);
     color: var(--primary-color);
 }
@@ -898,6 +898,8 @@
 .btn:disabled:hover {
     transform: none;
     box-shadow: none;
+    /* 覆盖 .btn:hover 的亮度变化，禁用态不应有交互反馈 */
+    filter: none;
 }
 
 /* 加载动画 */
@@ -928,7 +930,7 @@
     right: var(--spacing-lg);
     padding: var(--spacing-md) var(--spacing-lg);
     background-color: var(--bg-dark);
-    color: white;
+    color: var(--text-white);
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-lg);
     z-index: 2000;
@@ -982,7 +984,7 @@
     left: 50%;
     transform: translateX(-50%);
     background-color: var(--bg-dark);
-    color: white;
+    color: var(--text-white);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius-sm);
     font-size: var(--font-size-xs);
@@ -1006,7 +1008,7 @@
 /* 周期性任务标识 */
 .recurring-badge {
     background-color: var(--info-color);
-    color: white;
+    color: var(--on-info);
     font-size: var(--font-size-xs);
     padding: 2px 6px;
     border-radius: var(--border-radius-sm);
@@ -1128,12 +1130,12 @@
 }
 
 .tag-checkbox-item input[type="checkbox"]:checked {
-    background-color: white;
+    background-color: var(--bg-primary);
     border-color: var(--primary-color);
 }
 
 .tag-checkbox-item:has(input[type="checkbox"]:checked) {
-    background-color: white;
+    background-color: var(--bg-primary);
     border: 1px solid var(--primary-color);
     color: var(--primary-color);
 }
@@ -1221,7 +1223,7 @@
 
 .attachment-remove:hover {
     background-color: var(--danger-color);
-    color: var(--text-white);
+    color: var(--on-danger);
 }
 
 .attachment-actions {

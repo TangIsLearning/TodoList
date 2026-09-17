@@ -409,7 +409,7 @@ class CategoryManager {
     // 获取分类颜色
     getCategoryColor(categoryId) {
         const category = this.getCategoryById(categoryId);
-        return category ? category.color : '#007bff';
+        return category ? category.color : 'var(--primary-color)';
     }
     
     // 更新分类任务数量

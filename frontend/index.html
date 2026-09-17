@@ -550,12 +550,12 @@
 
                 <div class="form-group">
                     <label for="task-description">任务描述
-                        <span style="color: #666; font-size: 12px;">（可选）</span></label>
+                        <span style="color: var(--text-secondary); font-size: 12px;">（可选）</span></label>
                     <textarea id="task-description" rows="3" maxlength="500"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label for="tags-selector">标签 <span style="color: #999; font-size: 12px;">（选择或添加标签）</span></label>
+                    <label for="tags-selector">标签 <span style="color: var(--text-muted); font-size: 12px;">（选择或添加标签）</span></label>
                     <div id="tags-selector" class="tags-selector">
                         <!-- 标签列表将通过JavaScript动态生成 -->
                     </div>
@@ -588,7 +588,7 @@
 
                     <div id="more-options-content" class="more-options-content" style="display: none;">
                         <div class="form-group">
-                            <label for="task-parent">父任务 <span style="color: #666; font-size: 12px;">可选</span></label>
+                            <label for="task-parent">父任务 <span style="color: var(--text-secondary); font-size: 12px;">可选</span></label>
                             <div class="parent-task-combobox" id="parent-task-combobox">
                                 <input type="text" id="task-parent-input" placeholder="点击选择或输入搜索未完成的任务" autocomplete="off">
                                 <input type="hidden" id="task-parent" value="">
@@ -606,7 +606,7 @@
                         <!-- 附件 -->
                         <div class="form-group attachment-group">
                             <label>附件
-                                <span style="color: #666; font-size: 12px;">
+                                <span style="color: var(--text-secondary); font-size: 12px;">
                                     （可选，最多 5 个，单个 10MB 以内）
                                 </span>
                                 <span id="attachment-count" class="attachment-count">0/5</span>
@@ -629,7 +629,7 @@
 
                         <div class="form-group datetime-group">
                             <label>截止日期和时间 <span
-                                    style="color: #666; font-size: 12px;">（可选）</span></label>
+                                    style="color: var(--text-secondary); font-size: 12px;">（可选）</span></label>
                             <div class="datetime-inputs">
                                 <div class="input-wrapper">
                                     <input type="text" id="task-due-date-picker" class="picker-input"
@@ -693,7 +693,7 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label for="attachment-link-name">链接名称 <span style="color: #666; font-size: 12px;">（可选，默认使用链接地址）</span></label>
+                <label for="attachment-link-name">链接名称 <span style="color: var(--text-secondary); font-size: 12px;">（可选，默认使用链接地址）</span></label>
                 <input type="text" id="attachment-link-name" maxlength="100" placeholder="请输入链接名称">
             </div>
             <div class="form-group">

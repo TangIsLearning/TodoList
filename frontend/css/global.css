@@ -7,7 +7,10 @@
 
 /* 根变量定义 */
 :root {
-    /* 颜色系统 */
+    /* ===== 强调色令牌（用户可在设置中心自定义） =====
+     * 这里只是浅色模式的出厂默认值；运行期由
+     * AccentThemeManager（js/utils/theme-colors.js）注入 style#accent-theme 覆盖。
+     * 新增配色请一律使用令牌，禁止再写死色值。 */
     --primary-color: #007bff;
     --primary-hover: #0056b3;
     --secondary-color: #6c757d;
@@ -16,7 +19,29 @@
     --danger-color: #dc3545;
     --info-color: #17a2b8;
 
-    /* 优先级颜色 */
+    /* ===== 派生令牌（由上面强调色自动计算，请勿手动写死） ===== */
+    /* RGB 分量：供 rgba(var(--primary-rgb), 0.1) 这类半透明叠加使用 */
+    --primary-rgb: 0, 123, 255;
+    --success-rgb: 40, 167, 69;
+    --warning-rgb: 255, 193, 7;
+    --danger-rgb: 220, 53, 69;
+    --info-rgb: 23, 162, 184;
+    /* 有色底上的前景色：按对比度自动取黑/白，替换写死的 #fff */
+    --on-primary: #ffffff;
+    --on-success: #ffffff;
+    --on-warning: #212529;
+    --on-danger: #ffffff;
+    --on-info: #ffffff;
+    --on-priority-high: #ffffff;
+    --on-priority-medium: #212529;
+    --on-priority-low: #ffffff;
+    --on-priority-none: #ffffff;
+    /* 焦点光环 */
+    --focus-ring: rgba(0, 123, 255, 0.25);
+    /* 统计视图"未完成"色：默认由 warning 加深派生 */
+    --stats-todo: #e8842c;
+
+    /* 优先级颜色：默认跟随语义色，可在设置中心断开联动后单独调整 */
     --priority-high: #dc3545;
     --priority-medium: #ffc107;
     --priority-low: #28a745;
@@ -112,7 +137,7 @@
 /* 选择文本样式 */
 ::selection {
     background-color: var(--primary-color);
-    color: white;
+    color: var(--on-primary);
 }
 
 /* 基础样式 */
@@ -133,26 +158,29 @@ select {
     box-sizing: border-box;
     padding: var(--spacing-sm) var(--spacing-md);
     line-height: 1.4;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background-color: #fff;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    /* 箭头为 data-URI 图标，无法引用 CSS 变量；
+       使用中性灰以保证浅色/深色底上均可见（结构性元素，不随强调色变化） */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236c757d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 16px;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--anim-duration-fast) ease;
 }
 select::-ms-expand {
     display: none;
 }
 select:hover {
-    border-color: #999;
+    border-color: var(--text-muted);
 }
 select:focus {
     outline: none;
-    border-color: #4A90E2;
-    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* 消除 SVG 作为行内元素的默认底边距坑 */

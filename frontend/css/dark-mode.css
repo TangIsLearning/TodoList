@@ -9,6 +9,10 @@
     --text-primary: #ffffff;
     --text-secondary: #b3b3b3;
     --text-muted: #808080;
+    /* 普通按钮（无 btn--* 变体）的前景色。
+       必须定义在 :root 级别而非 [data-theme="dark"] .btn，
+       否则后代选择器会盖掉 .btn--primary-color 等变体自带的 --text-color */
+    --text-color: #ffffff;
 
     --border-color: #404040;
     --shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -58,9 +62,11 @@
 }
 
 [data-theme="dark"] .language-switch.checked .language-indicator {
-    color: white;
+    color: var(--on-primary);
 }
 
-[data-theme="dark"] .btn {
-    --text-color: var(--text-white);
-}
+/* 注意：不要用 [data-theme="dark"] .btn 覆写 --text-color（见文件顶部说明），
+ * 各按钮变体的前景色由 --on-* 令牌按对比度自动决定。 */
+
+/* ===== 自定义模式：强调色由 AccentThemeManager 注入，
+        本文件的背景/文字/边框等结构色仍然生效 ===== */

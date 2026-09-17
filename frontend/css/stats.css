@@ -1,11 +1,11 @@
 /* 统计视图样式
- * 全部使用现有主题变量，随深/浅色主题自动适配。 */
+ * 全部使用现有主题变量，随深/浅色主题与自定义强调色自动适配。 */
 :root {
-    --stats-done: var(--success-color, #28a745);
-    --stats-todo: #e8842c;
-    --stats-overdue: var(--danger-color, #dc3545);
-    --stats-bar: var(--primary-color, #007bff);
-    --stats-slate: #9aa4b2;
+    --stats-done: var(--success-color);
+    --stats-overdue: var(--danger-color);
+    --stats-bar: var(--primary-color);
+    --stats-slate: var(--text-muted);
+    /* --stats-todo 定义在 global.css 的派生令牌区，此处不再重复定义 */
 }
 
 /* ===== 统计模式（顶部列表控件保持原位，仅置灰不可用） ===== */
