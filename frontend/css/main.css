@@ -1049,10 +1049,7 @@ input:checked + .slider:before {
     opacity: 1;
 }
 
-.tasks-header-cell .column-config-btn:hover {
-    transform: rotate(30deg);
-    transition: transform 0.2s ease;
-}
+/* 悬停转动效果统一收敛到 animations.css（.icon-rotate 系列规则） */
 
 .task-header-content {
     display: flex !important;

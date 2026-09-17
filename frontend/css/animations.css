@@ -27,6 +27,24 @@
     --anim-ease-standard: cubic-bezier(0.2, 0.8, 0.3, 1);
     --anim-ease-accelerate: cubic-bezier(0.4, 0, 0.9, 0.4);
     --anim-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* 齿轮类图标悬停转动角度（设置中心、列表列配置） */
+    --anim-icon-rotate: 30deg;
+}
+
+/* ==================== 图标交互反馈 ====================
+   齿轮类图标悬停转动：设置中心入口、任务列表列配置
+   角度与时长统一由 --anim-icon-rotate / --anim-duration-fast 控制
+   ================================================================= */
+#settings-btn,
+.tasks-header-cell .column-config-btn {
+    /* 保留按钮自身的过渡（.btn 的 filter 等），仅把 transform 换成规范的时长 */
+    transition: var(--transition-fast), transform var(--anim-duration-fast) ease;
+}
+
+#settings-btn:hover,
+.tasks-header-cell .column-config-btn:hover {
+    transform: rotate(var(--anim-icon-rotate));
 }
 
 /* ==================== 任务完成 / 重新开启动效 ====================
@@ -462,6 +480,12 @@
 
     .task-title.strike-sweep::after {
         display: none;
+    }
+
+    /* 图标悬停转动属于装饰性位移，减弱动效下保持静止 */
+    #settings-btn:hover,
+    .tasks-header-cell .column-config-btn:hover {
+        transform: none !important;
     }
 
     .loading-overlay,
