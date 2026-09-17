@@ -169,6 +169,23 @@ function bindBackdropClose(overlay, closeFn) {
     _backdropClosers.set(overlay, { onPointerDown, onClick });
 }
 
+/**
+ * 确认对话框（#confirm-dialog）是全局共用的同一个 DOM 节点，
+ * 每次 open 都会重新给「确认/取消/关闭」按钮绑定回调，
+ * 若上一次弹窗未经按钮关闭就被复用（例如详情弹窗里点击关联任务再次打开详情），
+ * 旧回调仍挂在按钮上，点击时会连同历史回调一起触发。
+ * 因此这里记录上一次的清理函数与关闭回调，重复打开时先清理，遮罩关闭时调用当前的关闭回调。
+ */
+let _confirmDialogCleanup = null;
+let _confirmDialogClose = null;
+// 记录本次附加的自定义 class（如详情弹窗的 view-modal），下次打开时移除，避免样式串到别的弹窗
+let _confirmDialogClass = null;
+
+// 与 isMobileDevice() 保持一致：> 480 视为大屏幕
+function isLargeScreen() {
+    return window.innerWidth > 480;
+}
+
 // 模态框管理
 const ModalManager = {
     _boundModals: new WeakSet(),
@@ -227,8 +244,12 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     const messageEl = document.getElementById('confirm-message');
     const cancelBtn = document.getElementById('confirm-cancel');
     const okBtn = document.getElementById('confirm-ok');
+    const closeBtn = document.getElementById('confirm-close');
     const modalTitle = document.querySelector('#confirm-dialog h2');
-    
+
+    // 复用同一个对话框 DOM：先清理上一次未关闭弹窗遗留的回调，避免历史回调被重复触发
+    if (_confirmDialogCleanup) _confirmDialogCleanup();
+
     // 设置标题（如果提供）
     if (title && modalTitle) {
         modalTitle.textContent = title;
@@ -277,7 +298,9 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
     confirmModal.classList.add('show');
+    if (_confirmDialogClass) confirmModal.classList.remove(_confirmDialogClass);
     if (className != '') confirmModal.classList.add(className);
+    _confirmDialogClass = className || null;
     confirmModal.style.display = 'flex';
     
     // 绑定事件
@@ -298,10 +321,24 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     const cleanup = () => {
         okBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
+        if (closeBtn) closeBtn.removeEventListener('click', handleCancel);
+        document.removeEventListener('keydown', handleEscape);
+        _confirmDialogCleanup = null;
+        _confirmDialogClose = null;
     };
-    
+
     okBtn.addEventListener('click', handleConfirm);
     cancelBtn.addEventListener('click', handleCancel);
+    // 右上角关闭按钮，效果等同取消
+    if (closeBtn) closeBtn.addEventListener('click', handleCancel);
+
+    // 点击弹窗外部区域关闭（bindBackdropClose 内部保证只绑定一次，回调走当前的关闭逻辑）
+    bindBackdropClose(confirmModal, () => {
+        if (!isLargeScreen()) return; // 小屏幕弹窗接近全屏，遮罩区域极小，不做关闭
+        if (_confirmDialogClose) _confirmDialogClose();
+    });
+    _confirmDialogClose = handleCancel;
+    _confirmDialogCleanup = cleanup;
     
     // ESC键取消
     const handleEscape = (e) => {
@@ -309,7 +346,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
             confirmModal.classList.remove('show');
             confirmModal.style.display = 'none';
             cleanup();
-            document.removeEventListener('keydown', handleEscape);
         }
     };
     document.addEventListener('keydown', handleEscape);
