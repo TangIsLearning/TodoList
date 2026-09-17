@@ -199,6 +199,79 @@
     animation: task-leave 0.28s cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
 }
 
+/* ==================== 内容区切换（统计 / 时间轴等） ====================
+   Utils.beginRefresh() 标记淡出、Utils.endRefresh() 播放淡入
+   ================================================================= */
+.is-refreshing {
+    opacity: 0.45;
+    transition: opacity 0.15s ease;
+}
+
+.is-enter {
+    animation: content-fade-in 0.24s ease;
+}
+
+@keyframes content-fade-in {
+    from { opacity: 0.45; }
+    to { opacity: 1; }
+}
+
+/* 方向性切换：日历翻月、时间轴翻周，按前进/后退从对应方向滑入 */
+.slide-from-right {
+    animation: slide-in-right 0.28s ease;
+}
+
+.slide-from-left {
+    animation: slide-in-left 0.28s ease;
+}
+
+@keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(28px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-28px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* 统计面板：各分区依次入场，避免整块内容一次性闪现 */
+#stats-content.is-enter > * {
+    animation: stats-section-in 0.32s ease both;
+}
+
+#stats-content.is-enter > *:nth-child(2) { animation-delay: 0.05s; }
+#stats-content.is-enter > *:nth-child(3) { animation-delay: 0.1s; }
+#stats-content.is-enter > *:nth-child(4) { animation-delay: 0.15s; }
+#stats-content.is-enter > *:nth-child(5) { animation-delay: 0.2s; }
+#stats-content.is-enter > *:nth-child(6) { animation-delay: 0.25s; }
+#stats-content.is-enter > *:nth-child(n+7) { animation-delay: 0.3s; }
+
+@keyframes stats-section-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 时间轴：拖拽落位后给卡片一个确认脉冲 */
+.task-card.task-card-drop {
+    animation: task-card-drop 0.7s ease-out;
+}
+
+@keyframes task-card-drop {
+    0% {
+        transform: scale(1.06);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.55);
+    }
+    60% {
+        transform: scale(1);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    }
+}
+
 /* ==================== 通用反馈动效 ====================
    弹窗退场：遮罩淡出 + 内容按各自入场方式反向退出
    由 Utils.closeModalWithAnimation() 添加 .is-closing 触发
@@ -328,6 +401,11 @@
     .task-item.task-highlight,
     .small-screen-task-item.task-highlight,
     .tasks-list.list-enter,
+    .is-enter,
+    #stats-content.is-enter > *,
+    .slide-from-right,
+    .slide-from-left,
+    .task-card.task-card-drop,
     .modal.is-closing,
     .modal.is-closing .modal-content,
     .qr-code-modal.is-closing,

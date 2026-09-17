@@ -133,6 +133,45 @@ function setLoading(isLoading, message = '加载中...') {
     }
 }
 
+// 容器内容切换：标记"刷新中"（淡出），用于异步取数期间
+function beginRefresh(container) {
+    if (!container || prefersReducedMotion()) return;
+    container.classList.add('is-refreshing');
+}
+
+// 容器内容切换收尾：取消淡出并播放淡入
+function endRefresh(container) {
+    if (!container || prefersReducedMotion()) return;
+    container.classList.remove('is-refreshing');
+    // 兜底时间需覆盖子元素分段入场的延迟（如统计面板分区依次淡入）
+    playAnimation(container, 'is-enter', 900);
+}
+
+// 在元素上播放一次性动画：先移除同名类并强制重排，保证可重复触发
+function playAnimation(el, className, fallbackMs = 600) {
+    if (!el || !className || prefersReducedMotion()) return;
+
+    el.classList.remove(className);
+    void el.offsetWidth; // 强制重排以重启动画
+    el.classList.add(className);
+
+    let finished = false;
+    // 只认元素自身的动画：子元素的动画结束会冒泡上来，不能据此提前清理
+    const onEnd = (e) => {
+        if (e.target === el) finish();
+    };
+    const finish = () => {
+        if (finished) return;
+        finished = true;
+        el.removeEventListener('animationend', onEnd);
+        el.classList.remove(className);
+    };
+
+    el.addEventListener('animationend', onEnd);
+    // 兜底：动画事件丢失时也要清掉类，避免影响下一次播放
+    setTimeout(finish, fallbackMs);
+}
+
 // 弹窗退场动画时长（需与 animations.css 中 modal-backdrop-out 等动画保持一致）
 const MODAL_CLOSE_DURATION = 200;
 // 提示退场动画时长（需与 animations.css 中 toast-leave 保持一致）
@@ -671,5 +710,8 @@ window.Utils = {
     wait,
     burstConfetti,
     popBubble,
-    closeModalWithAnimation
+    closeModalWithAnimation,
+    beginRefresh,
+    endRefresh,
+    playAnimation
 };

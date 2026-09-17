@@ -15,6 +15,8 @@ class TimelineManager {
         this.statusFilter = 'uncompleted';
         this.dueDateFilter = 'all';
         this.categoryId = null;
+        this._pendingSlide = null; // 待播放的切换方向：'next' | 'prev' | null
+        this._pendingHighlightTaskId = null; // 拖拽落位后需要高亮的卡片
     }
 
     async init() {
@@ -212,6 +214,9 @@ class TimelineManager {
         const container = document.getElementById('timelineGrid');
         if (!container) return;
 
+        // 取数期间先淡出，渲染完成后淡入或按方向滑入
+        Utils.beginRefresh(container);
+
         document.getElementById('weekCountIndicator').innerText = `${this.weekCount}周 / 最多4周`;
         const startDateObj = new Date(this.startDate);
         const endDateObj = new Date(this.startDate);
@@ -266,6 +271,11 @@ class TimelineManager {
 
         container.innerHTML = leftColHtml + rightHtml;
 
+        // 播放切换动画（翻周按方向滑入，其余情况淡入）
+        this.applyTimelineTransition(container);
+        // 拖拽落位后高亮对应卡片
+        this.highlightDroppedCard(container);
+
         // 绑定拖拽事件和删除
         this.attachDragEvents();
         this.attachDeleteEvents();
@@ -280,6 +290,31 @@ class TimelineManager {
         this.resizeObserver = new ResizeObserver(() => this.adaptLayoutToViewport());
         const containerElem = document.getElementById('timelineContainer');
         if (containerElem) this.resizeObserver.observe(containerElem);
+    }
+
+    // 播放周切换动画：翻周按方向滑入，改变周数等无方向场景走淡入
+    applyTimelineTransition(container) {
+        const direction = this._pendingSlide;
+        this._pendingSlide = null;
+
+        // 滑动入场自带淡入效果，先清掉取数期间的淡出态
+        container.classList.remove('is-refreshing');
+
+        if (direction) {
+            Utils.playAnimation(container, direction === 'next' ? 'slide-from-right' : 'slide-from-left');
+        } else {
+            Utils.endRefresh(container);
+        }
+    }
+
+    // 拖拽落位后高亮新位置的卡片，确认任务已移动
+    highlightDroppedCard(container) {
+        const taskId = this._pendingHighlightTaskId;
+        if (taskId === null || taskId === undefined) return;
+        this._pendingHighlightTaskId = null;
+
+        const card = container.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (card) Utils.playAnimation(card, 'task-card-drop', 1000);
     }
 
     escapeHtml(str) {
@@ -362,6 +397,8 @@ class TimelineManager {
         if (taskIdx !== -1) {
             this.tasks[taskIdx].date = targetDate;
             this.tasks[taskIdx].slotKey = targetSlot;
+            // 重绘后高亮新位置的卡片
+            this._pendingHighlightTaskId = taskId;
             await this.renderTimeline();
         }
     }
@@ -393,6 +430,8 @@ class TimelineManager {
         let newStart = new Date(this.startDate);
         newStart.setDate(newStart.getDate() + deltaWeeks * 7);
         this.startDate = newStart;
+        // 向后翻周从右侧滑入，向前翻周从左侧滑入
+        this._pendingSlide = deltaWeeks > 0 ? 'next' : 'prev';
         await this.renderTimeline();
     }
 }

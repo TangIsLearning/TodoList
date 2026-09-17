@@ -438,15 +438,19 @@ class StatsManager {
         const content = document.getElementById('stats-content');
         if (!content) return;
         try {
+            // 切换统计维度/时间范围时先淡出，数据就绪后再淡入，避免整块内容瞬间替换
+            Utils.beginRefresh(content);
             const data = await this._call('get_task_statistics', this._buildArgs());
             if (seq !== this._seq) return; // 丢弃过期请求结果
             this._lastTotal = (data && data.kpi && data.kpi.total) || 0;
             content.dataset.loaded = '1';
             content.innerHTML = this._buildDashboard(data || {});
+            Utils.endRefresh(content);
             this._updateHint();
         } catch (e) {
             if (seq !== this._seq) return;
             this._renderError(e);
+            Utils.endRefresh(content);
         }
     }
 

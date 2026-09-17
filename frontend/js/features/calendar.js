@@ -152,6 +152,8 @@ class CalendarManager {
         const monthIndex = this.currentDate.getMonth();
         this.currentMonth.textContent = monthIndex == 0 ? 12 : monthIndex;
         this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+        // 新月份从左侧滑入，与前进步骤方向相反
+        this._pendingSlide = 'prev';
         this.renderCalendar();
     }
 
@@ -159,6 +161,8 @@ class CalendarManager {
     nextMonth() {
         this.currentDate.setMonth(this.currentDate.getMonth() + 1);
         this.currentMonth.textContent = this.currentDate.getMonth() + 1;
+        // 新月份从右侧滑入
+        this._pendingSlide = 'next';
         this.renderCalendar();
     }
 
@@ -224,6 +228,18 @@ class CalendarManager {
             const dayEl = this.createDayElement(day, year, month + 1, true);
             calendarDays.appendChild(dayEl);
         }
+
+        // 翻月时按方向播放滑动入场（任务数据更新触发的重绘不播放）
+        this.applyMonthSlide(calendarDays);
+    }
+
+    // 播放月份切换动画：next 从右侧滑入、prev 从左侧滑入
+    applyMonthSlide(container) {
+        const direction = this._pendingSlide;
+        this._pendingSlide = null;
+        if (!direction) return;
+
+        Utils.playAnimation(container, direction === 'next' ? 'slide-from-right' : 'slide-from-left');
     }
 
     // 创建日期元素
