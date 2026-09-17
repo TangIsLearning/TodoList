@@ -304,13 +304,12 @@ class DataTransfer {
                             Utils.apiCall({
                                 apiMethod: 'p2p_import_data',
                                 apiArgs: [data],
-                                onSuccess: (response) => {
+                                onSuccess: async () => {
                                     Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
                                     this.closeModal();
-                                    setTimeout(() => {
-                                        location.reload();
-                                        localStorage.clear();
-                                    }, 1000);
+                                    // 清空接收预览并释放后端缓存的接收数据：过去由整页刷新完成，这里显式补齐
+                                    this.cancelImport();
+                                    await this.reloadAfterImport();
                                 }
                             });
                         }
@@ -323,6 +322,16 @@ class DataTransfer {
                 });
             }
         );
+    }
+
+    // 导入完成后原地热重载界面（不整页刷新，避免 WebView 重建页面时的整体白闪）
+    async reloadAfterImport() {
+        try {
+            await window.App?.reloadAfterDataReplaced();
+        } catch (error) {
+            logger.error('Failed to reload after importing data:', error);
+            Utils.showToast(window.languageManager.getText('refreshDataFailed', '刷新数据失败'), 'error');
+        }
     }
 
     cancelImport() {

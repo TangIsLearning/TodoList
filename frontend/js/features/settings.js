@@ -1075,20 +1075,31 @@ class SettingsUIManager {
                 await Utils.apiCall({
                     apiMethod: 'set_data_file_config',
                     apiArgs: [newFile],
-                    onSuccess: (response) => {
-                        this.updateDataFileConfig();
-                        setTimeout(() => {
-                            location.reload();
-                            localStorage.clear();
-                        }, 1000);
+                    onSuccess: async () => {
+                        await this.reloadAfterStorageSwitch();
                     },
                     onError: (error) => {
                         Utils.showToast(window.languageManager.getText('settingsFailed', '设置失败'), 'error');
-                    },
-                    onFinally: () => this.setDirectoryButtonsDisabled(false)
+                        this.setDirectoryButtonsDisabled(false);
+                    }
                 });
             }
         );
+    }
+    
+    // 切换到新的存储目录后热重载界面（不整页刷新，避免 WebView 重建页面时的整体白闪）
+    // 各模块复用自身的淡入淡出过渡，不叠加全局遮罩，避免遮罩自身的一闪
+    async reloadAfterStorageSwitch() {
+        try {
+            await window.App?.reloadAfterDataReplaced();
+            await this.updateDataFileConfig();
+            Utils.showToast(window.languageManager.getText('settingsSuccess', '设置成功'), 'success');
+        } catch (error) {
+            logger.error('Failed to reload after storage switch:', error);
+            Utils.showToast(window.languageManager.getText('refreshDataFailed', '刷新数据失败'), 'error');
+        } finally {
+            this.setDirectoryButtonsDisabled(false);
+        }
     }
     
     setDirectoryButtonsDisabled(disabled) {
@@ -1217,19 +1228,16 @@ class SettingsUIManager {
                 await Utils.apiCall({
                     apiMethod: 'set_webdav_config',
                     apiArgs: [config],
-                    onSuccess: (response) => {
+                    onSuccess: async (response) => {
                         Utils.showToast(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
                         // 如果是开启同步功能，则额外进行一次数据同步
                         if (config.enabled) {
                             // 根据首次同步模式执行不同的操作: 本地覆盖远程-上传本地数据到云端 or 远程覆盖本地-从云端下载数据
-                            Utils.apiCall({
+                            await Utils.apiCall({
                                 apiMethod: config.first_sync_mode === 'local_overwrite' ? 'sync_to_cloud' : 'sync_from_cloud',
                                 apiArgs: config.first_sync_mode === 'local_overwrite' ? [] : [true],
                             });
-                            setTimeout(() => {
-                                location.reload();
-                                localStorage.clear();
-                            }, 1000);
+                            await this.reloadAfterStorageSwitch();
                         }
                     },
                     onError: (error) => {

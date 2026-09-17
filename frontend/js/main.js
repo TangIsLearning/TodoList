@@ -255,6 +255,43 @@ class App {
         }
     }
     
+    // 本地数据被整体替换后（切换存储目录 / 导入导出数据）原地热重载，
+    // 取代 location.reload，避免 WebView 重建页面导致的整体白闪
+    async reloadAfterDataReplaced() {
+        const todo = window.todoManager;
+
+        // 1. 清理内存中与旧库相关的数据，避免旧筛选条件/旧搜索 chip 命中不存在的数据
+        if (todo) {
+            todo.currentPage = 1;
+            todo.customDateFilter = null;
+            todo.currentFilter = 'all';
+            todo.clearSearchChips();
+            todo.searchInput.value = '';
+            todo.searchQuery = null;
+            todo.updateSearchClearButton();
+            todo.resetInfiniteScroll();
+            todo.tagManager?.clearPending?.();
+        }
+
+        // 2. 分类列表重新拉取并回到"全部"
+        if (window.categoryManager) {
+            window.categoryManager.currentCategory = 'all';
+            await window.categoryManager.refresh();
+        }
+
+        // 3. 列配置与标签均落在数据库中，需按新库重新读取
+        if (todo) {
+            await todo.loadColumnConfig();
+            await todo.tagManager?.loadModule(true);
+        }
+
+        // 4. 任务列表：内部会同步日历、统计与分类计数
+        if (todo) await todo.loadTasks();
+
+        // 5. 时间轴独立取数，需单独重建
+        await window.timelineManager?.renderTimeline();
+    }
+    
     // 获取应用状态
     getAppState() {
         return {
