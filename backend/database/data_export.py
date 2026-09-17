@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 import sqlite3
 import json
-import time
 from pathlib import Path
 import sys
 from typing import Any, Callable, Dict, List, Optional
@@ -201,22 +200,19 @@ class DataExportManager(LogManager):
             self.get_logger.error(f"还原附件实体文件失败: {e}")
             return 0
 
-    def import_data(self, data: Dict[str, Any], backup: bool = True) -> bool:
+    def import_data(self, data: Dict[str, Any]) -> bool:
         """导入数据到数据库
+
+        覆盖式导入：先清空各表再写入。中途失败由事务回滚兜底（实测数据不受损），
+        成功则以导入内容为准，导入前的确认与备份由前端提示用户自行导出处理。
 
         Args:
             data: 要导入的数据字典
-            backup: 是否在导入前备份当前数据
 
         Returns:
             导入是否成功
         """
         try:
-            # 备份当前数据库
-            if backup:
-                backup_path = self._create_backup()
-                self.get_logger.info(f"已创建数据库备份: {backup_path}")
-
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
@@ -365,35 +361,11 @@ class DataExportManager(LogManager):
         summary = self.get_data_summary()
         return summary is not None and summary['total_tasks'] > 0
 
-    def _create_backup(self) -> str:
-        """创建数据库备份"""
-        backup_dir = self.data_file.parent / 'backups'
-        backup_dir.mkdir(exist_ok=True)
-
-        timestamp = time.strftime('%Y%m%d_%H%M%S')
-        backup_path = backup_dir / f'todo_backup_{timestamp}.db'
-        self._copy_database(self.db_path, str(backup_path))
-        return str(backup_path)
-
-    @staticmethod
-    def _copy_database(source_path: str, target_path: str) -> None:
-        """复制数据库（使用 SQLite backup API）。
-
-        数据库已启用 WAL，直接复制主库文件会丢失尚未合并回主库的 -wal 内容，
-        导致备份 / 恢复的数据不完整，因此统一走 backup API。
-        """
-        src = sqlite3.connect(source_path, timeout=15)
-        try:
-            dst = sqlite3.connect(target_path, timeout=15)
-            try:
-                src.backup(dst)
-            finally:
-                dst.close()
-        finally:
-            src.close()
-
     def switch_data_file(self, new_data_file: str) -> bool:
         """切换数据文件
+
+        只更换本实例持有的路径，不做数据搬迁：调用方（如切换存储目录）已自行完成
+        复制或迁移，旧库是否保留由调用方决定。
         
         Args:
             new_data_file (str): 新的数据文件路径
@@ -415,10 +387,6 @@ class DataExportManager(LogManager):
                 raise PermissionError(f"没有对文件 {new_data_file} 的读写权限")
             elif not new_path.exists() and not os.access(new_path.parent, os.W_OK):
                 raise PermissionError(f"没有在目录 {new_path.parent} 创建文件的权限")
-            
-            # 如果当前数据库存在，先备份
-            if os.path.exists(self.db_path):
-                self._create_backup()
             
             # 更新实例属性
             self.data_file = new_path
@@ -451,30 +419,3 @@ class DataExportManager(LogManager):
             self.get_logger.error(f"初始化新数据库失败: {e}")
             raise
 
-    def restore_backup(self, backup_path: str) -> bool:
-        """从备份恢复数据库
-
-        Args:
-            backup_path: 备份文件路径
-
-        Returns:
-            恢复是否成功
-        """
-        try:
-            # 先备份当前数据
-            self._create_backup()
-
-            # 清理目标库的 WAL 边车文件，避免残留旧事务数据
-            for suffix in ('-wal', '-shm'):
-                side_file = Path(f'{self.db_path}{suffix}')
-                if side_file.exists():
-                    side_file.unlink()
-
-            # 恢复备份（走 backup API，兼容 WAL）
-            self._copy_database(backup_path, self.db_path)
-            self.get_logger.info(f"已从备份恢复: {backup_path}")
-            return True
-
-        except Exception as e:
-            self.get_logger.error(f"恢复备份错误: {e}")
-            return False

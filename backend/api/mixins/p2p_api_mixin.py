@@ -108,8 +108,7 @@ class P2PApiMixin:
         # 前端传入的是摘要（不含附件实体文件），此处补全后端缓存的实体文件
         if 'attachment_files' not in merged and cached.get('attachment_files'):
             merged = {**merged, 'attachment_files': cached['attachment_files']}
-        # 在安卓设备上由于可能存在权限问题，因而不做备份操作
-        success = self._data_manager.import_data(merged, backup=(not self.is_android))
+        success = self._data_manager.import_data(merged)
         if not success:
             raise Exception(f'数据导入失败')
         # 导入成功后刷新前端缓存
