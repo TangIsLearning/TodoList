@@ -373,8 +373,16 @@ const ModalManager = {
         });
     },
     
-    hideAll() {
+    /**
+     * 一次性关闭所有已打开的弹窗（同时退场，不做逐层关闭）
+     * @param {Object} [options]
+     * @param {string} [options.except] 需要跳过的弹窗选择器；确认对话框等
+     *        自带回调清理流程的弹窗应跳过，避免强关后监听器残留
+     */
+    hideAll(options = {}) {
+        const except = options.except ? document.querySelector(options.except) : null;
         document.querySelectorAll('.modal.show').forEach(modal => {
+            if (except && modal === except) return;
             closeModalWithAnimation(modal, () => {
                 modal.classList.remove('show');
                 modal.style.display = 'none';
@@ -646,7 +654,15 @@ function wait(ms) {
 }
 
 // 在指定元素位置迸发彩纸粒子（用于完成任务等正向反馈）
-const CONFETTI_COLORS = ['#4caf50', '#8bc34a', '#00bcd4', '#448aff', '#ffb300', '#ff7043'];
+// 取自主题令牌，随自定义强调色一同变化
+const CONFETTI_COLORS = [
+    'var(--success-color)',
+    'var(--primary-color)',
+    'var(--info-color)',
+    'var(--warning-color)',
+    'var(--danger-color)',
+    'var(--secondary-color)'
+];
 function burstConfetti(anchorEl, options = {}) {
     if (!anchorEl || prefersReducedMotion()) return;
 

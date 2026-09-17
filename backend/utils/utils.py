@@ -4,13 +4,65 @@
 """
 from __future__ import annotations
 
+import re
 import sys
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from backend.platforms.interface.service import PlatformService
+
+# 自定义强调色令牌：结构需与前端 js/utils/theme-colors.js 保持一致
+ACCENT_COLOR_KEYS = (
+    'primary', 'success', 'warning', 'danger', 'info',
+    'priorityHigh', 'priorityMedium', 'priorityLow', 'priorityNone'
+)
+_HEX_COLOR_PATTERN = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+def normalize_accent_colors(value: Any) -> Optional[Dict[str, Any]]:
+    """校验并规整自定义强调色配置，非法输入直接抛错以在写库前拦截。
+
+    期望结构（深浅各一套，详见前端 theme-colors.js）：
+        {
+            "version": 1,
+            "linkPriority": true,
+            "baseTheme": "light",          # 自定义模式的基底：light / dark
+            "light": {"primary": "#007bff", ...},
+            "dark":  {"primary": "#007bff", ...}
+        }
+    传 None 表示清除自定义配色、回到出厂值。
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError('自定义配色必须为对象')
+
+    link_priority = value.get('linkPriority', True)
+    if not isinstance(link_priority, bool):
+        raise ValueError('linkPriority 必须为布尔值')
+
+    base_theme = value.get('baseTheme', 'light')
+    if base_theme not in ('light', 'dark'):
+        raise ValueError('baseTheme 只能是 light 或 dark')
+
+    result: Dict[str, Any] = {
+        'version': int(value.get('version') or 1),
+        'linkPriority': link_priority,
+        'baseTheme': base_theme,
+    }
+    for mode in ('light', 'dark'):
+        source = value.get(mode) or {}
+        if not isinstance(source, dict):
+            raise ValueError(f'{mode} 配色必须为对象')
+        palette: Dict[str, str] = {}
+        for key in ACCENT_COLOR_KEYS:
+            color = source.get(key)
+            if not isinstance(color, str) or not _HEX_COLOR_PATTERN.match(color.strip()):
+                raise ValueError(f'{mode}.{key} 颜色格式非法（应为 #RRGGBB）')
+            palette[key] = color.strip().lower()
+        result[mode] = palette
+    return result
 
 def get_app_icon() -> str:
     """获取应用图标路径"""

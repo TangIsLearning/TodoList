@@ -76,6 +76,18 @@
     background-color: var(--bg-tertiary);
 }
 
+/* 可点击的设置项：点击后打开二级弹窗 */
+.setting-item.is-clickable {
+    cursor: pointer;
+}
+
+/* 设置项右侧展示的当前取值 */
+.setting-item-value {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
 .setting-label {
     display: flex;
     align-items: center;
@@ -1562,6 +1574,229 @@ input:checked + .slider:before {
     border-left: none !important;
     padding: var(--spacing-md) !important;
     border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0 !important;
+}
+
+/* ==================== 主题配色编辑器（设置中心） ====================
+   令牌定义与派生逻辑见 js/utils/theme-colors.js
+   ================================================================= */
+.theme-color-editor .config-item {
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.theme-color-editor .config-item .data-label {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    padding: var(--spacing-sm) 0;
+    border-right: none;
+    background-color: transparent;
+}
+
+/* 浅色/深色编辑目标切换 */
+.theme-mode-tabs {
+    display: flex;
+    width: 100%;
+    gap: var(--spacing-xs);
+}
+
+.theme-mode-tab {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.theme-mode-tab:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.theme-mode-tab.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--on-primary);
+    font-weight: 600;
+}
+
+/* 预设色板 */
+.theme-preset-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.theme-preset-swatch {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.theme-preset-swatch:hover {
+    transform: scale(1.12);
+    border-color: var(--text-secondary);
+}
+
+/* 颜色列表 */
+.theme-color-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0;
+}
+
+.theme-color-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius-sm);
+}
+
+/* 优先级联动开启时，优先级行不可单独编辑 */
+.theme-color-row.is-disabled {
+    opacity: 0.5;
+}
+
+.theme-color-row__name {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.theme-color-row__input {
+    width: 32px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background: none;
+    cursor: pointer;
+}
+
+.theme-color-row__hex {
+    width: 88px;
+    padding: 2px var(--spacing-xs);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: var(--font-size-xs);
+    text-align: center;
+}
+
+.theme-color-row__hex.is-invalid {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.theme-color-row__hint {
+    /* 空间不足时优先压缩提示文字，保证色值输入框不被挤走 */
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+    font-size: var(--font-size-xs);
+    color: var(--warning-color);
+    white-space: nowrap;
+}
+
+.theme-editor-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.theme-editor-actions .btn {
+    flex: 1;
+}
+
+/* 二级弹窗中的模式标题行：纯展示，不响应悬停 */
+.theme-mode-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+/* 主题模式三选一：默认 / 深色 / 自定义 */
+.theme-mode-group {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.theme-mode-option {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-xs);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.theme-mode-option:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.theme-mode-option.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--on-primary);
+    font-weight: 600;
+}
+
+/* 非自定义模式下，配色编辑区整体不可编辑 */
+.theme-color-editor.is-locked {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.theme-editor-locked-hint {
+    display: none;
+    margin-bottom: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.theme-color-editor.is-locked .theme-editor-locked-hint {
+    display: block;
+}
+
+/* 锁定态无需再提示对比度 */
+.theme-color-editor.is-locked .theme-color-row__hint {
+    display: none;
+}
+
+/* 主题配色属于视觉偏好，移动端同样需要可用
+   （需覆盖 media.css 中隐藏 .setting-item-config 的规则） */
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
+    .setting-item-config.theme-color-editor {
+        display: block !important;
+    }
+
+    /* 小屏空间有限，省略对比度提示文字 */
+    .theme-color-row__hint {
+        display: none;
+    }
 }
 
 .webdav-input:focus-visible {

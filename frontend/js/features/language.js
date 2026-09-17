@@ -624,18 +624,18 @@ class LanguageManager {
     updateSettings(lang) {
         const settingsTitle = document.querySelector('#settings-modal h2');
         if (settingsTitle) settingsTitle.textContent = lang.settings;
-        
-        // 获取所有设置区块标题
-        const sectionTitles = document.querySelectorAll('.setting-section h3');
-        
-        if (sectionTitles[0]) sectionTitles[0].textContent = lang.settingsWindow;
+
+        // 设置区块标题及带标记的文案统一按 data-lang-key 定位。
+        // 不再使用下标（sectionTitles[0]/[1]/[2]），否则新增区块会导致后续文案串位。
+        document.querySelectorAll('#settings-modal [data-lang-key], #theme-modal [data-lang-key]')
+            .forEach((element) => {
+                const text = lang[element.dataset.langKey];
+                if (text) element.textContent = text;
+            });
 
         // 窗口置顶设置
         this.setSettingItemText('window-top-toggle', lang.settingsWindowTop);
         
-        // 主题设置
-        this.setSettingItemText('theme-dark-toggle', lang.settingsDarkTheme);
-
         // 中英文设置
         this.setSettingItemText('language-toggle', lang.language);
 
@@ -646,7 +646,8 @@ class LanguageManager {
         this.setSettingItemText('shortcut-toggle', lang.settingsShortcut);
 
         // 数据管理
-        if (sectionTitles[1]) sectionTitles[1].textContent = lang.settingsData;
+        const dataSectionTitle = document.querySelector('#settings-modal [data-lang-key="settingsData"]');
+        if (dataSectionTitle) dataSectionTitle.textContent = lang.settingsData;
 
         // 数据共享
         const dataTransferTitle = document.querySelector('#data-transfer-modal h2');
@@ -733,7 +734,7 @@ class LanguageManager {
         if (webDavSaveBtn) webDavSaveBtn.textContent = lang.saveConfiguration;
 
         // 关于
-        const aboutTitle = sectionTitles[2];
+        const aboutTitle = document.querySelector('#settings-modal [data-lang-key="about"]');
         if (aboutTitle) aboutTitle.textContent = lang.about;
         
         const aboutSection = aboutTitle?.closest('.setting-section');

@@ -26,9 +26,11 @@ class ConfigApiMixin:
             'default': True,
             'transform': utils.str_to_bool
         },
+        # 主题模式：default（默认）/ dark（深色）/ custom（自定义强调色）
+        # 历史值 'light' 由前端 ThemeManager.normalizeMode 兜底为 'default'
         'theme': {
             'key': 'theme',
-            'default': 'light'
+            'default': 'default'
         },
         'language': {
             'key': 'language',
@@ -44,6 +46,12 @@ class ConfigApiMixin:
         'task_list_columns': {
             'key': 'task_list_columns',
             'default': ['name', 'priority', 'dueDate', 'tags']
+        },
+        # 自定义强调色（深浅各一套），结构见 frontend/js/utils/theme-colors.js
+        'custom_accent_colors': {
+            'key': 'custom_accent_colors',
+            'default': None,
+            'validate': utils.normalize_accent_colors
         }
     }
 
@@ -73,6 +81,10 @@ class ConfigApiMixin:
         cfg = self.CONFIG_REGISTRY.get(key)
         if not cfg:
             raise Exception(f'未知配置项: {key}')
+        # 可选校验钩子：用于在写库前规整/拦截非法值
+        validate = cfg.get('validate')
+        if validate:
+            value = validate(value)
         self.db.set_setting(cfg['key'], value)
         post_set = cfg.get('post_set')
         if post_set:

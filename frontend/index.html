@@ -225,6 +225,13 @@
     <link rel="stylesheet" href="css/pikaday.css">
     <link rel="stylesheet" href="css/stats.css">
     <link rel="stylesheet" href="css/animations.css">
+
+    <!-- 主题配色：必须同步加载并立即恢复主题模式，
+         否则首屏会先渲染浅色/出厂蓝再跳色（FOUC） -->
+    <script src="js/utils/theme-colors.js"></script>
+    <script>
+        AccentThemeManager.restoreFromCache();
+    </script>
 </head>
 <body>
 <!-- 骨架屏 -->
@@ -338,11 +345,11 @@
                     <svg id="show-more-tags" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="16"
                          height="16" style="display: block;"><path
                             d="M245.312 642.176l244.672 244.672a32 32 0 0 0 45.248 0l244.736-244.672a16 16 0 0 0 0-22.656l-22.656-22.592a16 16 0 0 0-19.2-2.56l-3.456 2.56-222.08 222.08-222.016-222.08a16 16 0 0 0-19.2-2.56l-3.392 2.56-22.656 22.592a16 16 0 0 0 0 22.656zM244.672 381.888l244.672-244.672a32 32 0 0 1 45.312 0l244.672 244.672a16 16 0 0 1 0 22.592l-22.656 22.656a16 16 0 0 1-19.2 2.56l-3.392-2.56L512 205.056l-222.08 222.08a16 16 0 0 1-19.2 2.56l-3.392-2.56-22.656-22.656a16 16 0 0 1 0-22.592z"
-                            fill="#007bff"></path></svg>
+                            fill="currentColor"></path></svg>
                     <svg id="show-less-tags" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="16"
                          height="16" style="display: none;"><path
                             d="M245.312 845.888l244.672-244.672a32 32 0 0 1 45.248 0l244.736 244.672a16 16 0 0 1 0 22.592l-22.656 22.656a16 16 0 0 1-19.2 2.56l-3.456-2.56-222.08-222.08-222.016 222.08a16 16 0 0 1-19.2 2.56l-3.392-2.56-22.656-22.656a16 16 0 0 1 0-22.592zM244.672 178.176l244.672 244.672a32 32 0 0 0 45.312 0l244.672-244.672a16 16 0 0 0 0-22.656l-22.656-22.592a16 16 0 0 0-19.2-2.56l-3.392 2.56L512 355.008l-222.08-222.08a16 16 0 0 0-19.2-2.56l-3.392 2.56-22.656 22.592a16 16 0 0 0 0 22.656z"
-                            fill="#007bff"></path></svg>
+                            fill="currentColor"></path></svg>
                     <span id="tags-more-text">展开更多</span>
                 </span>
             </span>
@@ -795,7 +802,7 @@
 
         <div class="modal-body">
             <div class="setting-section">
-                <h3>通用设置</h3>
+                <h3 data-lang-key="settingsWindow">通用设置</h3>
                 <!-- 窗口置顶设置 -->
                 <div class="setting-item mobile-unshown-item">
                     <div class="setting-label">
@@ -807,17 +814,7 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-                <!-- 主题设置 -->
-                <div class="setting-item">
-                    <div class="setting-label">
-                        <span class="setting-icon">🌙</span>
-                        <span class="setting-text">深色模式</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="theme-dark-toggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
+                <!-- 主题设置（模式选择已移至下方"主题配色"区块） -->
                 <!-- 语言设置 -->
                 <div class="setting-item">
                     <div class="setting-label">
@@ -864,8 +861,20 @@
                 </div>
             </div>
 
+            <!-- 主题配色：入口行，点击打开二级弹窗 -->
             <div class="setting-section">
-                <h3>数据管理</h3>
+                <h3 data-lang-key="settingsThemeColors">主题配色</h3>
+                <div class="setting-item is-clickable" id="theme-mode-btn">
+                    <div class="setting-label">
+                        <span class="setting-icon">🎨</span>
+                        <span class="setting-text" data-lang-key="settingsThemeMode">主题模式</span>
+                    </div>
+                    <span class="setting-item-value" id="theme-mode-value">默认模式</span>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <h3 data-lang-key="settingsData">数据管理</h3>
                 <!-- 数据目录配置 -->
                 <div class="setting-item-config mobile-unshown-item data-storage">
                     <div class="config-item">
@@ -891,7 +900,7 @@
             </div>
 
             <div class="setting-section">
-                <h3>关于</h3>
+                <h3 data-lang-key="about">关于</h3>
                 <!-- 仓库地址 -->
                 <div class="setting-item">
                     <div class="setting-label">
@@ -1254,6 +1263,71 @@
                 </a>
             </li>
         </ul>
+    </div>
+</div>
+
+<!-- 主题模式配置弹窗（由设置中心"主题模式"入口打开） -->
+<div id="theme-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 data-lang-key="settingsThemeColors">主题配色</h2>
+            <button class="btn btn--colorless btn--font-size-lg" id="theme-modal-close" title="关闭">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- 三种互斥模式 -->
+            <div class="setting-item theme-mode-item">
+                <div class="setting-label">
+                    <span class="setting-icon">🎨</span>
+                    <span class="setting-text" data-lang-key="settingsThemeMode">主题模式</span>
+                </div>
+            </div>
+            <div class="theme-mode-group" id="theme-mode-group">
+                <button type="button" class="theme-mode-option active" data-theme-mode="default"
+                        data-lang-key="settingsThemeModeDefault">默认模式</button>
+                <button type="button" class="theme-mode-option" data-theme-mode="dark"
+                        data-lang-key="settingsThemeModeDark">深色模式</button>
+                <button type="button" class="theme-mode-option" data-theme-mode="custom"
+                        data-lang-key="settingsThemeModeCustom">自定义模式</button>
+            </div>
+
+            <!-- 自定义强调色：仅"自定义模式"下可编辑 -->
+            <div class="setting-item-config theme-color-editor is-locked" id="theme-color-editor">
+                <div class="theme-editor-locked-hint" id="theme-editor-locked-hint"
+                     data-lang-key="settingsThemeLockedHint">切换到「自定义模式」后可编辑以下配色</div>
+
+                <div class="config-item theme-mode-row">
+                    <div class="theme-mode-tabs" id="theme-mode-tabs">
+                        <button type="button" class="theme-mode-tab active" data-theme-mode="light"
+                                data-lang-key="settingsThemeBaseLight">浅色</button>
+                        <button type="button" class="theme-mode-tab" data-theme-mode="dark"
+                                data-lang-key="settingsThemeBaseDark">深色</button>
+                    </div>
+                </div>
+
+                <div class="config-item theme-preset-row">
+                    <label class="data-label" data-lang-key="settingsThemePreset">预设色板</label>
+                    <div class="theme-preset-list" id="theme-preset-list"></div>
+                </div>
+
+                <div class="config-item theme-link-row">
+                    <label class="data-label" data-lang-key="settingsThemeLinkPriority">优先级跟随语义色</label>
+                    <label class="switch">
+                        <input type="checkbox" id="theme-link-priority" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="theme-color-list" id="theme-color-list"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" id="theme-colors-reset" class="btn btn--tertiary-color"
+                    data-lang-key="settingsThemeReset">恢复默认</button>
+            <button type="button" id="theme-colors-save" class="btn btn--primary-color"
+                    data-lang-key="settingsThemeSave">保存配色</button>
+        </div>
     </div>
 </div>
 

@@ -254,8 +254,10 @@ class CategoryManager {
         categoryForm.dataset.editingId = '';
         modalTitle.textContent = '新建分类';
         
-        // 设置默认颜色
-        const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14'];
+        // 设置默认颜色：优先取当前主题的强调色，使新建分类默认与主题协调；
+        // 主题配色模块未就绪时退回内置色板
+        const colors = (window.AccentThemeManager && AccentThemeManager.getAccentHexPalette())
+            || ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         document.getElementById('category-color').value = randomColor;
         
