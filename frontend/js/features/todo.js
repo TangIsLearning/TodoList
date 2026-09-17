@@ -979,7 +979,7 @@ class TodoManager {
                 `;
             case 'priority':
                 return `
-                    <div class="task-cell task-meta" data-column="priority">
+                    <div class="task-cell is-nowrap" data-column="priority">
                         <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
                             ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                         </span>
@@ -987,7 +987,7 @@ class TodoManager {
                 `;
             case 'dueDate':
                 return `
-                    <div class="task-cell task-due-date-cell" data-column="dueDate">
+                    <div class="task-cell is-nowrap" data-column="dueDate">
                         ${task.dueDate ? `
                             <span class="task-due-date ${isOverdue ? 'overdue' : ''}" title="截止时间">
                                 📅 ${Utils.formatDate(task.dueDate)}
@@ -997,13 +997,13 @@ class TodoManager {
                 `;
             case 'tags':
                 return `
-                    <div class="task-cell task-tags" data-column="tags">
+                    <div class="task-cell" data-column="tags">
                         ${tagsHtml || empty}
                     </div>
                 `;
             case 'category':
                 return `
-                    <div class="task-cell task-category-cell" data-column="category">
+                    <div class="task-cell" data-column="category">
                         ${task.categoryId ? `
                             <span class="task-category" data-category-id="${task.categoryId}">
                                 📁 加载中...
@@ -1013,13 +1013,13 @@ class TodoManager {
                 `;
             case 'parentTask':
                 return `
-                    <div class="task-cell task-parent-cell" data-column="parentTask">
+                    <div class="task-cell" data-column="parentTask">
                         ${this.createParentTaskContent(task)}
                     </div>
                 `;
             case 'attachments':
                 return `
-                    <div class="task-cell task-attachment-cell" data-column="attachments">
+                    <div class="task-cell is-nowrap" data-column="attachments">
                         ${this.createAttachmentsContent(task)}
                     </div>
                 `;

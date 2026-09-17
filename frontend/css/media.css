@@ -444,11 +444,6 @@
 
     .task-meta {
         gap: 3px !important;
-        display: flex !important;
-        align-items: center;
-        flex-wrap: wrap;
-        width: auto !important;
-        max-width: none !important;
     }
 
     .task-due-date {

@@ -1096,27 +1096,16 @@ input:checked + .slider:before {
     word-break: break-word;
 }
 
+/* 小屏卡片布局中的元信息行（优先级/分类/截止时间/标签）
+   大屏表格布局不使用本类，统一走 .task-cell */
 .task-meta {
-    display: table-cell;
-    vertical-align: middle;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
     white-space: nowrap;
     overflow: hidden;
-}
-
-.task-due-date-cell {
-    display: table-cell !important;
-    vertical-align: middle;
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--font-size-sm);
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-.task-tags {
-    display: table-cell;
-    vertical-align: middle;
-    padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .task-tag {
@@ -1156,7 +1145,7 @@ input:checked + .slider:before {
     background: linear-gradient(to left, var(--bg-primary) 99%, rgba(0,0,0,0.1));
 }
 
-/* 可配置列的通用单元格 */
+/* 可配置列的通用单元格：优先级/截止时间/标签/分类/父任务/附件列共用 */
 .task-cell {
     display: table-cell;
     vertical-align: middle;
@@ -1165,18 +1154,13 @@ input:checked + .slider:before {
     overflow: hidden;
 }
 
+/* 单行内容列（优先级、截止时间、附件）：不换行，超出部分直接裁剪 */
+.task-cell.is-nowrap {
+    white-space: nowrap;
+}
+
 .task-cell-empty {
     color: var(--text-muted);
-}
-
-/* 所属分类列 */
-.task-category-cell {
-    overflow: hidden;
-}
-
-/* 关联父项任务列 */
-.task-parent-cell {
-    overflow: hidden;
 }
 
 .task-parent-link {
@@ -1194,12 +1178,7 @@ input:checked + .slider:before {
     text-decoration: underline;
 }
 
-/* 任务附件列 */
-/* 任务附件列：固定单行，超出以省略号收尾 */
-.task-attachment-cell {
-    white-space: nowrap;
-}
-
+/* 任务附件列内容：固定单行，超出以省略号收尾 */
 .task-attachment-list {
     display: flex;
     flex-wrap: nowrap;
