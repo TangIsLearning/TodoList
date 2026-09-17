@@ -86,6 +86,7 @@ class DataTransfer {
     openModal() {
         if (this.modal) {
             this.applyLanguage();
+            this.modal.classList.remove('is-closing');
             this.modal.style.display = 'flex';
             this.loadDataSummary();
         } else {
@@ -105,7 +106,10 @@ class DataTransfer {
 
     closeModal() {
         if (this.modal) {
-            this.modal.style.display = 'none';
+            // 先播放退场动画，动画结束后再真正隐藏
+            Utils.closeModalWithAnimation(this.modal, () => {
+                this.modal.style.display = 'none';
+            });
             if (this.isSharing) {
                 this.stopSharing();
             }

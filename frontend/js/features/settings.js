@@ -190,6 +190,8 @@ class SettingsUIManager {
     
     async openModal() {
         if (this.modal) {
+            // 上一次关闭动画可能尚未结束，重新打开时先清掉退场状态
+            this.modal.classList.remove('is-closing');
             this.modal.style.display = 'flex';
             this.modal.classList.add('show');
             
@@ -203,8 +205,11 @@ class SettingsUIManager {
     
     closeModal() {
         if (this.modal) {
-            this.modal.style.display = 'none';
-            this.modal.classList.remove('show');
+            // 先播放退场动画，动画结束后再真正隐藏
+            Utils.closeModalWithAnimation(this.modal, () => {
+                this.modal.style.display = 'none';
+                this.modal.classList.remove('show');
+            });
             this.smartKeyShow.textContent = this.currentButtonKey;
         }
     }
@@ -588,6 +593,7 @@ class SettingsUIManager {
         const modal = document.getElementById('data-sync-modal');
         setTimeout(() => {
             if (modal) {
+                modal.classList.remove('is-closing');
                 modal.style.display = 'flex';
                 this.updateWebDAVConfig();
             } else {
@@ -595,15 +601,20 @@ class SettingsUIManager {
             }
         }, 100);
 
-        // 添加关闭按钮点击事件
+        // 添加关闭按钮点击事件（用 onclick 赋值，避免重复打开时监听器叠加）
         const closeBtn = document.getElementById('data-sync-close');
-        closeBtn?.addEventListener('click', () => {
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-        });
+        if (closeBtn) closeBtn.onclick = () => this.closeDataSyncModal();
 
         // 点击模态框外部关闭
-        Utils.bindBackdropClose(modal, () => {
+        Utils.bindBackdropClose(modal, () => this.closeDataSyncModal());
+    }
+
+    // 关闭数据同步弹窗（带退场动画）
+    closeDataSyncModal() {
+        const modal = document.getElementById('data-sync-modal');
+        if (!modal) return;
+
+        Utils.closeModalWithAnimation(modal, () => {
             modal.style.display = 'none';
             modal.classList.remove('show');
         });
@@ -933,6 +944,7 @@ class SettingsUIManager {
         // 打开导出模态框
         const modal = document.getElementById('export-modal');
         if (modal) {
+            modal.classList.remove('is-closing');
             modal.style.display = 'flex';
             modal.classList.add('show');
 
@@ -944,8 +956,10 @@ class SettingsUIManager {
     closeExportModal() {
         const modal = document.getElementById('export-modal');
         if (modal) {
-            modal.style.display = 'none';
-            modal.classList.remove('show');
+            Utils.closeModalWithAnimation(modal, () => {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            });
         }
     }
 

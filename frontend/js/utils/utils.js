@@ -52,34 +52,124 @@ function throttle(func, limit) {
     }
 }
 
+// 提示信息堆叠容器（懒创建）：多条提示纵向排列，避免互相覆盖
+function getToastStack() {
+    let stack = document.getElementById('toast-stack');
+    if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'toast-stack';
+        stack.className = 'toast-stack';
+        document.body.appendChild(stack);
+    }
+    return stack;
+}
+
+// 当前仍在展示（未处于退场动画中）的提示
+function getActiveToasts(stack) {
+    return stack.querySelectorAll('.toast:not(.toast-leaving)');
+}
+
+// 关闭单条提示：先播放退场动画，动画结束后再移除，后续提示平滑上移
+function dismissToast(toast) {
+    if (!toast || toast.classList.contains('toast-leaving')) return;
+
+    toast.classList.add('toast-leaving');
+    const remove = () => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    };
+    toast.addEventListener('animationend', remove, { once: true });
+    // 兜底：动画事件丢失（如页面切到后台）时仍要移除
+    setTimeout(remove, TOAST_LEAVE_DURATION + 150);
+}
+
 // 显示提示信息
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
-    document.body.appendChild(toast);
-    
+    toast.setAttribute('role', 'status');
+
+    const stack = getToastStack();
+    // 最多同时展示 4 条，超出时先让最早的一条退场
+    let active = getActiveToasts(stack);
+    while (active.length >= 4) {
+        dismissToast(active[0]);
+        active = getActiveToasts(stack);
+    }
+    stack.appendChild(toast);
+
     // 3秒后自动移除
-    setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 3000);
-    
+    const timer = setTimeout(() => dismissToast(toast), 3000);
+
     // 点击关闭
     toast.addEventListener('click', () => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
+        clearTimeout(timer);
+        dismissToast(toast);
     });
 }
+
+// 加载遮罩：显示延迟（短时间内完成的本地操作不闪遮罩）与淡出时长
+const LOADING_SHOW_DELAY = 150;
+let _loadingShowTimer = null;
 
 // 显示/隐藏加载状态
 function setLoading(isLoading, message = '加载中...') {
     const loadingEl = document.getElementById('loading');
+    if (!loadingEl) return;
+
+    clearTimeout(_loadingShowTimer);
+
     if (isLoading) {
         loadingEl.querySelector('p').textContent = message;
-        loadingEl.style.display = 'flex';
+        // 已经在展示中：只更新文案，不重新计时
+        if (loadingEl.classList.contains('loading-visible')) return;
+        // 延迟展示，避免快速完成的本地操作闪一下遮罩
+        _loadingShowTimer = setTimeout(() => {
+            loadingEl.classList.add('loading-visible');
+        }, prefersReducedMotion() ? 0 : LOADING_SHOW_DELAY);
     } else {
-        loadingEl.style.display = 'none';
+        // 移除可见类即触发淡出（visibility 与 opacity 过渡由 CSS 处理）
+        loadingEl.classList.remove('loading-visible');
     }
+}
+
+// 弹窗退场动画时长（需与 animations.css 中 modal-backdrop-out 等动画保持一致）
+const MODAL_CLOSE_DURATION = 200;
+// 提示退场动画时长（需与 animations.css 中 toast-leave 保持一致）
+const TOAST_LEAVE_DURATION = 300;
+
+// 带退场动画地关闭弹窗：动画结束后执行 finish（隐藏、清表单等收尾逻辑）
+function closeModalWithAnimation(modal, finish) {
+    const done = typeof finish === 'function' ? finish : () => {};
+    if (!modal || !modal.classList) return;
+    // 已经隐藏（内联 display 或 CSS 规则）：无需播放退场动画，直接收尾
+    if (modal.style.display === 'none' || getComputedStyle(modal).display === 'none') {
+        done();
+        return;
+    }
+    // 正在关闭中：由第一次调用负责收尾，忽略重复触发（遮罩点击 + ESC 等）
+    if (modal.classList.contains('is-closing')) return;
+
+    if (prefersReducedMotion()) { done(); return; }
+
+    modal.classList.add('is-closing');
+
+    let finished = false;
+    const complete = () => {
+        if (finished) return;
+        finished = true;
+        modal.removeEventListener('animationend', onAnimationEnd);
+        modal.classList.remove('is-closing');
+        done();
+    };
+    // 只认弹窗自身（遮罩层）的动画，避免子元素入场动画误触发收尾
+    const onAnimationEnd = (e) => {
+        if (e.target === modal) complete();
+    };
+
+    modal.addEventListener('animationend', onAnimationEnd);
+    // 兜底：动画事件丢失时仍然关闭，避免弹窗卡在屏幕上
+    setTimeout(complete, MODAL_CLOSE_DURATION + 60);
 }
 
 // 转义HTML
@@ -196,6 +286,8 @@ const ModalManager = {
 
         this._bindOnce(modal, modalId);
 
+        // 上一次关闭动画可能尚未结束，重新打开时先清掉退场状态
+        modal.classList.remove('is-closing');
         modal.classList.add('show');
         modal.style.display = 'flex';
 
@@ -223,18 +315,22 @@ const ModalManager = {
         const modal = document.getElementById(modalId);
         if (!modal) return;
 
-        modal.classList.remove('show');
-        modal.style.display = 'none';
-
-        // 清空表单
+        // 清空表单（与隐藏解耦，避免退场动画期间重新打开后又被重置）
         const form = modal.querySelector('form');
         if (form) form.reset();
+
+        closeModalWithAnimation(modal, () => {
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+        });
     },
     
     hideAll() {
         document.querySelectorAll('.modal.show').forEach(modal => {
-            modal.classList.remove('show');
-            modal.style.display = 'none';
+            closeModalWithAnimation(modal, () => {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            });
         });
     }
 };
@@ -297,23 +393,30 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     
     // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
+    confirmModal.classList.remove('is-closing');
     confirmModal.classList.add('show');
     if (_confirmDialogClass) confirmModal.classList.remove(_confirmDialogClass);
     if (className != '') confirmModal.classList.add(className);
     _confirmDialogClass = className || null;
     confirmModal.style.display = 'flex';
+
+    // 关闭：先播放退场动画，动画结束后再真正隐藏
+    const closeConfirmModal = () => {
+        closeModalWithAnimation(confirmModal, () => {
+            confirmModal.classList.remove('show');
+            confirmModal.style.display = 'none';
+        });
+    };
     
     // 绑定事件
     const handleConfirm = () => {
-        confirmModal.classList.remove('show');
-        confirmModal.style.display = 'none';
+        closeConfirmModal();
         if (callback) callback();
         cleanup();
     };
     
     const handleCancel = () => {
-        confirmModal.classList.remove('show');
-        confirmModal.style.display = 'none';
+        closeConfirmModal();
         if (onCancel) onCancel();
         cleanup();
     };
@@ -343,8 +446,7 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     // ESC键取消
     const handleEscape = (e) => {
         if (e.key === 'Escape') {
-            confirmModal.classList.remove('show');
-            confirmModal.style.display = 'none';
+            closeConfirmModal();
             cleanup();
         }
     };
@@ -568,5 +670,6 @@ window.Utils = {
     prefersReducedMotion,
     wait,
     burstConfetti,
-    popBubble
+    popBubble,
+    closeModalWithAnimation
 };

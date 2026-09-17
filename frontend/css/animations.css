@@ -160,6 +160,118 @@
     100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
 }
 
+/* ==================== 通用反馈动效 ====================
+   弹窗退场：遮罩淡出 + 内容按各自入场方式反向退出
+   由 Utils.closeModalWithAnimation() 添加 .is-closing 触发
+   ================================================================= */
+.modal.is-closing,
+.qr-code-modal.is-closing,
+.more-menu-modal.is-closing {
+    animation: modal-backdrop-out 0.2s ease forwards;
+    /* 退场期间不再响应点击，避免误触弹窗内按钮 */
+    pointer-events: none;
+}
+
+.modal.is-closing .modal-content {
+    animation: modal-content-out 0.2s ease forwards;
+}
+
+.qr-code-modal.is-closing .qr-code-content {
+    animation: modal-zoom-out 0.2s ease forwards;
+}
+
+.more-menu-modal.is-closing .more-menu-content {
+    animation: menu-slide-out 0.2s ease forwards;
+}
+
+@keyframes modal-backdrop-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes modal-content-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-12px) scale(0.98); }
+}
+
+@keyframes modal-zoom-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.92); }
+}
+
+@keyframes menu-slide-out {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(100%); }
+}
+
+/* ==================== 提示信息（Toast） ====================
+   堆叠容器：多条提示纵向排列，退场时高度收起，后续提示平滑上移
+   ================================================================= */
+.toast-stack {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.toast-stack .toast {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    flex-shrink: 0;
+    margin-top: var(--spacing-sm);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.toast-stack .toast.toast-leaving {
+    animation: toast-leave 0.3s ease forwards;
+}
+
+@keyframes toast-leave {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: 200px;
+        margin-top: var(--spacing-sm);
+    }
+    40% {
+        opacity: 0;
+        transform: translateX(40%);
+        max-height: 200px;
+        margin-top: var(--spacing-sm);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(40%);
+        max-height: 0;
+        margin-top: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+}
+
+/* ==================== 加载遮罩 ====================
+   默认不可见（visibility 延迟切换，保证淡入淡出过渡可播放）
+   ================================================================= */
+.loading-overlay {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.loading-overlay.loading-visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.18s ease, visibility 0s linear 0s;
+}
+
 /* 遵循系统"减弱动态效果"设置 */
 @media (prefers-reduced-motion: reduce) {
     .task-checkbox.is-checking,
@@ -172,6 +284,13 @@
     .small-screen-task-item.reopen-flash,
     .task-item.is-leaving,
     .small-screen-task-item.is-leaving,
+    .modal.is-closing,
+    .modal.is-closing .modal-content,
+    .qr-code-modal.is-closing,
+    .qr-code-modal.is-closing .qr-code-content,
+    .more-menu-modal.is-closing,
+    .more-menu-modal.is-closing .more-menu-content,
+    .toast-stack .toast.toast-leaving,
     .confetti-piece,
     .complete-bubble {
         animation: none !important;
@@ -179,5 +298,10 @@
 
     .task-title.strike-sweep::after {
         display: none;
+    }
+
+    .loading-overlay,
+    .loading-overlay.loading-visible {
+        transition: none !important;
     }
 }

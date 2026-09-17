@@ -336,6 +336,7 @@ class App {
     showContactAuthorModal() {
         const modal = document.getElementById('qr-code-modal');
         if (modal) {
+            modal.classList.remove('is-closing');
             modal.classList.add('show');
             // 防止背景滚动
             document.body.style.overflow = 'hidden';
@@ -346,9 +347,12 @@ class App {
     hideContactAuthorModal() {
         const modal = document.getElementById('qr-code-modal');
         if (modal) {
-            modal.classList.remove('show');
-            // 恢复背景滚动
-            document.body.style.overflow = '';
+            // 先播放退场动画，动画结束后再真正隐藏
+            Utils.closeModalWithAnimation(modal, () => {
+                modal.classList.remove('show');
+                // 恢复背景滚动
+                document.body.style.overflow = '';
+            });
         }
     }
     
@@ -356,6 +360,7 @@ class App {
     showMoreMenu() {
         const modal = document.getElementById('more-menu-modal');
         if (modal) {
+            modal.classList.remove('is-closing');
             modal.classList.add('show');
             // 防止背景滚动
             document.body.style.overflow = 'hidden';
@@ -366,9 +371,12 @@ class App {
     hideMoreMenu() {
         const modal = document.getElementById('more-menu-modal');
         if (modal) {
-            modal.classList.remove('show');
-            // 恢复背景滚动（若仍有其他弹窗打开则保持锁定）
-            this.restoreBodyOverflow();
+            // 先播放退场动画，动画结束后再真正隐藏
+            Utils.closeModalWithAnimation(modal, () => {
+                modal.classList.remove('show');
+                // 恢复背景滚动（若仍有其他弹窗打开则保持锁定）
+                this.restoreBodyOverflow();
+            });
         }
     }
 
