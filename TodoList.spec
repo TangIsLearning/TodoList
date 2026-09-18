@@ -30,14 +30,29 @@ if data_dir.exists():
             rel_path = item.relative_to(project_root).parent
             data_files.append((str(item), str(rel_path)))
 
+# 收集 desktop_notifier 的资源文件
+# desktop_notifier/common.py 在【导入时】就会执行：
+#   importlib.resources.files("desktop_notifier.resources") / "python.png"
+# 该路径在打包后必须真实存在，否则抛 FileNotFoundError，因此需一并收集数据文件
+try:
+    from PyInstaller.utils.hooks import collect_data_files
+    notifier_data_files = collect_data_files('desktop_notifier')
+except Exception:
+    notifier_data_files = []
+
 # ================= 平台相关配置 =================
-# 1. 平台特定隐藏导入（保留你原有的第三方库）
-# 2. 策略模块隐藏导入（确保动态导入的模块被打包）
-# 3. 需要排除的其他平台策略模块（实现物理隔离）
+# hiddenimports 只保留【PyInstaller 静态分析无法发现】的模块：
+#   1. 通过 importlib.import_module(字符串变量) 在运行时动态加载的平台实现
+#      ——见 backend/platforms/core/factory.py 的 PLATFORM_MAPPING
+#   2. 第三方库按平台动态选择、且历史上打包易漏的后端（保险项，代价极低）
+#
+# 说明：所有以字面量 import 出现的 backend.* 模块（含函数内的延迟 import，
+# 如 backend.start 中 `from backend.api.todo_api import TodoApi`）都会被
+# PyInstaller 的模块图从 main.py -> backend.start 的引用链自动推导，
+# 无需再写进 hiddenimports。
 if sys.platform == 'darwin':
     # macOS 平台
     extra_hiddenimports = [
-        'desktop_notifier.platforms.darwin',
         'webview.platforms.cocoa',
         'backend.platforms.impl.desktop.mac_impl',
     ]
@@ -47,33 +62,22 @@ if sys.platform == 'darwin':
         'backend.platforms.impl.desktop.linux_impl',
         'backend.platforms.impl.mobile.android_impl',
         'backend.platforms.impl.mobile.common.calendar_manager',
-        'backend.platforms.impl.mobile.common.webdav.webdav_client',
-        'backend.platforms.impl.mobile.common.webdav.webdav_config',
-        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.icns' if Path('todo_icon.icns').exists() else None
 elif sys.platform == 'win32':
     # Windows 平台
     extra_hiddenimports = [
-        'desktop_notifier.platforms.windows',
-        'winsdk.windows.ui.notifications',
-        'winsdk.windows.foundation',
         'backend.platforms.impl.desktop.win_impl',
-        'backend.platforms.impl.desktop.win_firewall_manager',
     ]
     extra_exclude_modules = [
         'backend.platforms.impl.desktop.mac_impl',
         'backend.platforms.impl.desktop.linux_impl',
         'backend.platforms.impl.mobile.android_impl',
         'backend.platforms.impl.mobile.common.calendar_manager',
-        'backend.platforms.impl.mobile.common.webdav.webdav_client',
-        'backend.platforms.impl.mobile.common.webdav.webdav_config',
-        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.ico' if Path('todo_icon.ico').exists() else None
 else:  # Linux
     extra_hiddenimports = [
-        'desktop_notifier.platforms.linux',
         'backend.platforms.impl.desktop.linux_impl',
     ]
     extra_exclude_modules = [
@@ -82,60 +86,17 @@ else:  # Linux
         'backend.platforms.impl.desktop.win_firewall_manager',
         'backend.platforms.impl.mobile.android_impl',
         'backend.platforms.impl.mobile.common.calendar_manager',
-        'backend.platforms.impl.mobile.common.webdav.webdav_client',
-        'backend.platforms.impl.mobile.common.webdav.webdav_config',
-        'backend.platforms.impl.mobile.common.webdav.webdav_data_sync',
     ]
     icon_file = 'todo_icon.png' if Path('todo_icon.png').exists() else None
 
-# 这里只放完全跨平台的、公共的、且因为动态加载可能漏掉的模块
+# 这里只放：静态分析完全看不到、但运行时一定会被加载的模块
 base_hiddenimports = [
     'webview',
-    'Pillow',
     'pystray',
+    # desktop_notifier/common.py 在导入时执行
+    # importlib.resources.files("desktop_notifier.resources")，
+    # 模块名以字符串形式出现，静态分析不可见
     'desktop_notifier.resources',
-    'desktop_notifier.main',
-    'backend.database.todo_database',
-    'backend.database.mixins.task_crud_mixin',
-    'backend.database.mixins.category_crud_mixin',
-    'backend.database.mixins.tag_crud_mixin',
-    'backend.database.mixins.attachment_crud_mixin',
-    'backend.database.mixins.task_relation_crud_mixin',
-    'backend.database.mixins.setting_crud_mixin',
-    'backend.database.mixins.statistics_crud_mixin',
-    'backend.database.mixins.calendar_event_crud_mixin',
-    'backend.database.mixins._helpers',
-    'backend.database.data_export',
-    'backend.database.models',
-    'backend.database.schema',
-    'backend.database.query.parser',
-    'backend.database.query.builder',
-    'backend.database.query.types',
-    'backend.api.todo_api',
-    'backend.api.mixins.attachment_api_mixin',
-    'backend.api.mixins.category_api_mixin',
-    'backend.api.mixins.config_api_mixin',
-    'backend.api.mixins.datafile_api_mixin',
-    'backend.api.mixins.p2p_api_mixin',
-    'backend.api.mixins.settings_api_mixin',
-    'backend.api.mixins.statistics_api_mixin',
-    'backend.api.mixins.tag_api_mixin',
-    'backend.api.mixins.task_api_mixin',
-    'backend.api.mixins.task_relation_api_mixin',
-    'backend.api.mixins.utility_api_mixin',
-    'backend.api.mixins.webdav_api_mixin',
-    'backend.utils.logger',
-    'backend.utils.utils',
-    'backend.utils.response_wrapper',
-    'backend.platforms.impl.desktop.common.smart_task',
-    'backend.platforms.impl.desktop.common.system_tray',
-    'backend.platforms.impl.desktop.common.task_reminder',
-    'backend.platforms.impl.desktop.common.common_impl',
-    'backend.features.attachment.attachment_service',
-    'backend.features.p2p.p2p_client',
-    'backend.features.p2p.p2p_server',
-    'backend.platforms.core_factory',
-    'backend.platforms.interface.service',
 ]
 
 base_exclude_modules = [
@@ -166,7 +127,7 @@ a = Analysis(
     ['main.py'],
     pathex=[str(project_root)],
     binaries=[],
-    datas=frontend_files + data_files + current_icon_tuple,
+    datas=frontend_files + data_files + current_icon_tuple + notifier_data_files,
     hiddenimports=final_hiddenimports,  # 🌟 确保这里传入的是合并后的完整列表，且名字没有写错！
     excludes=final_exclude_modules,           # 🌟 确保这里精准排除了非本平台的模块
     hookspath=[],
