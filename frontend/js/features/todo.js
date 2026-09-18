@@ -1608,7 +1608,14 @@ class TodoManager {
             const content = item.querySelector('.task-header');
             if (!content) return;
 
-            const btnWidth = 80;
+            const actions = item.querySelector('.task-actions');
+
+            // 操作区宽度以实际渲染宽度为准（样式见 media.css 小屏幕下的 .task-actions），
+            // 避免硬编码值与样式不一致导致滑动距离和操作区错位
+            const getActionsWidth = () => {
+                const width = actions ? actions.offsetWidth : 0;
+                return width > 0 ? width : 80;
+            };
 
             // 确保初始状态正确
             content.style.left = '0px';
@@ -1683,11 +1690,12 @@ class TodoManager {
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
                     preventDefault(e);
 
+                    const actionsWidth = getActionsWidth();
                     let newLeft = state.currentLeft + deltaX;
 
                     // 边界限制
                     if (newLeft > 0) newLeft = 0;
-                    if (newLeft < -btnWidth) newLeft = -btnWidth;
+                    if (newLeft < -actionsWidth) newLeft = -actionsWidth;
 
                     content.style.left = newLeft + 'px';
                     state.currentX = newLeft;
@@ -1703,8 +1711,10 @@ class TodoManager {
                 state.isDragging = false;
                 content.style.transition = 'left 0.2s ease';
 
+                const actionsWidth = getActionsWidth();
+
                 // 判断是否打开
-                if (state.currentX < -btnWidth / 2) {
+                if (state.currentX < -actionsWidth / 2) {
                     // 打开前关闭其他所有项
                     this.instances.forEach(instance => {
                         if (instance && instance !== content) {
@@ -1716,7 +1726,7 @@ class TodoManager {
 
                     // 打开当前项
                     content._isOpen = true;
-                    content.style.left = -btnWidth + 'px';
+                    content.style.left = -actionsWidth + 'px';
 
                     // 更新实例数组
                     this.instances = [content];
@@ -1806,9 +1816,11 @@ class TodoManager {
                 user-select: none;
                 -webkit-user-select: none;
             }
-            .task-header {
-                will-change: transform; /* 优化性能 */
-            }
+            /* 注意：不要再给 .task-header 加 will-change: transform。
+               它会被提升为独立合成层，合成层的绘制边界按设备像素对齐，
+               而外层操作区仍按精确的小数坐标绘制，于是部分任务项（高度取整后不凑巧的那些）
+               会在卡片下边沿露出约 1px 的操作按钮颜色。
+               这里滑动用的是 left（布局属性），will-change: transform 本来也不会带来任何性能收益。 */
         `;
             document.head.appendChild(style);
         }

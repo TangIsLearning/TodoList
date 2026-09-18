@@ -439,6 +439,12 @@
         min-width: 0px !important;
     }
 
+    /* 卡片自身不透明：操作区上下各内缩 1px 后，
+       这 1px 内缩带显示的是卡片底色，不会透出页面背景或操作按钮 */
+    .small-screen-task-item {
+        background-color: var(--bg-primary);
+    }
+
     .task-header {
         gap: 4px !important;
         width: 100%;
@@ -565,24 +571,42 @@
 
     .task-actions {
         display: flex !important;
+        align-items: stretch;
         transition: var(--transition-fast);
         position: absolute !important;
-        top: 0;
+        /* 用 top/right/bottom 定位，并且上下各内缩 1px：
+           1) 原来的 height:100% + margin:1px 会让操作区比卡片内容盒高出 1px，越过卡片下边沿；
+           2) 内缩 1px 后操作区不会贴到卡片上下边沿，
+              即使遇到亚像素取整（小数高度的卡片），露出的也是卡片底色而不是操作按钮颜色。 */
+        top: 1px;
         right: 0 !important;
+        bottom: 1px;
+        left: auto;
         width: 80px !important;
         max-width: none !important;
-        height: 100%;
+        height: auto !important;
         color: var(--text-white);
         justify-content: center;
         border-radius: 0 8px 8px 0;
         z-index: 1 !important;
         font-weight: bold;
-        margin: 1px;
+        margin: 0 !important;
         gap: 0 !important;
         padding: 0px !important;
     }
 
     .task-actions .btn {
+        /* 三个操作按钮等宽：均分操作区宽度，
+           避免图标自身宽度不同导致按钮宽度不一致、首个按钮被任务内容遮挡一部分 */
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 0 !important;
         font-size: 8px !important;
         border: 1px solid transparent !important;
         border-radius: 0 !important;
