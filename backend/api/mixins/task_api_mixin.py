@@ -86,6 +86,35 @@ class TaskApiMixin:
         )
 
     @api_handler
+    def get_task_page(self, task_id: str, page_size: int = 10,
+                      category_id: Optional[str] = None, status: Optional[str] = None,
+                      priority: Optional[str] = None, due_date_filter: Optional[str] = None,
+                      year: Optional[int] = None, month: Optional[int] = None,
+                      search_query: Optional[Union[str, Dict[str, Any]]] = None,
+                      custom_date: Optional[str] = None,
+                      custom_start_date: Optional[str] = None,
+                      custom_end_date: Optional[str] = None) -> Optional[int]:
+        """定位任务在当前筛选条件下的页码（从1开始）。
+
+        用于快捷键等外部入口新建任务后，把主窗口列表自动翻到新任务所在页；
+        任务被当前筛选条件排除时返回 None。
+        """
+        return self.db.get_task_page(
+            task_id=task_id,
+            page_size=page_size,
+            category_id=category_id,
+            status=status,
+            priority=priority,
+            due_date_filter=due_date_filter,
+            year=year,
+            month=month,
+            search_query=search_query,
+            custom_date=custom_date,
+            custom_start_date=custom_start_date,
+            custom_end_date=custom_end_date
+        )
+
+    @api_handler
     def get_todo(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取单个任务"""
         return self.db.get_task(task_id)

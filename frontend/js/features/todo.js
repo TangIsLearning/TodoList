@@ -859,6 +859,71 @@ class TodoManager {
         setTimeout(clear, 900);
     }
 
+    // 外部入口（快捷键 / 智能输入窗口）新建任务后由后端回调：
+    // 自动刷新列表并定位高亮新任务，用户无需手动刷新即可看到结果
+    async revealTask(taskId) {
+        if (!taskId) {
+            await this.loadTasks(true);
+            return;
+        }
+
+        // loadTasks() 结束后 renderTasks() 会消费该 id 并滚动高亮
+        this._pendingHighlightTaskId = taskId;
+        await this.loadTasks(true);
+
+        // 新任务可能落在其它分页（排序按截止时间/优先级，不一定在第一页）
+        const isVisible = () => this.tasks.some(task => task.id === taskId);
+        if (!isVisible() && window.innerWidth > 480) {
+            const targetPage = await this.findTaskPage(taskId);
+            if (targetPage && targetPage !== this.currentPage) {
+                this.currentPage = targetPage;
+                this._pendingHighlightTaskId = taskId;
+                await this.loadTasks(true);
+            }
+        }
+
+        // 仍不可见：被当前筛选条件排除，明确告知任务已创建
+        if (!isVisible()) {
+            Utils.showToast(
+                window.languageManager.getText('taskCreatedButFiltered', '任务已创建，但不在当前筛选结果中'),
+                'info'
+            );
+        }
+
+        if (window.timelineManager) window.timelineManager.renderTimeline();
+        // 触发云端同步上传，保持与前端新建任务一致
+        Utils.apiCall({ apiMethod: 'trigger_upload_on_change', successCheck: () => true });
+        this.tagManager.loadModule(true);
+    }
+
+    // 查询指定任务在当前筛选条件下的页码，被筛选条件排除时返回 null
+    async findTaskPage(taskId) {
+        let page = null;
+        await Utils.apiCall({
+            apiMethod: 'get_task_page',
+            apiArgs: [
+                taskId,
+                this.pageSize,
+                this.currentFilter === 'all' ? null : this.currentFilter,
+                this.statusFilter === 'all' ? null : this.statusFilter,
+                this.priorityFilter === 'all' ? null : this.priorityFilter,
+                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                null,  // year
+                null,  // month
+                this.searchQuery || null,
+                this.customDateFilter || null
+            ],
+            successCheck: (result) => !!result && result.success !== false,
+            onSuccess: (response) => { page = response?.data ?? null; }
+        });
+        return page;
+    }
+
+    // 供 App.refreshData() 统一调用（主窗口重新可见时同步任务列表）
+    async refresh() {
+        await this.loadTasks();
+    }
+
     // 删除前播放任务离场动画，避免任务从列表中瞬间消失
     async animateTaskRemoval(taskId) {
         if (Utils.prefersReducedMotion()) return;

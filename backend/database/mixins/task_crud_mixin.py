@@ -351,6 +351,94 @@ class TaskCrudMixin:
     # 查询
     # ------------------------------------------------------------------ #
 
+    @staticmethod
+    def _build_list_where_clauses(
+        category_id: Optional[str] = None, status: Optional[str] = None,
+        priority: Optional[str] = None, due_date_filter: Optional[str] = None,
+        year: Optional[int] = None, month: Optional[int] = None,
+        search_query: Optional[Union[str, Dict[str, Any]]] = None,
+        custom_date: Optional[str] = None,
+        sync_start_time: Optional[Union[str, date]] = None,
+        sync_end_time: Optional[Union[str, date]] = None,
+        custom_start_date: Optional[str] = None,
+        custom_end_date: Optional[str] = None
+    ) -> Tuple[str, List[Any]]:
+        """构建任务列表的 WHERE 子句（分页查询与定位查询共用同一套筛选语义）"""
+        where_clauses: List[str] = []
+        params: List[Any] = []
+
+        # 自定义日期筛选（优先级最高，用于日历视图点击）
+        if custom_date:
+            where_clauses.append('date(due_date) = ?')
+            params.append(custom_date)
+        if custom_start_date and custom_end_date:
+            where_clauses.append('date(due_date) BETWEEN ? AND ?')
+            params.append(custom_start_date)
+            params.append(custom_end_date)
+
+        # 基础筛选（分类 / 优先级 / 状态 / 日期 / 年月）
+        base_clauses, base_params = _build_base_filter_clauses(
+            category_id=category_id,
+            status=status,
+            priority=priority,
+            due_date_filter=due_date_filter,
+            year=year,
+            month=month,
+            custom_date=custom_date,
+            sync_start_time=sync_start_time,
+            sync_end_time=sync_end_time,
+        )
+        where_clauses.extend(base_clauses)
+        params.extend(base_params)
+
+        # 搜索筛选（标签 / 父任务 / 普通文本），语义由 query 解析层统一处理
+        search_clauses, search_params = SearchClauseBuilder().build(
+            parse_search_query(search_query))
+        where_clauses.extend(search_clauses)
+        params.extend(search_params)
+
+        return (' AND '.join(where_clauses) if where_clauses else '1=1'), params
+
+    def get_task_page(self, task_id: str, page_size: int = 10,
+                      category_id: Optional[str] = None, status: Optional[str] = None,
+                      priority: Optional[str] = None, due_date_filter: Optional[str] = None,
+                      year: Optional[int] = None, month: Optional[int] = None,
+                      search_query: Optional[Union[str, Dict[str, Any]]] = None,
+                      custom_date: Optional[str] = None,
+                      custom_start_date: Optional[str] = None,
+                      custom_end_date: Optional[str] = None) -> Optional[int]:
+        """查询指定任务在当前筛选条件下的页码（从1开始）。
+
+        与 get_tasks_paginated 共用筛选条件与排序规则，用于外部（如快捷键）
+        新建任务后把主窗口列表定位到该任务所在页；任务被筛选条件排除时返回 None。
+        """
+        if not task_id or page_size <= 0:
+            return None
+
+        where_sql, params = self._build_list_where_clauses(
+            category_id=category_id,
+            status=status,
+            priority=priority,
+            due_date_filter=due_date_filter,
+            year=year,
+            month=month,
+            search_query=search_query,
+            custom_date=custom_date,
+            custom_start_date=custom_start_date,
+            custom_end_date=custom_end_date,
+        )
+
+        with self.query() as conn:
+            rows = conn.execute(
+                f'SELECT id FROM tasks WHERE {where_sql} {_TASK_ORDER_BY_PAGINATED}',
+                params
+            ).fetchall()
+
+        for index, row in enumerate(rows):
+            if row['id'] == task_id:
+                return index // page_size + 1
+        return None
+
     def get_tasks_paginated(self, page: int = 1, page_size: int = 10,
                             category_id: Optional[str] = None, status: Optional[str] = None,
                             priority: Optional[str] = None, due_date_filter: Optional[str] = None,
@@ -387,41 +475,21 @@ class TaskCrudMixin:
         返回:
             包含 tasks, total, page, page_size, total_pages 的字典
         """
-        where_clauses: List[str] = []
-        params: List[Any] = []
-
-        # 自定义日期筛选（优先级最高，用于日历视图点击）
-        if custom_date:
-            where_clauses.append('date(due_date) = ?')
-            params.append(custom_date)
-        if custom_start_date and custom_end_date:
-            where_clauses.append('date(due_date) BETWEEN ? AND ?')
-            params.append(custom_start_date)
-            params.append(custom_end_date)
-
-        # 基础筛选（分类 / 优先级 / 状态 / 日期 / 年月）
-        base_clauses, base_params = _build_base_filter_clauses(
+        # 与定位查询共用同一套筛选语义，保证两者结果一致
+        where_sql, params = self._build_list_where_clauses(
             category_id=category_id,
             status=status,
             priority=priority,
             due_date_filter=due_date_filter,
             year=year,
             month=month,
+            search_query=search_query,
             custom_date=custom_date,
             sync_start_time=sync_start_time,
             sync_end_time=sync_end_time,
+            custom_start_date=custom_start_date,
+            custom_end_date=custom_end_date,
         )
-        where_clauses.extend(base_clauses)
-        params.extend(base_params)
-
-        # 搜索筛选（标签 / 父任务 / 普通文本），语义由 query 解析层统一处理
-        search_clauses, search_params = SearchClauseBuilder().build(
-            parse_search_query(search_query))
-        where_clauses.extend(search_clauses)
-        params.extend(search_params)
-
-        # 构建完整的WHERE子句
-        where_sql = ' AND '.join(where_clauses) if where_clauses else '1=1'
 
         with self.query() as conn:
             total = conn.execute(

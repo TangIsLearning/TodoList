@@ -402,15 +402,58 @@ class SmartTaskInput(LogManager):
             return
 
         # 保存到数据库
-        self.db.add_task(parsed)
+        task = self.db.add_task(parsed)
 
         # 显示成功提示
         self.render_warning_content('✓ 任务已保存！', font_color_white, background_color_success)
+
+        # 通知主窗口刷新列表并定位到新任务，避免用户误以为没有创建成功
+        self.notify_main_window(task)
 
         time.sleep(1)
         self.window.hide()
         self.is_hide = True
         self.render_warning_content(default_warning, font_color_other, background_color_warning)
+
+    def notify_main_window(self, task: Optional[Dict[str, Any]] = None) -> None:
+        """通知主窗口：数据已变更，请刷新任务列表并定位到新任务。
+
+        本方法在保存成功后调用，实际刷新动作放到后台线程执行：
+        1. save_task 运行在快捷键窗口的事件回调中，同步调用 evaluate_js 存在与 UI 线程互等的风险；
+        2. 主窗口前端可能仍在加载，失败也不应影响快捷键窗口自身的提示与关闭。
+        """
+        import json
+        import threading
+
+        def _refresh_main_window() -> None:
+            try:
+                import backend.globals
+                main_window = backend.globals.window
+                if not main_window:
+                    return
+
+                js_task_id = json.dumps((task or {}).get('id'))
+                js_str = f"""
+                    (function() {{
+                        try {{
+                            if (window.todoManager && typeof window.todoManager.revealTask === 'function') {{
+                                window.todoManager.revealTask({js_task_id});
+                            }} else if (window.todoManager && typeof window.todoManager.loadTasks === 'function') {{
+                                window.todoManager.loadTasks(true);
+                            }}
+                            if (window.timelineManager && typeof window.timelineManager.renderTimeline === 'function') {{
+                                window.timelineManager.renderTimeline();
+                            }}
+                        }} catch (e) {{
+                            console.error('刷新主窗口任务列表失败', e);
+                        }}
+                    }})();
+                """
+                main_window.evaluate_js(js_str)
+            except Exception as e:
+                self.get_logger.error(f"通知主窗口刷新任务列表失败: {e}")
+
+        threading.Thread(target=_refresh_main_window, daemon=True).start()
 
     def toggle_window(self) -> None:
         """切换窗口显示/隐藏
