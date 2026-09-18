@@ -246,21 +246,6 @@ class StatsManager {
         return this.loadStats();
     }
 
-    // 统一走后端调用封装 window.Utils.apiCall（内部等待 pywebview 就绪、统一错误处理）
-    _call(name, args) {
-        return new Promise((resolve, reject) => {
-            Utils.apiCall({
-                apiMethod: name,
-                apiArgs: args || [],
-                onSuccess: (resp) => resolve(resp && 'data' in resp ? resp.data : resp),
-                onError: (error) => {
-                    if (error instanceof Error) reject(error);
-                    else reject(new Error(error || `${name} 请求失败`));
-                }
-            });
-        });
-    }
-
     _syncSelects() {
         const basisSel = document.getElementById('stats-basis-select');
         const scopeSel = document.getElementById('stats-scope-select');
@@ -285,7 +270,7 @@ class StatsManager {
 
     // 重新拉取可选时间项，并刷新「年份-月份-周」级联下拉
     async _refreshOptions(reload = true) {
-        const opt = await this._call('get_statistics_options', [this.state.basis]);
+        const opt = await Api.stats.options.async([this.state.basis]);
         this.available = {
             years: (opt && opt.years) || [],
             months: (opt && opt.months) || [],
@@ -440,7 +425,7 @@ class StatsManager {
         try {
             // 切换统计维度/时间范围时先淡出，数据就绪后再淡入，避免整块内容瞬间替换
             Utils.beginRefresh(content);
-            const data = await this._call('get_task_statistics', this._buildArgs());
+            const data = await Api.stats.tasks.async(this._buildArgs());
             if (seq !== this._seq) return; // 丢弃过期请求结果
             this._lastTotal = (data && data.kpi && data.kpi.total) || 0;
             content.dataset.loaded = '1';

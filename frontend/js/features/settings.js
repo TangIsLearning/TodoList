@@ -474,8 +474,7 @@ class SettingsUIManager {
         // 仅自定义模式允许保存配色；其它模式下保存会导致强调色被意外应用
         if (!BusinessUtils.ThemeManager.isCustomMode()) return;
 
-        await Utils.apiCall({
-            apiMethod: 'set_config',
+        await Api.config.set({
             apiArgs: ['custom_accent_colors', config],
             onSuccess: () => {
                 this.themeDraft = AccentThemeManager.apply(config);
@@ -560,8 +559,7 @@ class SettingsUIManager {
         this.smartKeyApply?.addEventListener('click', async () => {
             this.currentButtonKey = this.smartKeyShow.textContent;
             this.resetModifiers();
-            await Utils.apiCall({
-                apiMethod: 'set_config',
+            await Api.config.set({
                 apiArgs: ['shortcut', this.currentButtonKey.toString()],
                 onSuccess: (response) => {
                     localStorage.setItem('todolist_shortcut', this.currentButtonKey);
@@ -715,8 +713,7 @@ class SettingsUIManager {
         const enabled = this.autoStartToggle.checked;
 
         this.autoStartToggle.disabled = true;
-        await Utils.apiCall({
-            apiMethod: 'set_config',
+        await Api.config.set({
             apiArgs: ['auto_start', enabled],
             onSuccess: (response) => {
                 localStorage.setItem('todolist_auto_start', enabled.toString());
@@ -812,8 +809,7 @@ class SettingsUIManager {
             return;
         }
 
-        await Utils.apiCall({
-            apiMethod: 'get_config',
+        await Api.config.get({
             apiArgs: ['auto_start'],
             onSuccess: (response) => {
                 this.autoStartToggle.checked = response.data.auto_start;
@@ -832,8 +828,7 @@ class SettingsUIManager {
 
         // 以数据库设置为唯一来源，localStorage 仅作缓存（接口失败时兜底），
         // 避免 localStorage 残留的旧值覆盖真实设置，出现"界面显示未置顶、窗口实际置顶"的假象
-        await Utils.apiCall({
-            apiMethod: 'get_config',
+        await Api.config.get({
             apiArgs: ['window_on_top'],
             onSuccess: (response) => {
                 const onTop = response.data.window_on_top === true;
@@ -859,8 +854,7 @@ class SettingsUIManager {
             return;
         }
 
-        await Utils.apiCall({
-            apiMethod: 'get_config',
+        await Api.config.get({
             apiArgs: ['shortcut'],
             onSuccess: (response) => {
                 localStorage.setItem('todolist_shortcut', response.data.shortcut);
@@ -878,8 +872,7 @@ class SettingsUIManager {
 
         let enabled = localStorage.getItem('todolist_shortcut_enabled');
         if (!enabled) {
-            await Utils.apiCall({
-                apiMethod: 'get_config',
+            await Api.config.get({
                 apiArgs: ['shortcut_enabled'],
                 onSuccess: (response) => {
                     enabled = response.data.shortcut_enabled.toString();
@@ -910,8 +903,7 @@ class SettingsUIManager {
 
         const enabled = this.shortcutToggle.checked;
 
-        await Utils.apiCall({
-            apiMethod: 'set_config',
+        await Api.config.set({
             apiArgs: ['shortcut_enabled', enabled],
             onSuccess: (response) => {
                 localStorage.setItem('todolist_shortcut_enabled', enabled.toString());
@@ -1007,8 +999,7 @@ class SettingsUIManager {
     
     async updateDataFileConfig() {
         // 更新数据文件配置显示
-        await Utils.apiCall({
-            apiMethod: 'get_data_file_config',
+        await Api.storage.dataFileConfig({
             onSuccess: (response) => {
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = response.data;
@@ -1024,8 +1015,7 @@ class SettingsUIManager {
     async browseFile() {
         // 浏览选择目录
         this.setDirectoryButtonsDisabled(true);
-        await Utils.apiCall({
-            apiMethod: 'select_directory_dialog',
+        await Api.storage.selectDirectory({
             onSuccess: (response) => {
                 const selectedPath = response.data;
                 if (selectedPath && this.dataDirBtn) {
@@ -1063,8 +1053,7 @@ class SettingsUIManager {
 
         // 验证文件路径
         let isValidateFailed = false;
-        await Utils.apiCall({
-            apiMethod: 'validate_data_file',
+        await Api.storage.validateDataFile({
             successCheck: (response) => !response.success,
             apiArgs: [newFile],
             onSuccess: (response) => {
@@ -1079,8 +1068,7 @@ class SettingsUIManager {
 
         // 预估迁移体量：数据量偏大时先把规模告诉用户，再由他决定是否继续
         let estimate = null;
-        await Utils.apiCall({
-            apiMethod: 'preview_storage_dir_migration',
+        await Api.storage.previewMigration({
             apiArgs: [newFile],
             onSuccess: (response) => { estimate = response?.data || null; },
             onError: (error) => {
@@ -1122,8 +1110,7 @@ class SettingsUIManager {
     async runStorageMigration(dirPath) {
         let started = false;
         let unchanged = false;
-        await Utils.apiCall({
-            apiMethod: 'start_storage_dir_migration',
+        await Api.storage.startMigration({
             apiArgs: [dirPath],
             onSuccess: (response) => {
                 const data = response?.data || {};
@@ -1175,8 +1162,7 @@ class SettingsUIManager {
             await new Promise(resolve => setTimeout(resolve, 300));
 
             let state = null;
-            await Utils.apiCall({
-                apiMethod: 'get_storage_dir_migration_progress',
+            await Api.storage.migrationProgress({
                 onSuccess: (response) => { state = response?.data || null; }
             });
 
@@ -1228,8 +1214,7 @@ class SettingsUIManager {
             button.textContent = this.t('storageMigrationCancelling', '正在取消…');
         }
 
-        await Utils.apiCall({
-            apiMethod: 'cancel_storage_dir_migration',
+        await Api.storage.cancelMigration({
             onSuccess: (response) => {
                 const data = response?.data;
                 if (data?.accepted === false) {
@@ -1325,8 +1310,7 @@ class SettingsUIManager {
         Utils.confirmDialog(
             `${this.t('storageBackupCleanupConfirm', '是否清理原目录中保留的旧数据备份？清理后新目录的数据不受影响。')}\n\n${backupPath}`,
             async () => {
-                await Utils.apiCall({
-                    apiMethod: 'cleanup_previous_storage_backup',
+                await Api.storage.cleanupBackup({
                     onSuccess: (res) => Utils.showToast(res?.data || this.t('settingsSuccess', '设置成功'), 'success'),
                     onError: (error) => {
                         const reason = String(error?.message || '').replace(/^"|"$/g, '').trim();
@@ -1349,8 +1333,7 @@ class SettingsUIManager {
     }
     
     async saveSettings() {
-        await Utils.apiCall({
-            apiMethod: 'set_config',
+        await Api.config.set({
             apiArgs: ['window_on_top', this.onTop.toString()],
             onSuccess: (response) => localStorage.setItem('todolist_windowOnTop', this.onTop.toString())
         });
@@ -1359,8 +1342,7 @@ class SettingsUIManager {
     // ==================== WebDAV相关方法 ====================
     async updateWebDAVConfig() {
         // 更新WebDAV配置显示
-        await Utils.apiCall({
-            apiMethod: 'get_webdav_config',
+        await Api.webdav.get({
             onSuccess: (response) => {
                 const config = response.data;
                 if (config) {
@@ -1415,8 +1397,7 @@ class SettingsUIManager {
             Utils.showToast(window.languageManager.getText('itemRequired', '请填写必填项！'), 'warning');
             return;
         }
-        await Utils.apiCall({
-            apiMethod: 'test_webdav_connection',
+        await Api.webdav.test({
             apiArgs: [url, username, password, remotePath],
             onSuccess: (response) => {
                 this.showWebDAVStatus(`✅ ${window.languageManager.getText('settingsConnectSuccess', '连接成功！可以正常使用云端同步功能！')}`, 'success');
@@ -1460,18 +1441,16 @@ class SettingsUIManager {
         Utils.confirmDialog(
             window.languageManager.getText(warningMsg),
             async () => {
-                await Utils.apiCall({
-                    apiMethod: 'set_webdav_config',
+                await Api.webdav.set({
                     apiArgs: [config],
                     onSuccess: async (response) => {
                         Utils.showToast(window.languageManager.getText('settingsSaveSuccess', '保存成功'), 'success');
                         // 如果是开启同步功能，则额外进行一次数据同步
                         if (config.enabled) {
                             // 根据首次同步模式执行不同的操作: 本地覆盖远程-上传本地数据到云端 or 远程覆盖本地-从云端下载数据
-                            await Utils.apiCall({
-                                apiMethod: config.first_sync_mode === 'local_overwrite' ? 'sync_to_cloud' : 'sync_from_cloud',
-                                apiArgs: config.first_sync_mode === 'local_overwrite' ? [] : [true],
-                            });
+                            const isLocalOverwrite = config.first_sync_mode === 'local_overwrite';
+                            const sync = isLocalOverwrite ? Api.webdav.syncToCloud : Api.webdav.syncFromCloud;
+                            await sync({ apiArgs: isLocalOverwrite ? [] : [true] });
                             await this.reloadAfterStorageSwitch();
                         }
                     },
@@ -1571,20 +1550,17 @@ class SettingsUIManager {
         // 初始化导出选项（分类、年份、标签）
         try {
             // 获取分类列表
-            await Utils.apiCall({
-                apiMethod: 'get_categories',
+            await Api.categories.list({
                 onSuccess: (response) => this.updateExportCategories(response.data)
             });
 
             // 获取标签列表
-            await Utils.apiCall({
-                apiMethod: 'get_all_tags',
+            await Api.tags.list({
                 onSuccess: (response) => this.updateExportTags(response.data)
             });
 
             // 获取所有任务以提取年份
-            await Utils.apiCall({
-                apiMethod: 'get_todos',
+            await Api.tasks.list({
                 apiArgs: [1, 10000, null, null, null, null, null, null, null, null],
                 onSuccess: (response) => this.updateExportYears(response.data.tasks)
             });
@@ -1678,8 +1654,7 @@ class SettingsUIManager {
         // 获取选中的标签
         const tagCheckboxes = document.querySelectorAll('#export-tags-container input[type="checkbox"]:checked');
         const tagIds = Array.from(tagCheckboxes).map(cb => cb.value);
-        await Utils.apiCall({
-            apiMethod: 'export_tasks_excel',
+        await Api.tasks.exportExcel({
             apiArgs: [
                 priority,
                 status,
@@ -1740,18 +1715,24 @@ class SettingsUIManager {
 // 全局实例
 let settingsManager = null;
 
+// 延迟创建：直接赋值 window.settingsManager 只会拷贝当时的 null，
+// 且不会随后续赋值同步，因此统一在实例创建后再导出
+function ensureSettingsManager() {
+    if (!settingsManager) {
+        settingsManager = new SettingsUIManager();
+        window.settingsManager = settingsManager;
+    }
+    return settingsManager;
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 延迟初始化，确保所有脚本都加载完成
-    setTimeout(() => {
-        if (!settingsManager) settingsManager = new SettingsUIManager();
-    }, 500);
+    setTimeout(ensureSettingsManager, 500);
 });
 
 // window加载后再次尝试
-window.addEventListener('load', () => {
-    if (!settingsManager) settingsManager = new SettingsUIManager();
-});
+window.addEventListener('load', ensureSettingsManager);
 
-// 导出到全局
+// 导出到全局（此时可能仍为 null，实例就绪后由 ensureSettingsManager 回填）
 window.settingsManager = settingsManager;

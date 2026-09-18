@@ -82,8 +82,7 @@ class AttachmentManager {
             return;
         }
 
-        await Utils.apiCall({
-            apiMethod: 'select_attachment_files',
+        await Api.attachments.selectFiles({
             onSuccess: (response) => {
                 const files = response.data || [];
                 let skippedBySize = 0;
@@ -119,8 +118,7 @@ class AttachmentManager {
             return;
         }
 
-        await Utils.apiCall({
-            apiMethod: 'select_attachment_folder',
+        await Api.attachments.selectFolder({
             onSuccess: (response) => {
                 const data = response.data || {};
                 if (data.supported === false) {
@@ -304,8 +302,7 @@ class AttachmentManager {
         // 由后端统一判断访问模式：
         // - local：桌面端且未开启同步，直接打开本地文件
         // - remote：移动端或已开启同步，拼接云端地址下载
-        Utils.apiCall({
-            apiMethod: 'get_attachment_access_mode',
+        Api.attachments.accessMode({
             onSuccess: (response) => {
                 const mode = (response.data && response.data.mode) || 'local';
                 if (mode === 'remote') {
@@ -319,8 +316,7 @@ class AttachmentManager {
     }
 
     openExternal(att) {
-        Utils.apiCall({
-            apiMethod: 'open_attachment',
+        Api.attachments.open({
             apiArgs: [att.id],
             onError: () => {
                 if (att.url) {
@@ -334,8 +330,7 @@ class AttachmentManager {
 
     // 关联的文件夹：桌面端直接打开，移动端提示不支持
     openFolder(att) {
-        Utils.apiCall({
-            apiMethod: 'get_attachment_access_mode',
+        Api.attachments.accessMode({
             onSuccess: (response) => {
                 const data = response.data || {};
                 if (data.is_mobile) {
@@ -349,8 +344,7 @@ class AttachmentManager {
     }
 
     openFolderLocal(att) {
-        Utils.apiCall({
-            apiMethod: 'open_attachment',
+        Api.attachments.open({
             apiArgs: [att.id],
             onError: () => Utils.showToast(this.getText('folderOpenFailed', '打开文件夹失败，文件夹可能已被移动或删除'), 'error')
         });
@@ -358,13 +352,11 @@ class AttachmentManager {
 
     // 本地模式：使用系统默认程序打开；失败时提示并打开文件所在目录
     openLocalFile(att) {
-        Utils.apiCall({
-            apiMethod: 'open_attachment',
+        Api.attachments.open({
             apiArgs: [att.id],
             onError: () => {
                 Utils.showToast(this.getText('attachmentOpenFallback', '无法直接打开附件，已为你打开文件所在目录，请手动打开'), 'warning');
-                Utils.apiCall({
-                    apiMethod: 'reveal_attachment',
+                Api.attachments.reveal({
                     apiArgs: [att.id],
                     onError: () => Utils.showToast(this.getText('attachmentRevealFailed', '无法打开文件所在目录'), 'error')
                 });
@@ -374,8 +366,7 @@ class AttachmentManager {
 
     // 云模式：拼接云端（WebDAV）地址，点击后下载，由用户自行打开
     openViaDownloadUrl(att) {
-        Utils.apiCall({
-            apiMethod: 'get_attachment_download_url',
+        Api.attachments.downloadUrl({
             apiArgs: [att.id],
             onSuccess: (response) => {
                 const url = response.data && response.data.url;

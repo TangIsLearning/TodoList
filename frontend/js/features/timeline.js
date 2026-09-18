@@ -29,8 +29,7 @@ class TimelineManager {
 
     async getTasks(startDate, endDate) {
         let tasks = [];
-        await Utils.apiCall({
-            apiMethod: 'get_todos',
+        await Api.tasks.list({
             apiArgs: [
                 1,  // page
                 999999,  // page_size - 设置一个足够大的值以获取所有任务
@@ -371,8 +370,7 @@ class TimelineManager {
             const endHour = parts[1].padStart(2, '0') == 24 ? 23 : parts[1].padStart(2, '0');
             // 拼接为 ISO 日期时间（本地时间，不带时区）
             const dueDateStr = `${currentTask.date}T${endHour}:00:00`;
-            await Utils.apiCall({
-                apiMethod: 'update_todo_due_date',
+            await Api.tasks.updateDueDate({
                 apiArgs: [currentTask.id, dueDateStr],
                 successCheck: (response) => !response.success,
                 onSuccess: (response) => {

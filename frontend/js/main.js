@@ -1,5 +1,16 @@
 // 主应用程序入口
 
+// 启动期必须就绪的全局契约（脚本以普通 <script> 顺序加载，顺序错误会静默 undefined）
+// 注意两点：
+//   1. 顶层 const/let/class 声明不会成为 window 属性，此处只能写真正挂在 window 上的名字
+//      （例如 logger.js 导出的是 window.Logger，而非 window.logger）
+//   2. 仅列"脚本加载即就绪"的模块；延迟创建的实例（如 settingsManager）不在此列
+const REQUIRED_GLOBALS = [
+    'TodoApp', 'Api', 'Utils', 'Logger', 'languageManager',
+    'categoryManager', 'todoManager', 'calendarManager', 'timelineManager',
+    'statsManager', 'tagManager'
+];
+
 class App {
     constructor() {
         this.isInitialized = false;
@@ -11,6 +22,9 @@ class App {
         try {
             // 检查环境
             if (!this.checkEnvironment()) return;
+
+            // 启动期依赖自检：把"加载顺序错了才在运行时崩溃"提前为明确的启动报错
+            if (!this.checkDependencies()) return;
 
             // 初始化主题
             await BusinessUtils.ThemeManager.init();
@@ -58,6 +72,18 @@ class App {
         }
         
         return true;
+    }
+
+    // 检查启动期依赖：缺失时给出明确提示，避免后续调用 undefined 时才炸
+    checkDependencies() {
+        const missing = REQUIRED_GLOBALS.filter(name => window[name] === undefined || window[name] === null);
+        if (missing.length === 0) return true;
+
+        logger.error('Missing required global modules:', missing);
+        Utils.showToast(
+            `${window.languageManager?.getText('initializationFailed', '应用初始化失败')}：${missing.join(', ')}`,
+            'error');
+        return false;
     }
     
     // 绑定全局事件
@@ -129,8 +155,7 @@ class App {
                 e.preventDefault(); // 阻止链接在 WebView 内打开
                 var url = e.target.href;
                 // 调用 Python 后端的 open_in_browser 方法
-                Utils.apiCall({
-                    apiMethod: 'open_in_browser',
+                Api.system.openInBrowser({
                     apiArgs: [url],
                     successCheck: (response) => true
                 });
@@ -213,7 +238,7 @@ class App {
         ];
 
         // 先等待 pywebview 加载完成
-        const isLoaded = await Utils.loadPywebviewApi();
+        const isLoaded = await Api.waitForBackend();
 
         if (!isLoaded) {
            Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');

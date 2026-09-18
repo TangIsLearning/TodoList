@@ -54,8 +54,7 @@ class LanguageManager {
             return;
         }
 
-        await Utils.apiCall({
-            apiMethod: 'get_config',
+        await Api.config.get({
             apiArgs: ['language'],
             onSuccess: (response) => {
                 const savedLanguage = response.data.language;
@@ -70,8 +69,7 @@ class LanguageManager {
     
     // 保存语言设置（后端写入失败会抛出，交由调用方判定为切换失败）
     async saveLanguageSetting(language) {
-        await Utils.apiCall({
-            apiMethod: 'set_config',
+        await Api.config.set({
             apiArgs: ['language', language],
             throwOnError: true,
             onSuccess: (response) => {

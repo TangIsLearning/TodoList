@@ -75,8 +75,7 @@ const ThemeManager = {
         if (mode) {
             this.setMode(mode, { persist: false });
         } else {
-            await Utils.apiCall({
-                apiMethod: 'get_config',
+            await Api.config.get({
                 apiArgs: ['theme'],
                 onSuccess: (response) => this.setMode(response.data.theme, { persist: false }),
                 onError: () => this.setMode(this.MODES.DEFAULT, { persist: false })
@@ -120,10 +119,7 @@ const ThemeManager = {
         this.updateToggleButton(normalized);
 
         if (options.persist !== false) {
-            await Utils.apiCall({
-                apiMethod: 'set_config',
-                apiArgs: ['theme', normalized]
-            });
+            await Api.config.set({ apiArgs: ['theme', normalized] });
         }
     },
 

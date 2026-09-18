@@ -134,8 +134,7 @@ class DataTransfer {
     }
 
     async loadDataSummary() {
-        await Utils.apiCall({
-            apiMethod: 'p2p_get_data_summary',
+        await Api.p2p.dataSummary({
             onSuccess: (response) => {
                 const summary = response.data;
                 if (summary) {
@@ -155,16 +154,14 @@ class DataTransfer {
     async startSharing() {
         // 是否同时传输附件（元信息 + 实体文件），由用户勾选决定
         const includeAttachments = !!this.includeAttachmentsCheckbox?.checked;
-        await Utils.apiCall({
-            apiMethod: 'p2p_export_data',
+        await Api.p2p.exportData({
             apiArgs: [includeAttachments],
             onSuccess: (response) => {
                 this.sharedData = response.data;
 
                 // 显示加载状态
                 Utils.setLoading(true, '配置开启防火墻中...');
-                Utils.apiCall({
-                    apiMethod: 'p2p_start_server',
+                Api.p2p.startServer({
                     onSuccess: (response) => {
                         this.isSharing = true;
                         this.startShareBtn.style.display = 'none';
@@ -192,8 +189,7 @@ class DataTransfer {
 
     async stopSharing() {
         Utils.setLoading(true, '配置关闭防火墻中...');
-        await Utils.apiCall({
-            apiMethod: 'p2p_stop_server',
+        await Api.p2p.stopServer({
             onSuccess: (response) => {
                 this.isSharing = false;
                 this.startShareBtn.style.display = 'block';
@@ -211,8 +207,7 @@ class DataTransfer {
     async scanDevices() {
         this.scanDevicesBtn.disabled = true;
         this.scanDevicesBtn.textContent = '扫描中...';
-        await Utils.apiCall({
-            apiMethod: 'p2p_scan_devices',
+        await Api.p2p.scanDevices({
             onSuccess: (response) => {
                 const devices = response.data;
                 if (devices && devices.length > 0) {
@@ -256,8 +251,7 @@ class DataTransfer {
         item?.classList.add('is-loading');
         if (ipSpan) ipSpan.textContent = '正在接收数据...';
 
-        await Utils.apiCall({
-            apiMethod: 'p2p_receive_data',
+        await Api.p2p.receiveData({
             apiArgs: [ip],
             onSuccess: (response) => {
                 const data = response.data;
@@ -270,8 +264,7 @@ class DataTransfer {
                     this.displayReceivedData(data);
                     this.receiveDataPreviewSection.style.display = 'block';
 
-                    Utils.apiCall({
-                        apiMethod: 'p2p_has_data',
+                    Api.p2p.hasData({
                         onSuccess: (response) => {
                             if (response.data) {
                                 this.importWarning.style.display = 'flex';
@@ -315,13 +308,11 @@ class DataTransfer {
             async () => {
                 this.confirmImportBtn.disabled = true;
                 this.confirmImportBtn.textContent = '导入中...';
-                Utils.apiCall({
-                    apiMethod: 'p2p_get_received_data',
+                Api.p2p.receivedData({
                     onSuccess: (response) => {
                         const data = response.data;
                         if (data) {
-                            Utils.apiCall({
-                                apiMethod: 'p2p_import_data',
+                            Api.p2p.importData({
                                 apiArgs: [data],
                                 onSuccess: async () => {
                                     Utils.showToast(window.languageManager.getText('dataImportedSuccess', '数据导入成功'), 'success');
@@ -359,7 +350,7 @@ class DataTransfer {
         this.deviceList?.querySelectorAll('.device-item.is-selected')
             .forEach(el => el.classList.remove('is-selected'));
         // 释放后端缓存的接收数据（可能包含较大的附件实体文件）
-        Utils.apiCall({ apiMethod: 'p2p_clear_received_data' });
+        Api.p2p.clearReceivedData();
     }
 }
 
