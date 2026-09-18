@@ -47,7 +47,7 @@ class AttachmentService(LogManager):
     @property
     def attachment_root(self) -> Path:
         """附件根目录：<存储目录>/todolist/attachment"""
-        from backend.config_manager import get_attachment_dir
+        from backend.storage.service import get_attachment_dir
         return get_attachment_dir()
 
     # ==================== 路径处理 ====================

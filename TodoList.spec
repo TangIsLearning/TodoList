@@ -108,7 +108,6 @@ base_hiddenimports = [
     'backend.database.data_export',
     'backend.database.models',
     'backend.database.schema',
-    'backend.database.utils',
     'backend.database.query.parser',
     'backend.database.query.builder',
     'backend.database.query.types',

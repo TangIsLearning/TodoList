@@ -5,12 +5,10 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Iterator, Optional
 
 from backend.database import schema
 from backend.database.mixins import AllCrudMixins
-from backend.database.utils import get_app_data_file
 
 # 连接等待锁的超时时间（秒）。桌面端存在后台提醒线程与主线程并发访问，
 # 设置超时可避免偶发的 "database is locked"。
@@ -30,7 +28,7 @@ class TodoDatabase(AllCrudMixins):
     def _resolve_storage_dir_version() -> int:
         """当前存储目录版本号（切换目录后自增，用于判定路径缓存是否过期）"""
         try:
-            from backend.config_manager import get_storage_dir_version
+            from backend.storage.service import get_storage_dir_version
             return get_storage_dir_version()
         except Exception:
             # 配置不可用时按版本号 0 处理，此时环境多半也已退化到默认路径，
@@ -52,12 +50,8 @@ class TodoDatabase(AllCrudMixins):
         """
         version = self._resolve_storage_dir_version()
         if self._cached_path is None or self._cached_version != version:
-            db_file = Path(get_app_data_file())
-
-            # 确保父目录存在
-            db_file.parent.mkdir(parents=True, exist_ok=True)
-
-            self._cached_path = str(db_file)
+            from backend.storage.service import get_data_file_or_fallback
+            self._cached_path = get_data_file_or_fallback()
             self._cached_version = version
         return self._cached_path
 

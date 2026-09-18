@@ -3,7 +3,6 @@
 
 所有建表 / 索引 / 迁移语句集中在本模块，供以下场景共用，避免 DDL 在多处漂移：
 - ``TodoDatabase.init_database``：应用启动时初始化 / 升级主库
-- ``DataExportManager._initialize_new_database``：新建或导入数据文件
 
 约定：
 - 所有 DDL 均使用 ``IF NOT EXISTS``，可重复执行（幂等）

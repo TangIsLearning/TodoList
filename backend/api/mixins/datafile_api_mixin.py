@@ -4,7 +4,8 @@ import os
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from backend.config_manager import StorageMigrationCancelled
+from backend.storage import service as storage
+from backend.storage.service import StorageMigrationCancelled
 from backend.database.todo_database import TodoDatabase
 from backend.utils.response_wrapper import api_handler
 
@@ -15,35 +16,29 @@ class DatafileApiMixin:
 
     @staticmethod
     def _get_storage_dir_value() -> str:
-        from backend.config_manager import get_storage_dir
-        return str(get_storage_dir())
+        return str(storage.get_storage_dir())
 
     @staticmethod
     def _get_storage_backup_path() -> Optional[str]:
         """上一次迁移遗留的旧数据备份目录（用于提示与一键清理）"""
-        from backend.config_manager import get_config_manager
-        backup_dir = get_config_manager().last_backup_dir
+        backup_dir = storage.get_pending_backup()
         return str(backup_dir) if backup_dir else None
 
     def _apply_storage_dir_change(self, dir_path: str) -> Optional[str]:
         """目录切换成功后统一完成实例侧的收尾，并返回旧备份位置。
 
         重建数据库实例触发 init_database()，在新目录下补齐表结构与索引
-        （TodoDatabase.db_path 已按需解析，长期持有者如提醒线程、快捷键面板
-         会在下一次访问时自动跟随到新库，无需在此逐一通知）"""
+        （TodoDatabase.db_path 与 DataExportManager.db_path 都已按需解析，
+         长期持有者如提醒线程、快捷键面板会在下一次访问时自动跟随到新库，
+         无需在此逐一通知）"""
         self.db = TodoDatabase()
-        # 更新导出管理器持有的固定路径（不再自动备份：迁移是复制语义，旧库完整留在
-        # 原目录本身就是备份，额外复制一份只是白占空间，且用户无从使用）
-        self._data_manager.switch_data_file(self.db.db_path)
         self.get_logger.info(f"存储目录已设置为: {dir_path}")
         # 复制语义下旧数据仍留在原目录，把位置回抛给前端以便提示和清理
         return self._get_storage_backup_path()
 
     def _set_storage_dir(self, dir_path: str) -> Dict[str, Any]:
         """同步切换存储目录（调用方需自己承担耗时）。"""
-        from backend.config_manager import set_storage_dir
-
-        if not set_storage_dir(dir_path):
+        if not storage.switch_storage_dir(dir_path):
             raise Exception("设置存储目录失败")
 
         backup_path = self._apply_storage_dir_change(dir_path)
@@ -52,39 +47,36 @@ class DatafileApiMixin:
     def _start_storage_dir_migration(self, dir_path: str) -> Dict[str, Any]:
         """在后台线程执行切换：数据量可能很大（附件全量复制），不能阻塞调用线程。
 
-        迁移进度写进 ConfigManager 的状态机，前端轮询 get_storage_dir_migration_progress
+        迁移进度写进迁移器的状态机，前端轮询 get_storage_dir_migration_progress
         即可展示；迁移完成（或失败）后由轮询结果触发前端刷新。
         """
-        from backend.config_manager import get_config_manager, set_storage_dir
-
         self._validate_storage_dir(dir_path)
-        manager = get_config_manager()
-        if manager.is_storage_migration_running():
+        if storage.is_migration_running():
             raise Exception("已有切换任务在进行中，请等待其完成后再试")
 
         path_obj = Path(dir_path)
         # 先跑一次预估（只 stat、不读内容），把总量作为进度分母，进度条才能立即有刻度
-        estimate = manager.estimate_storage_migration(path_obj)
-        manager.begin_storage_migration(path_obj, estimate)
+        estimate = storage.estimate_migration(path_obj)
+        storage.begin_migration(path_obj, estimate)
 
         def _runner() -> None:
             try:
-                if not set_storage_dir(dir_path, progress=manager.report_storage_migration):
+                if not storage.switch_storage_dir(dir_path, progress=storage.report_migration):
                     raise Exception("设置存储目录失败")
                 backup_path = self._apply_storage_dir_change(dir_path)
-                manager.finish_storage_migration(True, backupPath=backup_path)
+                storage.finish_migration(True, backupPath=backup_path)
             except StorageMigrationCancelled:
                 # 取消不是失败：配置未落盘，仍指向原目录，已复制的内容也已回滚
                 # 不写 message：文案交给前端按语言取，避免英文界面冒出中文提示
                 self.get_logger.info(f"切换存储目录已被用户取消: {dir_path}")
-                manager.finish_storage_migration(False, status='cancelled')
+                storage.finish_migration(False, status='cancelled')
             except Exception as e:
                 self.get_logger.error(f"切换存储目录失败: {e}")
-                manager.finish_storage_migration(False, message=str(e))
+                storage.finish_migration(False, message=str(e))
 
         threading.Thread(target=_runner, name="StorageDirMigration", daemon=True).start()
 
-        state = manager.get_storage_migration_state()
+        state = storage.get_migration_state()
         state['started'] = True
         return state
 
@@ -116,9 +108,7 @@ class DatafileApiMixin:
         仅删除本应用创建的内容（todo.db 及其 WAL 边车、attachment 目录），
         用户在同目录下的其它文件不受影响。
         """
-        from backend.config_manager import get_config_manager
-
-        success, message = get_config_manager().cleanup_previous_storage_backup()
+        success, message = storage.cleanup_previous_backup()
         if not success:
             raise Exception(message)
         return message
@@ -130,10 +120,8 @@ class DatafileApiMixin:
         切换是复制语义（库 + 附件全量搬到新目录），数据量越大耗时越长、
         额外占用的磁盘空间越多，因此前端需要先据此决定是否让用户二次确认。
         """
-        from backend.config_manager import get_config_manager
-
         self._validate_storage_dir(dir_path)
-        info = get_config_manager().estimate_storage_migration(Path(dir_path))
+        info = storage.estimate_migration(Path(dir_path))
         info['targetDir'] = dir_path
         return info
 
@@ -148,9 +136,7 @@ class DatafileApiMixin:
     @api_handler
     def get_storage_dir_migration_progress(self) -> Dict[str, Any]:
         """获取存储目录迁移进度（status: idle/running/success/error/cancelled）"""
-        from backend.config_manager import get_config_manager
-
-        return get_config_manager().get_storage_migration_state()
+        return storage.get_migration_state()
 
     @api_handler
     def cancel_storage_dir_migration(self) -> Dict[str, Any]:
@@ -159,11 +145,8 @@ class DatafileApiMixin:
         只置取消标志，迁移线程会在下一个检查点停下并回滚已复制内容；
         前端继续轮询 get_storage_dir_migration_progress 直到 status 变为 cancelled。
         """
-        from backend.config_manager import get_config_manager
-
-        manager = get_config_manager()
-        accepted = manager.request_storage_migration_cancel()
-        return {'accepted': accepted, 'state': manager.get_storage_migration_state()}
+        accepted = storage.request_migration_cancel()
+        return {'accepted': accepted, 'state': storage.get_migration_state()}
 
     @api_handler
     def get_storage_dir_config(self) -> str:

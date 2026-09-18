@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 import json
 from pathlib import Path
@@ -24,27 +23,41 @@ class DataExportManager(LogManager):
 
     def __init__(self, data_file: Optional[str] = None) -> None:
         """初始化数据管理器
-        
+
         Args:
-            data_file (str, optional): 数据文件路径。如果为None，则使用配置的默认文件
+            data_file (str, optional): 固定使用指定的数据文件；不传时跟随当前
+                存储目录，用户切换存储目录后会自动解析到新库
         """
         super().__init__()
+        self._fixed_path: Optional[str] = None
         if data_file:
-            self.data_file = Path(data_file)
-        else:
-            from backend.config import get_current_data_file
-            self.data_file = Path(get_current_data_file())
-        
-        # 确保父目录存在
-        self.data_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 数据库路径就是文件路径
-        self.db_path = str(self.data_file)
+            self._fixed_path = str(data_file)
+            # 显式指定的路径可能指向尚未存在的目录，这里先补齐
+            Path(data_file).parent.mkdir(parents=True, exist_ok=True)
 
         # 设置SQLite文本处理，避免编码问题
         self._text_factory: Callable[[Any], Any] = (
             lambda x: str(x, 'utf-8', 'replace') if isinstance(x, bytes) else x
         )
+
+    @property
+    def db_path(self) -> str:
+        """当前数据文件路径。
+
+        之所以按需解析、而不是在构造期冻结：用户可以随时切换存储目录，而本管理器
+        随应用长期存活，路径一旦定格就可能把导出 / 导入指向已被迁走的旧库。这里与
+        主库 TodoDatabase 采取同样的按需解析策略，调用方切换目录后无需再来通知。
+        """
+        if self._fixed_path is not None:
+            return self._fixed_path
+        # 延迟导入：本模块的依赖链会被平台实现引用，顶层互引会成环
+        from backend.storage.service import get_data_file_or_fallback
+        return get_data_file_or_fallback()
+
+    @property
+    def data_file(self) -> Path:
+        """当前数据文件（db_path 的 Path 视图）"""
+        return Path(self.db_path)
 
     # 获取安全的数据连接
     def _get_connection(self) -> sqlite3.Connection:
@@ -360,62 +373,3 @@ class DataExportManager(LogManager):
         """检查是否有数据"""
         summary = self.get_data_summary()
         return summary is not None and summary['total_tasks'] > 0
-
-    def switch_data_file(self, new_data_file: str) -> bool:
-        """切换数据文件
-
-        只更换本实例持有的路径，不做数据搬迁：调用方（如切换存储目录）已自行完成
-        复制或迁移，旧库是否保留由调用方决定。
-        
-        Args:
-            new_data_file (str): 新的数据文件路径
-            
-        Returns:
-            bool: 切换是否成功
-        """
-        try:
-            new_path = Path(new_data_file)
-            
-            # 验证新文件
-            if new_path.suffix.lower() not in ['.db']:
-                raise ValueError("仅支持 .db 文件")
-            
-            # 确保父目录存在
-            new_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            if new_path.exists() and not os.access(new_path, os.R_OK | os.W_OK):
-                raise PermissionError(f"没有对文件 {new_data_file} 的读写权限")
-            elif not new_path.exists() and not os.access(new_path.parent, os.W_OK):
-                raise PermissionError(f"没有在目录 {new_path.parent} 创建文件的权限")
-            
-            # 更新实例属性
-            self.data_file = new_path
-            self.db_path = str(new_path)
-            
-            # 初始化新数据库（如果不存在）
-            if not os.path.exists(self.db_path):
-                self._initialize_new_database()
-            
-            self.get_logger.info(f"数据文件已切换到: {new_data_file}")
-            return True
-            
-        except Exception as e:
-            self.get_logger.error(f"切换数据文件失败: {e}")
-            return False
-    
-    def _initialize_new_database(self) -> None:
-        """初始化新数据库表结构"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            try:
-                cursor = conn.cursor()
-                # 建表 / 建索引统一取自 backend.database.schema，保证与主库结构完全一致
-                schema.create_all(cursor)
-                conn.commit()
-            finally:
-                conn.close()
-
-        except Exception as e:
-            self.get_logger.error(f"初始化新数据库失败: {e}")
-            raise
-

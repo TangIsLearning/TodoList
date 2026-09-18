@@ -81,7 +81,7 @@ class DataSyncManager(LogManager):
             raise Exception('WebDAV客户端配置失败')
 
         # 本地应用数据目录：<存储目录>/todolist（包含 todo.db 与 attachment）
-        from backend.config_manager import get_app_dir
+        from backend.storage.service import get_app_dir
         local_dir = str(get_app_dir())
         return client, local_dir
 
