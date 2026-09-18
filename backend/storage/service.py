@@ -28,7 +28,7 @@ from backend.utils.logger import LogManager
 __all__ = [
     'StorageMigrationCancelled',
     'get_storage_dir', 'get_app_dir', 'get_attachment_dir', 'get_data_file',
-    'get_storage_dir_version', 'switch_storage_dir',
+    'get_storage_dir_version', 'switch_storage_dir', 'is_same_storage_dir',
     'estimate_migration', 'begin_migration', 'report_migration', 'finish_migration',
     'get_migration_state', 'is_migration_running', 'request_migration_cancel',
     'is_migration_cancelled', 'get_pending_backup', 'set_pending_backup',
@@ -181,6 +181,27 @@ def _current_data_file() -> Optional[Path]:
 
 
 # ==================== 切换存储目录 ====================
+
+def _normalize_dir(path: Any) -> str:
+    """目录比较用的规范化形式：先绝对化（折叠 . / .. / 尾部分隔符），再按平台规则折叠大小写"""
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def is_same_storage_dir(path: str) -> bool:
+    """给定路径是否就是当前生效的存储目录。
+
+    用于跳过"切到同一个目录"的无谓迁移：用户点应用时目录其实没改，跑一遍全量复制
+    既耗时又会在原地留下一份没人用的副本。当前目录无法解析时按"有改动"返回，
+    交给迁移流程兜底。
+    """
+    if not path or not isinstance(path, str):
+        return False
+    try:
+        current = get_storage_dir()
+    except Exception:
+        return False
+    return _normalize_dir(path) == _normalize_dir(current)
+
 
 def switch_storage_dir(path: str,
                        progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> bool:

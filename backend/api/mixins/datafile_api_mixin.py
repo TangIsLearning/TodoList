@@ -36,8 +36,22 @@ class DatafileApiMixin:
         # 复制语义下旧数据仍留在原目录，把位置回抛给前端以便提示和清理
         return self._get_storage_backup_path()
 
+    def _refresh_storage_data(self) -> None:
+        """重建数据库实例，重新读取当前目录下的数据。
+
+        目录没变但用户可能在应用外替换过 db 文件，此时无需复制迁移，只要让实例
+        丢掉旧连接重连一次就能读到新内容，前端再拉一次列表即可。
+        """
+        self.db = TodoDatabase()
+        self.get_logger.info("存储目录未变更，已重新加载数据")
+
     def _set_storage_dir(self, dir_path: str) -> Dict[str, Any]:
         """同步切换存储目录（调用方需自己承担耗时）。"""
+        if storage.is_same_storage_dir(dir_path):
+            # 目录没变：不搬运、不留备份副本，只刷新一次数据
+            self._refresh_storage_data()
+            return {'unchanged': True}
+
         if not storage.switch_storage_dir(dir_path):
             raise Exception("设置存储目录失败")
 
@@ -51,6 +65,12 @@ class DatafileApiMixin:
         即可展示；迁移完成（或失败）后由轮询结果触发前端刷新。
         """
         self._validate_storage_dir(dir_path)
+        # 目录没变就别搬运：用户可能只是手工换了 db 文件后点"应用"，此时跑全量复制
+        # 既耗时又会在原地留下一份没人用的副本，刷新一次就够了
+        if storage.is_same_storage_dir(dir_path):
+            self._refresh_storage_data()
+            return {'started': False, 'unchanged': True}
+
         if storage.is_migration_running():
             raise Exception("已有切换任务在进行中，请等待其完成后再试")
 
@@ -119,8 +139,21 @@ class DatafileApiMixin:
 
         切换是复制语义（库 + 附件全量搬到新目录），数据量越大耗时越长、
         额外占用的磁盘空间越多，因此前端需要先据此决定是否让用户二次确认。
+        目录与当前相同时返回 unchanged=True，前端据此跳过确认框直接刷新。
         """
         self._validate_storage_dir(dir_path)
+        # 目录没变就谈不上"要复制多少数据"，如实回给前端，好让它跳过确认框
+        if storage.is_same_storage_dir(dir_path):
+            return {
+                'targetDir': dir_path,
+                'unchanged': True,
+                'needsMigrate': False,
+                'totalBytes': 0,
+                'dbBytes': 0,
+                'attachmentBytes': 0,
+                'fileCount': 0,
+                'exceedsThreshold': False,
+            }
         info = storage.estimate_migration(Path(dir_path))
         info['targetDir'] = dir_path
         return info

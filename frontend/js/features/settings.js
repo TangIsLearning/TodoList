@@ -1093,6 +1093,13 @@ class SettingsUIManager {
             return;
         }
 
+        // 目录没变：不弹"数据会被复制"的确认框，直接刷新一次即可
+        if (estimate.unchanged) {
+            this.closeModal();
+            await this.runStorageMigration(newFile);
+            return;
+        }
+
         const baseWarning = this.t('settingsStorageWarning', '注意：这将影响所有数据的读写操作，当前数据会被复制到新的存储目录，原目录的数据文件将保留为备份。建议先备份重要数据。是否继续？');
         const sizeHint = estimate.exceedsThreshold
             ? this.t('settingsStorageLargeWarning', '注意：本次需要复制约 {size} 数据（附件 {count} 个），耗时可能较长，期间请勿关闭应用。')
@@ -1114,18 +1121,29 @@ class SettingsUIManager {
     // 切目录可能要复制大量附件，放到后台执行并轮询进度，避免界面长时间无响应
     async runStorageMigration(dirPath) {
         let started = false;
+        let unchanged = false;
         await Utils.apiCall({
             apiMethod: 'start_storage_dir_migration',
             apiArgs: [dirPath],
             onSuccess: (response) => {
-                started = response?.data?.started !== false;
-                if (started) this.showStorageMigrationProgress(response.data);
+                const data = response?.data || {};
+                // 目录没变时后端只做了刷新，没有进度可跟踪
+                if (data.unchanged) {
+                    unchanged = true;
+                    return;
+                }
+                started = data.started !== false;
+                if (started) this.showStorageMigrationProgress(data);
             },
             onError: (error) => {
                 const reason = String(error?.message || '').replace(/^"|"$/g, '').trim();
                 Utils.showToast(reason || this.t('settingsFailed', '设置失败'), 'error');
             }
         });
+        if (unchanged) {
+            await this.reloadAfterStorageSwitch(this.t('settingsStorageUnchanged', '存储目录未变更，已重新加载数据'));
+            return;
+        }
         if (!started) {
             this.setDirectoryButtonsDisabled(false);
             return;
@@ -1288,11 +1306,11 @@ class SettingsUIManager {
     
     // 切换到新的存储目录后热重载界面（不整页刷新，避免 WebView 重建页面时的整体白闪）
     // 各模块复用自身的淡入淡出过渡，不叠加全局遮罩，避免遮罩自身的一闪
-    async reloadAfterStorageSwitch() {
+    async reloadAfterStorageSwitch(message) {
         try {
             await window.App?.reloadAfterDataReplaced();
             await this.updateDataFileConfig();
-            Utils.showToast(window.languageManager.getText('settingsSuccess', '设置成功'), 'success');
+            Utils.showToast(message || window.languageManager.getText('settingsSuccess', '设置成功'), 'success');
         } catch (error) {
             logger.error('Failed to reload after storage switch:', error);
             Utils.showToast(window.languageManager.getText('refreshDataFailed', '刷新数据失败'), 'error');
