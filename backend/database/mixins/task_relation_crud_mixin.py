@@ -21,6 +21,21 @@ class TaskRelationCrudMixin:
                 (sub_task_id, main_task_id, datetime.now().isoformat())
             )
 
+    def set_task_parent(self, sub_task_id: str, main_task_id: Optional[str]) -> None:
+        """在一个事务内重设子任务的父任务（main_task_id 为空表示解除关联）。
+
+        与「先删后加」两次写入相比，单事务能避免中途失败时子任务丢失父任务，
+        导致按父任务搜索搜不到它。
+        """
+        with self.tx() as conn:
+            conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (sub_task_id,))
+            if main_task_id:
+                conn.execute(
+                    'INSERT INTO task_relations (sub_task_id, main_task_id, created_at) '
+                    'VALUES (?, ?, ?)',
+                    (sub_task_id, main_task_id, datetime.now().isoformat())
+                )
+
     def delete_relation_by_children(self, task_id: str) -> None:
         """删除该任务作为子任务的关联"""
         with self.tx() as conn:

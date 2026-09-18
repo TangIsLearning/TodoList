@@ -40,6 +40,26 @@ class TaskRelationApiMixin:
         self.db.add_task_relation(sub_task_id, main_task_id)
 
     @api_handler
+    def set_task_parent(self, sub_task_id: str, main_task_id: Optional[str] = None) -> None:
+        """设置子任务的父任务（main_task_id 为空表示解除关联），在同一事务内完成。
+
+        相比前端分两次调用 remove + add，单事务可避免中途失败导致子任务丢失父任务
+        （表现为按父任务名称/ID 搜索时查不到该子任务）。
+        """
+        sub = self.db.get_task(sub_task_id)
+        if not sub:
+            raise Exception(f'子任务不存在')
+        if main_task_id:
+            main = self.db.get_task(main_task_id)
+            if not main:
+                raise Exception(f'父任务不存在')
+            if sub_task_id == main_task_id:
+                raise Exception(f'不能将自己设为父任务')
+            if sub.get('isRecurring'):
+                raise Exception(f'周期性任务不允许添加父任务关联')
+        self.db.set_task_parent(sub_task_id, main_task_id)
+
+    @api_handler
     def remove_task_relation(self, sub_task_id: str) -> None:
         """移除单个子任务的父任务关联"""
         sub = self.db.get_task(sub_task_id)

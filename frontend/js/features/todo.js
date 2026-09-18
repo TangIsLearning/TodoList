@@ -100,6 +100,13 @@ class TodoManager {
         this._subtaskSuggestIndex = -1;
         // 当前子任务搜索对应的父任务（存在同名任务时用于精确传递父任务ID）
         this.subtaskParent = { id: null, title: null };
+        // 编辑弹窗中父任务的异步回显状态：
+        // _parentEditToken   递增令牌，用于丢弃上一次编辑迟到的回显结果，避免写脏当前表单
+        // _parentInitPromise 回显 Promise，保存前需等待它结束，否则会把"尚未回显"误判为"用户移除了父任务"
+        // _parentPrefillDone 回显是否成功完成；未完成时跳过父子关联变更，避免误删已有父子关联
+        this._parentEditToken = 0;
+        this._parentInitPromise = null;
+        this._parentPrefillDone = false;
         // 任务列表当前显示的列（列 key 数组）
         this.visibleColumns = TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key);
         // 列表任务对应的父任务缓存：{ 子任务ID: { id, title } | null }
@@ -2054,6 +2061,10 @@ class TodoManager {
             hasTagFilter: currentTagIds.length > 0,
             hasParentFilter: !!subtaskParentFilter
         };
+        // 新建模式没有异步回显：父任务在下面同步预填，清理编辑模式遗留的回显状态
+        this._parentEditToken++;
+        this._parentInitPromise = null;
+        this._parentPrefillDone = true;
 
         // 已选标签继承当前标签筛选（弹窗新建的临时标签在打开时统一丢弃）
         this.tagManager.beginForm(currentTagIds);
@@ -2244,6 +2255,11 @@ class TodoManager {
     
     // 初始化父任务选择器（编辑模式）
     async initParentTaskForEdit(taskId) {
+        // 每次打开编辑弹窗都递增令牌：上一次编辑的回显若晚于本次到达会被直接丢弃，
+        // 否则旧任务的父任务会被写进当前表单，保存后把关联改到错误的父任务上
+        const token = ++this._parentEditToken;
+        this._parentPrefillDone = false;
+
         // 重置并初始化选择器
         this.parentTaskState.editingTaskId = taskId;
         this.resetParentTaskCombobox();
@@ -2254,6 +2270,7 @@ class TodoManager {
             apiMethod: 'get_parent',
             apiArgs: [taskId],
             onSuccess: (response) => {
+                if (token !== this._parentEditToken) return;
                 const parent = response.data;
                 if (parent) {
                     this.taskParent.value = parent.id;
@@ -2265,6 +2282,7 @@ class TodoManager {
                 if (this.taskFilterSnapshot) {
                     this.taskFilterSnapshot.parentTaskId = parent ? parent.id : null;
                 }
+                this._parentPrefillDone = true;
             }
         });
     }
@@ -2579,7 +2597,8 @@ class TodoManager {
         this.loadCategoryOptions(task.categoryId);
 
         // 初始化父任务选择器（编辑模式需要先获取已选的父任务）
-        this.initParentTaskForEdit(task.id);
+        // 保存 Promise：提交前需等待父任务回显完成，避免误判为"用户移除了父任务"
+        this._parentInitPromise = this.initParentTaskForEdit(task.id);
         
         // 添加输入值变化监听
         this.addInputValueListeners();
@@ -2685,6 +2704,13 @@ class TodoManager {
         else if (dateStr) isoDateStr = dateStr;
         if (isRecurringTask) isoDateStr = this.getTodayISO();
 
+        // 编辑模式下父任务由 initParentTaskForEdit 异步回显，必须先等它结束再取值：
+        // 否则"尚未回显"会被当成"用户移除了父任务"，保存时误删已有父子关联，
+        // 表现就是修改子任务后，按父任务搜索再也查不到它。
+        if (isEdit && this._parentInitPromise) {
+            await this._parentInitPromise.catch(() => {});
+        }
+
         const parentTaskId = this.taskParent.value || null;
 
         const taskData = {
@@ -2757,32 +2783,30 @@ class TodoManager {
                 // 处理父任务关联
                 try {
                     if (isEdit) {
-                        // 先读取当前父任务
-                        let currentParentId = null;
-                        await Utils.apiCall({
-                            apiMethod: 'get_parent',
-                            apiArgs: [taskId],
-                            onSuccess: (res) => {
-                                currentParentId = res.data ? res.data.id : null;
-                            }
-                        });
+                        if (!this._parentPrefillDone) {
+                            // 父任务回显失败时无法判断用户是否改动过父任务，保持关联不变，
+                            // 避免把"没取到原父任务"当成"用户移除了父任务"而误删关联
+                            logger.warn('父任务回显未完成，跳过本次父子关联变更');
+                        } else {
+                            // 先读取当前父任务
+                            let currentParentId = null;
+                            await Utils.apiCall({
+                                apiMethod: 'get_parent',
+                                apiArgs: [taskId],
+                                onSuccess: (res) => {
+                                    currentParentId = res.data ? res.data.id : null;
+                                }
+                            });
 
-                        // 仅在父任务确实发生变化时才更新关联，且顺序执行：
-                        // 先解除旧关联，再建立新关联（并发执行会因先增后删而丢失新关联）
-                        if (currentParentId !== parentTaskId) {
-                            if (currentParentId) {
+                            // 仅在父任务确实发生变化时才更新关联，且由后端在同一事务内完成：
+                            // 拆成"先删后加"两次调用时，中途失败会让子任务彻底丢失父任务，
+                            // 表现为按父任务搜索查不到该子任务
+                            if (currentParentId !== parentTaskId) {
                                 await Utils.apiCall({
-                                    apiMethod: 'remove_task_relation',
-                                    apiArgs: [taskId],
-                                    successCheck: () => true
-                                });
-                            }
-                            if (parentTaskId) {
-                                await Utils.apiCall({
-                                    apiMethod: 'add_task_relation',
+                                    apiMethod: 'set_task_parent',
                                     apiArgs: [taskId, parentTaskId],
                                     successCheck: () => true,
-                                    onError: () => Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning')
+                                    onError: () => Utils.showToast(window.languageManager.getText('updateParentRelationFailed', '更新父任务关联失败'), 'warning')
                                 });
                             }
                         }
@@ -3513,11 +3537,12 @@ class TodoManager {
     }
 
     // ===== 子任务搜索建议下拉（输入 ">" 触发） =====
-    // 判断当前是否处于子任务建议模式：输入以 ">" 开头且后面有内容。
+    // 判断当前是否处于子任务建议模式：输入以 ">" 开头。
+    // 仅输入 ">" 时关键字为空，后端返回"有子任务的父任务"列表供选择，因此不能要求后面必须有内容。
     // 标签 chips 允许与父任务条件并存（后端按 AND 组合），因此不再要求 chips 为空。
     isSubtaskSuggestMode(value) {
         const v = (value || '').trim();
-        return v.startsWith('>') && v.length > 1;
+        return v.startsWith('>');
     }
 
     // 防抖拉取「有子任务的父任务」建议
@@ -3542,6 +3567,14 @@ class TodoManager {
         }, delay);
     }
 
+    // 下拉容器按需创建（初始不在 DOM 中），统一做惰性解析并缓存引用
+    _getSubtaskDropdown() {
+        if (!this.dropdown || !this.dropdown.isConnected) {
+            this.dropdown = document.getElementById('subtask-suggestions');
+        }
+        return this.dropdown;
+    }
+
     // 渲染建议下拉（至多 5 条）
     renderSubtaskSuggestions(tasks) {
         let dropdown = document.getElementById('subtask-suggestions');
@@ -3551,6 +3584,9 @@ class TodoManager {
             dropdown.className = 'subtask-suggestions';
             this.searchTagWrapper.appendChild(dropdown);
         }
+        // 缓存引用：否则 hideSubtaskSuggestions/_highlightSubtaskSuggestion 拿到的是 null，
+        // 下拉会一直停在那里关不掉、键盘上下选择也会报错
+        this.dropdown = dropdown;
         dropdown.innerHTML = '';
         this._subtaskSuggestItems = (tasks || []).slice(0, 5);
         this._subtaskSuggestIndex = -1;
@@ -3597,9 +3633,11 @@ class TodoManager {
 
     // 高亮当前选中的建议项并滚动到可见
     _highlightSubtaskSuggestion() {
-        const items = this.dropdown.querySelectorAll('.subtask-suggestion-item');
+        const dropdown = this._getSubtaskDropdown();
+        if (!dropdown) return;
+        const items = dropdown.querySelectorAll('.subtask-suggestion-item');
         items.forEach((el, i) => el.classList.toggle('active', i === this._subtaskSuggestIndex));
-        const active = this.dropdown.querySelector('.subtask-suggestion-item.active');
+        const active = dropdown.querySelector('.subtask-suggestion-item.active');
         if (active) active.scrollIntoView({ block: 'nearest' });
     }
 
@@ -3618,9 +3656,12 @@ class TodoManager {
 
     // 记录当前子任务搜索对应的父任务（id 用于精确查询，title 用于校验搜索文本是否被改写）
     setSubtaskParent(id, title) {
+        const cleanTitle = (title || '').trim() || null;
         this.subtaskParent = {
-            id: id || null,
-            title: (title || '').trim() || null
+            // 没有标题就无法判断搜索文本是否仍指向该父任务，此时连 id 一起丢弃，
+            // 否则残留的失效 id 会让后续查询命中错误的父任务（表现为查不到子任务）
+            id: cleanTitle ? (id || null) : null,
+            title: cleanTitle
         };
     }
 
@@ -3639,7 +3680,8 @@ class TodoManager {
             clearTimeout(this._subtaskSuggestTimer);
             this._subtaskSuggestTimer = null;
         }
-        this.dropdown?.classList.remove('visible');
+        const dropdown = this._getSubtaskDropdown();
+        if (dropdown) dropdown.classList.remove('visible');
         this._subtaskSuggestItems = [];
         this._subtaskSuggestIndex = -1;
     }
