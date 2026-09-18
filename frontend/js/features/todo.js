@@ -94,6 +94,8 @@ class TodoManager {
         // categoryId/tagIds 为表单初始值（新建时为列表筛选值，编辑时为任务原值），
         // hasCategoryFilter/hasTagFilter 标记弹窗打开时列表是否已存在对应筛选
         this.taskFilterSnapshot = null;
+        // 分类 id → 名称缓存：渲染任务 HTML 时同步取用，避免"先渲染占位再异步回填"
+        this.categoryMap = new Map();
         // 子任务搜索建议下拉（输入 ">" 触发）
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
@@ -1233,6 +1235,10 @@ class TodoManager {
             this.tasksList.style.minWidth = '';
         }
 
+        // 分类名称必须在拼 HTML 之前就绪：名称会被直接写进 HTML，
+        // 不再依赖"渲染占位符 + 渲染后异步回填"，也就不会出现永远停在占位状态的任务
+        await this.ensureCategoryMap();
+
         html += this.tasks.map(task => this.createTaskElement(task)).join('');
         this.tasksList.innerHTML = html;
 
@@ -1408,23 +1414,24 @@ class TodoManager {
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                             <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                         </h3>
-                        ${task.description ? `<p class="task-description">${Utils.escapeHtml(task.description)}</p>` : ''}
+                        <p class="task-description">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
                         <div class="task-meta">
                             <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
                                 ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
                             </span>
                             ${task.categoryId ? `
-                                <span class="task-category" data-category-id="${task.categoryId}">
-                                    📁 加载中...
+                                <span class="task-category" data-category-id="${task.categoryId}"
+                                      title="${Utils.escapeHtml(this.getCategoryName(task.categoryId))}">
+                                    📁 ${Utils.escapeHtml(this.getCategoryName(task.categoryId))}
                                 </span>
                             ` : ''}
+                            ${tagsHtml ? `<div class="task-tags">${tagsHtml}</div>` : ''}
                             ${task.dueDate ? `
                                 <span class="task-due-date ${isOverdue ? 'overdue' : ''}"
                                       title="截止时间">
                                     📅 ${Utils.formatDate(task.dueDate)}
                                 </span>
                             ` : ''}
-                            ${tagsHtml ? `<div class="task-tags">${tagsHtml}</div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -1491,8 +1498,9 @@ class TodoManager {
                 return `
                     <div class="task-cell" data-column="category">
                         ${task.categoryId ? `
-                            <span class="task-category" data-category-id="${task.categoryId}">
-                                📁 加载中...
+                            <span class="task-category" data-category-id="${task.categoryId}"
+                                  title="${Utils.escapeHtml(this.getCategoryName(task.categoryId))}">
+                                📁 ${Utils.escapeHtml(this.getCategoryName(task.categoryId))}
                             </span>
                         ` : empty}
                     </div>
@@ -1864,33 +1872,43 @@ class TodoManager {
                 await this.deleteTask(taskId);
             };
         });
-
-        // 加载分类名称
-        await this.loadCategoryNames(scope);
     }
-    
-    // 加载分类名称
-    async loadCategoryNames(scope = document) {
-        const root = scope || document;
+
+    // 保证分类名称缓存可用（渲染任务 HTML 之前调用）。
+    // 侧边栏 CategoryManager 在初始化及每次分类增删改时都会重新拉取全量分类，
+    // 其 categories 可直接作为缓存源，避免每次渲染都额外请求一次接口。
+    async ensureCategoryMap() {
+        const cached = Array.isArray(window.categoryManager?.categories)
+            ? window.categoryManager.categories
+            : null;
+        if (cached && cached.length > 0) {
+            this.cacheCategories(cached);
+            return;
+        }
+        if (this.categoryMap.size > 0) return;
+
         await Utils.apiCall({
             apiMethod: 'get_categories',
-            onSuccess: (response) => {
-                const categories = response.data;
-                const categoryMap = {};
-
-                categories.forEach(cat => {
-                    categoryMap[cat.id] = cat.name;
-                });
-
-                root.querySelectorAll('.task-category').forEach(el => {
-                    const categoryId = el.dataset.categoryId;
-                    const categoryName = categoryMap[categoryId] || '未知分类';
-                    el.textContent = `📁 ${categoryName}`;
-                    // 列宽有限时以省略号截断，用 title 保证完整名称可见
-                    el.title = categoryName;
-                });
-            }
+            onSuccess: (response) => this.cacheCategories(response.data || [])
         });
+    }
+
+    // 同步用侧边栏缓存刷新名称（下拉追加时不能 await，否则会打乱新节点与"到底"提示的插入顺序）
+    syncCategoryMap() {
+        const cached = Array.isArray(window.categoryManager?.categories)
+            ? window.categoryManager.categories
+            : null;
+        if (cached && cached.length > 0) this.cacheCategories(cached);
+    }
+
+    cacheCategories(categories) {
+        this.categoryMap = new Map(categories.map(cat => [String(cat.id), cat.name]));
+    }
+
+    // 取分类名称：拿不到时回退为"未知分类"，不再输出"加载中"占位
+    getCategoryName(categoryId) {
+        return this.categoryMap.get(String(categoryId)) ||
+            window.languageManager.getText('unknownCategory', '未知分类');
     }
     
     // 切换任务状态
@@ -2302,10 +2320,13 @@ class TodoManager {
     // 加载子任务数量并更新显示（scope 用于限定作用域，默认全文档）
     async loadSubtaskCounts(scope = document) {
         const root = scope || document;
-        const subtaskCountEls = root.querySelectorAll('.subtask-count');
+        // 同样先取快照：scope 可能是游离容器，
+        // 节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到
+        const subtaskCountEls = Array.from(root.querySelectorAll('.subtask-count'));
         if (subtaskCountEls.length === 0) return;
-        
-        const taskIds = Array.from(subtaskCountEls).map(el => el.dataset.taskId);
+
+        const elByTaskId = new Map(subtaskCountEls.map(el => [el.dataset.taskId, el]));
+        const taskIds = Array.from(elByTaskId.keys());
 
         // 并发请求，避免逐条 await 导致列表越大等待越久
         await Promise.all(taskIds.map(taskId => Utils.apiCall({
@@ -2314,7 +2335,7 @@ class TodoManager {
             onSuccess: (response) => {
                 const children = response.data;
                 if (children && children.length > 0) {
-                    const countEl = root.querySelector(`.subtask-count[data-task-id="${taskId}"]`);
+                    const countEl = elByTaskId.get(taskId);
                     if (countEl) {
                         const countSpan = countEl.querySelector('.count');
                         if (countSpan) countSpan.textContent = children.length;
@@ -2427,6 +2448,10 @@ class TodoManager {
             ? this.attachmentManager.buildDetailHtml(task)
             : '';
 
+        // 分类名称直接写进详情 HTML，避免依赖弹窗弹出后再异步回填
+        await this.ensureCategoryMap();
+
+        const categoryName = task.categoryId ? this.getCategoryName(task.categoryId) : '';
         const detailContent = `
             <div style="padding: 20px;">
                 <div style="margin-bottom: 20px;">
@@ -2435,9 +2460,9 @@ class TodoManager {
                         ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                         ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                     </h3>
-                    <p style="color: var(--text-secondary); line-height: 1.6;">
-                        ${task.description ? Utils.escapeHtml(task.description).replace(/\n/g, '<br>') : window.languageManager.getText('noTaskDescription', '无描述')}
-                    </p>
+                    <p class="task-detail-description">${task.description
+                        ? Utils.escapeHtml(task.description.replace(/\r\n/g, '\n'))
+                        : window.languageManager.getText('noTaskDescription', '无描述')}</p>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -2466,7 +2491,7 @@ class TodoManager {
                     <div>
                         <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCategory', '分类')}</strong>
                         <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.categoryId ? '📁 <span class="task-category-detail" data-category-id="${task.categoryId}">加载中...</span>' : window.languageManager.getText('uncategorized', '无分类')}
+                            ${task.categoryId ? `📁 ${Utils.escapeHtml(categoryName)}` : window.languageManager.getText('uncategorized', '无分类')}
                         </span>
                     </div>
 
@@ -2508,9 +2533,6 @@ class TodoManager {
             'view-modal'
         );
 
-        // 加载分类名称
-        await this.loadCategoryNameForDetail(task.categoryId);
-
         // 绑定关联任务点击事件
         document.querySelectorAll('.link-text[data-task-id]').forEach(el => {
             el.onclick = (e) => {
@@ -2522,23 +2544,6 @@ class TodoManager {
 
         // 绑定附件点击事件（图片预览 / 文件打开 / 链接跳转）
         this.attachmentManager?.bindDetailEvents(task);
-    }
-
-    // 加载分类名称(用于详情对话框)
-    async loadCategoryNameForDetail(categoryId) {
-        if (!categoryId) return;
-
-        await Utils.apiCall({
-            apiMethod: 'get_categories',
-            onSuccess: (response) => {
-                const categories = response.data;
-                const category = categories.find(cat => cat.id === categoryId);
-                const categoryEl = document.querySelector('.task-category-detail');
-                if (category && categoryEl) {
-                    categoryEl.textContent = category.name;
-                }
-            }
-        });
     }
 
     // 编辑任务
@@ -3893,6 +3898,9 @@ class TodoManager {
     // 追加任务到列表
     appendTasks(newTasks) {
         if (!this.tasksList || !Array.isArray(newTasks) || newTasks.length === 0) return;
+
+        // 同步刷新分类缓存后拼 HTML，名称随节点一起生成，无需再回填空转的占位符
+        this.syncCategoryMap();
 
         // 生成新任务的HTML（先在游离容器中构建，便于只给新增节点绑定事件）
         const temp = document.createElement('div');

@@ -184,6 +184,40 @@
     color: var(--text-primary);
 }
 
+/* ===== 任务详情弹窗（复用 #confirm-dialog.view-modal）=====
+   标题与描述由用户自由输入，可能是超长英文串、URL 或无空格内容。
+   默认换行规则下这类内容照样撑不破换行点，会把 .modal-content 顶宽、
+   再被 overflow: hidden 裁掉，看起来就是"文字溢出界面"。
+   这里统一允许任意位置断行，并给描述单独限高滚动，长描述也不会把字段挤出视口。 */
+#confirm-dialog .task-detail-description {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;    /* 保留用户输入换行（已改为输入文本 + pre-wrap，不再拼 <br>） */
+    overflow-wrap: anywhere;  /* 长英文/URL 也能在列宽内断行 */
+    word-break: break-word;
+    max-height: 30vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#confirm-dialog.view-modal .modal-body h3 {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* 字段网格：1fr 轨道的最小尺寸是 auto，某个格子里的长内容会把整行顶宽。
+   改成 minmax(0, 1fr) 并给格子自身允许收缩，避免横向溢出。 */
+#confirm-dialog.view-modal .modal-body div[style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+#confirm-dialog.view-modal .modal-body div[style*="grid-template-columns"] > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 /* 分页组件 */
 .pagination {
     display: flex;

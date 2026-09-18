@@ -106,6 +106,29 @@
         height: 30px !important;
     }
 
+    /* 上面 padding 简写把 .input-wrapper 预留给清空按钮的右侧内边距覆盖掉了，
+       这里补回来（与 481~768px 断点保持一致），避免输入内容压在清空按钮下面 */
+    .input-wrapper input {
+        padding-right: var(--spacing-lg) !important;
+    }
+
+    /* 时间字段：原生「选择时间」图标（::-webkit-calendar-picker-indicator）位于输入框
+       内容区最右侧，与绝对定位的清空按钮几乎贴在一起。这里额外加宽右侧留白并固定图标尺寸，
+       让两者之间留出可点击的间距。 */
+    .datetime-inputs .input-wrapper input[type="time"] {
+        padding-right: 30px !important;
+    }
+
+    .datetime-inputs .input-wrapper input[type="time"]::-webkit-calendar-picker-indicator {
+        width: 18px;
+        height: 18px;
+    }
+
+    .datetime-inputs .input-wrapper > button,
+    .mini-field .input-wrapper > button {
+        right: var(--spacing-xs) !important;
+    }
+
     .segmented--block {
         grid-auto-flow: row;
     }
@@ -139,6 +162,119 @@
 
     .datetime-error {
         font-size: var(--font-size-xs) !important;
+    }
+
+    /* ===== 查看任务详情（复用 #confirm-dialog.view-modal）=====
+       详情内容由 JS 以内联样式写死像素值（标题 20px、字段标签与取值均 14px），
+       在小屏上与列表项的字号、间距不成比例；这里统一降一档并收紧留白。
+       注意：详情 HTML 以 <div> 开头，插入 <p id="confirm-message"> 后会被解析器
+       抬升为 <p> 的兄弟节点，因此选择器统一挂在 .modal-body 下，两种结构都能命中。 */
+    #confirm-dialog.view-modal .modal-content {
+        padding: var(--spacing-xs) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-header h2 {
+        font-size: var(--font-size-sm) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body {
+        padding: var(--spacing-xs) !important;
+        font-size: var(--font-size-xs) !important;
+        line-height: 1.5;
+    }
+
+    #confirm-dialog.view-modal #confirm-message {
+        padding: 0 !important;
+    }
+
+    /* 详情外层容器（JS 内联 padding: 20px） */
+    #confirm-dialog.view-modal .modal-body > div,
+    #confirm-dialog.view-modal #confirm-message > div {
+        padding: var(--spacing-xs) !important;
+    }
+
+    /* 标题块（JS 内联 margin-bottom: 20px） */
+    #confirm-dialog.view-modal .modal-body > div > div:first-child,
+    #confirm-dialog.view-modal #confirm-message > div > div:first-child {
+        margin-bottom: var(--spacing-sm) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body h3 {
+        font-size: var(--font-size-sm) !important;
+        line-height: 1.35 !important;
+        margin-bottom: var(--spacing-xs) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body p {
+        padding: 0 !important;
+        font-size: var(--font-size-xs) !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 小屏可视高度更紧张，描述区域限高再收一档 */
+    #confirm-dialog.view-modal .modal-body .task-detail-description {
+        max-height: 24vh !important;
+    }
+
+    /* 字段网格：保持两列，但收紧行间距 */
+    #confirm-dialog.view-modal .modal-body div[style*="grid-template-columns"] {
+        gap: var(--spacing-sm) !important;
+    }
+
+    /* 字段标签：比取值小一档，突出「标签 -> 取值」的层级而不是互相打架 */
+    #confirm-dialog.view-modal .modal-body strong {
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        margin-bottom: var(--spacing-xs) !important;
+    }
+
+    /* 取值与状态/优先级徽标：同一档字号、同一套圆角与内边距 */
+    #confirm-dialog.view-modal .modal-body strong + span {
+        font-size: var(--font-size-xs) !important;
+        padding: 2px var(--spacing-sm) !important;
+        border-radius: var(--border-radius-sm) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .task-priority {
+        font-size: var(--font-size-xs) !important;
+        padding: 2px var(--spacing-sm) !important;
+        border-radius: 10px !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .task-tag {
+        font-size: 11px !important;
+        padding: 1px var(--spacing-xs) !important;
+        border-radius: 8px !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body div[style*="flex-wrap"] {
+        gap: var(--spacing-xs) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .recurring-badge {
+        font-size: 10px !important;
+        padding: 1px var(--spacing-xs) !important;
+        border-radius: var(--border-radius-sm) !important;
+        margin-left: 2px !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .link-text {
+        font-size: var(--font-size-xs) !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 附件列表：与详情取值保持同一档字号 */
+    #confirm-dialog.view-modal .modal-body .detail-attachment-list {
+        gap: 2px !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .detail-attachment-link,
+    #confirm-dialog.view-modal .modal-body .attachment-item-icon {
+        font-size: var(--font-size-xs) !important;
+    }
+
+    #confirm-dialog.view-modal .modal-body .attachment-size {
+        font-size: 10px !important;
     }
 
     .sidebar {
@@ -456,25 +592,81 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
+    /* 小屏卡片内的字号层级：标题 > 描述 > 元信息行（优先级/分类/截止时间/标签）。
+       徽标统一到同一档字号并按比例缩小内边距与圆角，
+       避免徽标与标题同号（甚至更大）抢走视觉重心。 */
     .task-title {
-        font-size: 12px !important;
-        margin-bottom: 1px !important;
-        line-height: 1.1 !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        line-height: 1.25 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* 卡片标题自带 10px 上下留白，小屏中过于松散 */
+    .small-screen-task-item .task-title {
+        padding: 4px 0 2px !important;
     }
 
     .task-description {
-        font-size: 10px !important;
-        line-height: 1.2 !important;
-        margin-bottom: 2px !important;
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        margin-bottom: 4px !important;
         -webkit-line-clamp: 1 !important;
     }
 
+    /* 描述行始终存在：无描述时保留一行高度但不可见（visibility 而非 display），
+       用它把标题与元信息行稳定隔开，卡片高度也不会忽高忽低 */
+    .small-screen-task-item .task-description {
+        flex: 0 0 auto;
+        min-height: 15px;
+    }
+
+    .small-screen-task-item .task-description:empty {
+        visibility: hidden;
+    }
+
     .task-meta {
-        gap: 3px !important;
+        gap: 4px !important;
+        padding: 0 !important;
+    }
+
+    /* 元信息行内的徽标统一为同一高度（15px）：
+       去掉上下内边距，改用固定高度 + 垂直居中，消除 emoji 与标签边框带来的高度差，
+       使优先级与分类、标签、截止时间看起来等高 */
+    .task-meta .task-priority,
+    .task-meta .task-category {
+        display: inline-flex;
+        align-items: center;
+        height: 15px;
+        padding: 0 6px !important;
+        border-radius: 8px !important;
+        font-size: 10px !important;
+        line-height: 1 !important;
+    }
+
+    /* 标签有 1px 边框，行高相应减去 2px，保证总高度与其他徽标一致 */
+    .task-meta .task-tag {
+        height: 15px;
+        padding: 0 6px !important;
+        border-radius: 8px !important;
+        font-size: 10px !important;
+        line-height: 13px !important;
     }
 
     .task-due-date {
-        font-size: 9px !important;
+        height: 15px;
+        font-size: 10px !important;
+        line-height: 15px !important;
+        gap: 2px !important;
+    }
+
+    /* 标题行内的附属徽标（周期/子任务数）跟随标题等比缩小，不再与正文同尺寸 */
+    .task-title .recurring-badge,
+    .task-title .subtask-count {
+        font-size: 10px !important;
+        padding: 1px 4px !important;
+        border-radius: 6px !important;
+        margin-left: 2px !important;
     }
 
     .task-checkbox {
