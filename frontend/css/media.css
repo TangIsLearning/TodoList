@@ -79,7 +79,13 @@
 
     .form-group input,
     .form-group textarea,
-    .form-group select {
+    .form-group select,
+    .datetime-inputs input,
+    .datetime-inputs select,
+    .mini-field input,
+    .mini-field select,
+    .recur-section > input,
+    .recur-section > select {
         padding: var(--spacing-xs) !important;
         font-size: var(--font-size-xs) !important;
     }
@@ -88,18 +94,33 @@
     .form-group input[type="datetime-local"],
     .form-group input[type="number"],
     .form-group input[type="text"],
-    .form-group input[type="time"] {
+    .form-group input[type="time"],
+    .datetime-inputs input,
+    .datetime-inputs select,
+    .mini-field input,
+    .mini-field select,
+    .recur-section > input,
+    .recur-section > select,
+    .time-chip__input {
         font-size: var(--font-size-xs) !important;
         height: 30px !important;
     }
 
-    .recurring-options .form-row {
-        flex-direction: column;
-        gap: var(--spacing-sm);
+    .segmented--block {
+        grid-auto-flow: row;
+    }
+
+    .mini-grid--3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chip-picker--grid {
+        grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
     }
 
     .more-options-content, .recurring-options {
         margin-top: var(--spacing-xs) !important;
+        gap: var(--spacing-sm);
     }
 
     .panel-section .action-btn {
@@ -116,7 +137,7 @@
         padding: var(--spacing-xs) !important;
     }
 
-    .datetime-error, .recurrence-error {
+    .datetime-error {
         font-size: var(--font-size-xs) !important;
     }
 
@@ -699,7 +720,7 @@
         align-self: flex-start;
     }
 
-        .datetime-group .datetime-inputs {
+    .datetime-inputs {
         grid-template-columns: 1fr 1fr;
         gap: var(--spacing-sm);
     }

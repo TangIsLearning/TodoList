@@ -118,7 +118,9 @@ class DataExportManager(LogManager):
                         'recurrence_count': row[10],
                         'parent_task_id': row[11],
                         'created_at': row[12],
-                        'updated_at': row[13]
+                        'updated_at': row[13],
+                        # 旧版本导出的文件没有该列，按缺失处理
+                        'recurrence_rule': row[14] if len(row) > 14 else None,
                     }
                     tasks.append(task_dict)
 
@@ -258,8 +260,9 @@ class DataExportManager(LogManager):
                     cursor.execute('''
                         INSERT INTO tasks (id, title, description, completed, priority, category_id,
                                           due_date, is_recurring, recurrence_type, recurrence_interval,
-                                          recurrence_count, parent_task_id, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          recurrence_count, parent_task_id, created_at, updated_at,
+                                          recurrence_rule)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         task['id'],
                         self._clean_str(task['title']),
@@ -274,7 +277,8 @@ class DataExportManager(LogManager):
                         task['recurrence_count'],
                         task['parent_task_id'],
                         task['created_at'],
-                        task['updated_at']
+                        task['updated_at'],
+                        task.get('recurrence_rule')
                     ))
 
                 # 导入设置

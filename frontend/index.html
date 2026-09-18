@@ -634,49 +634,188 @@
                             </div>
                         </div>
 
-                        <div class="form-group datetime-group">
-                            <label>截止日期和时间 <span
-                                    style="color: var(--text-secondary); font-size: 12px;">（可选）</span></label>
-                            <div class="datetime-inputs">
+                        <!-- 时间设置：单次任务 / 周期性任务（并列二选一） -->
+                        <div class="form-group schedule-group">
+                            <label id="schedule-mode-label" class="schedule-group__label">时间设置</label>
+                            <div class="segmented segmented--block" id="schedule-mode-switch">
+                                <label class="segmented-item">
+                                    <input type="radio" name="schedule-mode" value="once"
+                                           id="schedule-mode-once" checked>
+                                    <span id="schedule-mode-once-text">单次任务</span>
+                                </label>
+                                <label class="segmented-item">
+                                    <input type="radio" name="schedule-mode" value="recurring"
+                                           id="schedule-mode-recurring">
+                                    <span id="schedule-mode-recurring-text">周期性任务</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 截止日期与时间：仅单次任务使用，周期性任务的提醒时间由规则决定 -->
+                        <div class="datetime-inputs" id="datetime-inputs">
+                            <div class="field-block" id="date-field">
+                                <label class="field-block__label" id="date-field-label" for="task-due-date-picker">截止日期</label>
                                 <div class="input-wrapper">
                                     <input type="text" id="task-due-date-picker" class="picker-input"
                                            placeholder="YYYY-MM-DD" readonly>
                                     <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-date" title="清空日期">×</button>
                                 </div>
+                            </div>
+                            <div class="field-block" id="time-field">
+                                <label class="field-block__label" id="time-field-label" for="task-due-time">时间</label>
                                 <div class="input-wrapper">
                                     <input type="time" id="task-due-time" class="time-input">
                                     <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-time" title="清空时间">×</button>
                                 </div>
                             </div>
-                            <div id="datetime-error" class="datetime-error" style="display: none;"></div>
                         </div>
-
-                        <div class="recurrence-group">
-                            <label for="is-recurring" class="recurrence-toggle">
-                                <span id="recurrence-toggle" class="recurrence-toggle">创建为周期性任务</span>
-                                <input type="checkbox" id="is-recurring">
-                            </label>
-                            <div id="recurrence-error" class="recurrence-error" style="display: none;"></div>
-                        </div>
+                        <div id="datetime-error" class="datetime-error" style="display: none;"></div>
 
                         <div id="recurring-options" class="recurring-options" style="display: none;">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="recurrence-type">重复周期</label>
-                                    <select id="recurrence-type">
-                                        <option value="">请选择</option>
-                                        <option value="daily">每天</option>
-                                        <option value="weekly">按周</option>
-                                        <option value="monthly">按月</option>
-                                        <option value="yearly">按年</option>
-                                    </select>
+                            <!-- 配置模式：普通 / Cron -->
+                            <div class="recur-section">
+                                <div class="recur-section__title" id="recurrence-mode-label">配置模式</div>
+                                <div class="segmented segmented--block" id="recurrence-mode-switch">
+                                    <label class="segmented-item">
+                                        <input type="radio" name="recurrence-mode" value="normal"
+                                               id="recurrence-mode-normal" checked>
+                                        <span id="recurrence-mode-normal-text">普通模式</span>
+                                    </label>
+                                    <label class="segmented-item">
+                                        <input type="radio" name="recurrence-mode" value="cron"
+                                               id="recurrence-mode-cron">
+                                        <span id="recurrence-mode-cron-text">Cron 模式</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 普通模式 -->
+                            <div id="recurrence-normal-panel" class="recur-section recurrence-panel">
+                                <div class="recur-section__title" id="recurrence-type-label">重复周期</div>
+                                <select id="recurrence-type">
+                                    <option value="">请选择</option>
+                                    <option value="daily">每天</option>
+                                    <option value="weekly">每周</option>
+                                    <option value="monthly">每月</option>
+                                    <option value="yearly">每年</option>
+                                </select>
+
+                                <!-- 每天：指定时间点 / 时间段+间隔 -->
+                                <div class="recur-block recurrence-sub-panel" id="daily-mode-group" style="display: none;">
+                                    <div class="recur-block__title" id="daily-mode-label">提醒方式</div>
+                                    <div class="segmented segmented--block">
+                                        <label class="segmented-item">
+                                            <input type="radio" name="daily-mode" value="times"
+                                                   id="daily-mode-times" checked>
+                                            <span id="daily-mode-times-text">指定时间点</span>
+                                        </label>
+                                        <label class="segmented-item">
+                                            <input type="radio" name="daily-mode" value="interval"
+                                                   id="daily-mode-interval">
+                                            <span id="daily-mode-interval-text">时间段 + 间隔</span>
+                                        </label>
+                                    </div>
                                 </div>
 
-                                <div class="form-group">
-                                    <label for="recurrence-count">循环次数*</label>
-                                    <input type="number" id="recurrence-count" min="1" max="999"
-                                           placeholder="循环次数不能为空" required>
+                                <div class="recur-block recurrence-sub-panel" id="daily-interval-group" style="display: none;">
+                                    <div class="recur-block__title" id="daily-interval-label">时间段与间隔</div>
+                                    <div class="mini-grid mini-grid--3">
+                                        <div class="mini-field">
+                                            <span class="mini-field__label" id="daily-interval-start-label">开始</span>
+                                            <input type="time" id="daily-interval-start" value="09:00" step="60">
+                                        </div>
+                                        <div class="mini-field">
+                                            <span class="mini-field__label" id="daily-interval-end-label">结束</span>
+                                            <input type="time" id="daily-interval-end" value="18:00" step="60">
+                                        </div>
+                                        <div class="mini-field">
+                                            <span class="mini-field__label" id="daily-interval-minutes-label">间隔（分钟）</span>
+                                            <input type="number" id="daily-interval-minutes" min="1" max="1440" value="60">
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- 每周：星期多选 -->
+                                <div class="recur-block recurrence-sub-panel" id="weekly-group" style="display: none;">
+                                    <div class="recur-block__title" id="weekly-days-label">选择星期</div>
+                                    <div class="chip-picker" id="weekly-days"></div>
+                                    <div class="recurrence-hint" id="weekly-days-hint">可多选，不选则不会提醒</div>
+                                </div>
+
+                                <!-- 每月：日期多选 -->
+                                <div class="recur-block recurrence-sub-panel" id="monthly-group" style="display: none;">
+                                    <div class="recur-block__title" id="monthly-days-label">选择日期</div>
+                                    <div class="chip-picker chip-picker--grid" id="monthly-days"></div>
+                                    <div class="recurrence-hint" id="monthly-days-hint">可多选；不存在的日期（如 2 月 30 日）会自动跳过</div>
+                                </div>
+
+                                <!-- 每年：月 + 日 -->
+                                <div class="recur-block recurrence-sub-panel" id="yearly-group" style="display: none;">
+                                    <div class="recur-block__title" id="yearly-label">每年日期</div>
+                                    <div class="mini-grid mini-grid--2">
+                                        <div class="mini-field">
+                                            <span class="mini-field__label" id="yearly-month-label">月份</span>
+                                            <select id="yearly-month"></select>
+                                        </div>
+                                        <div class="mini-field">
+                                            <span class="mini-field__label" id="yearly-day-label">日期</span>
+                                            <select id="yearly-day"></select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 提醒时间点（每天-指定时间点 / 每周 / 每月 / 每年 共用） -->
+                                <div class="recur-block recurrence-sub-panel" id="recurrence-times-group" style="display: none;">
+                                    <div class="recur-block__title" id="recurrence-times-label">提醒时间点</div>
+                                    <div class="time-chip-list" id="recurrence-times"></div>
+                                    <button type="button" class="btn btn--tertiary-color btn--padding-sm"
+                                            id="recurrence-add-time">＋ 添加时间点</button>
+                                </div>
+                            </div>
+
+                            <!-- Cron 模式 -->
+                            <div id="recurrence-cron-panel" class="recur-section recurrence-panel" style="display: none;">
+                                <div class="recur-section__title" id="recurrence-cron-label">Cron 表达式</div>
+                                <input type="text" id="recurrence-cron" placeholder="0 9 * * 1-5" autocomplete="off">
+                                <div class="recurrence-hint" id="recurrence-cron-hint">
+                                    格式：分 时 日 月 周（如 0 9 * * 1-5 表示工作日 09:00；*/30 9-18 * * * 表示 09:00–18:00 每 30 分钟）
+                                </div>
+                            </div>
+
+                            <!-- 结束条件（两种模式共用） -->
+                            <div class="recur-section">
+                                <div class="recur-section__title" id="recurrence-end-type-label">结束方式</div>
+                                <select id="recurrence-end-type">
+                                    <option value="habit">习惯</option>
+                                    <option value="count">按次数结束</option>
+                                    <option value="date">按日期结束</option>
+                                </select>
+                                <div class="recurrence-hint" id="recurrence-habit-hint">每次只保留一条待办，完成后才按周期生成下一条</div>
+                                <div class="mini-grid mini-grid--1" id="recurrence-count-group" style="display: none;">
+                                    <div class="mini-field">
+                                        <span class="mini-field__label" id="recurrence-count-label">循环次数</span>
+                                        <input type="number" id="recurrence-count" min="1" max="999"
+                                               placeholder="循环次数不能为空">
+                                    </div>
+                                </div>
+                                <div class="mini-grid mini-grid--1" id="recurrence-end-date-group" style="display: none;">
+                                    <div class="mini-field">
+                                        <span class="mini-field__label" id="recurrence-end-date-label">结束日期</span>
+                                        <!-- 与单次任务截止日期一致的只读输入框 + 自定义日历，避免原生日期控件的默认外观 -->
+                                        <div class="input-wrapper">
+                                            <input type="text" id="recurrence-end-date" class="picker-input"
+                                                   placeholder="YYYY-MM-DD" readonly>
+                                            <button type="button" class="btn btn--colorless btn--font-size-lg"
+                                                    id="clear-recurrence-end-date" title="清空结束日期">×</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="recur-section">
+                                <button type="button" class="btn btn--tertiary-color btn--padding-sm"
+                                        id="recurrence-preview-btn">预览提醒时间</button>
+                                <div class="recurrence-preview" id="recurrence-preview" style="display: none;"></div>
                             </div>
                         </div>
                     </div>

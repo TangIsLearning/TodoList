@@ -1,7 +1,28 @@
 # backend/api/mixins/task_api_mixin.py
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
+from backend.database.recurrence import (
+    END_COUNT,
+    MODE_CRON,
+    PREVIEW_OCCURRENCE_LIMIT,
+    normalize_rule,
+    preview_occurrences,
+    validate_rule,
+)
 from backend.utils.response_wrapper import api_handler
+
+
+def _parse_start_date(value: Any) -> Optional[date]:
+    """解析周期起始日期（只取日期部分，时间由规则决定）。"""
+    if not value:
+        return None
+    text = str(value).strip()
+    if 'T' in text:
+        text = text.split('T')[0]
+    try:
+        return datetime.fromisoformat(text).date()
+    except ValueError:
+        return None
 
 
 def validate_due_date(task_data: Union[Dict[str, Any], str]) -> Dict[str, Union[bool, str]]:
@@ -177,17 +198,28 @@ class TaskApiMixin:
 
     @api_handler
     def add_recurring_todo(self, task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """添加周期性任务"""
-        validation_result = validate_due_date(task_data)
-        if not validation_result['valid']:
-            raise Exception(f'{validation_result["message"]}')
+        """添加周期性任务
 
-        # 校验周期性任务参数
-        if task_data.get('isRecurring'):
-            if not task_data.get('recurrenceType'):
-                raise Exception(f'周期类型不能为空')
-            if not task_data.get('dueDate'):
-                raise Exception(f'周期性任务必须设置截止时间')
+        周期由 ``recurrenceRule`` 描述（普通模式：每天 / 每周 / 每月 / 每年；Cron 模式）。
+        传入的 ``dueDate`` 只取日期部分作为周期起始日，具体提醒时间点由规则决定。
+        """
+        rule = normalize_rule(task_data.get('recurrenceRule'))
+
+        # 周期起始日期：只需校验日期不早于今天（时间点由规则决定，可能已早于当前时刻）
+        start_date = _parse_start_date(task_data.get('dueDate'))
+        if start_date is None:
+            raise Exception('周期性任务必须设置起始日期')
+        if start_date < datetime.now().date():
+            raise Exception('周期起始日期不能早于今天')
+
+        ok, message = validate_rule(rule)
+        if not ok:
+            raise Exception(message)
+
+        # recurrence_type / count 为兼容旧数据与列表展示保留的摘要字段
+        task_data['recurrenceType'] = MODE_CRON if rule.get('mode') == MODE_CRON else rule.get('freq')
+        task_data['recurrenceCount'] = (
+            rule.get('count') if rule.get('endType') == END_COUNT else None)
 
         result = self.db.create_recurring_tasks(task_data)
         for task in result:
@@ -200,13 +232,39 @@ class TaskApiMixin:
         return result
 
     @api_handler
+    def preview_recurring_occurrences(self, start_date: str, recurrence_rule: Dict[str, Any],
+                                      limit: int = PREVIEW_OCCURRENCE_LIMIT) -> List[str]:
+        """预览周期性任务接下来会产生的提醒时间（ISO 字符串列表，升序）
+
+        用于在保存前把规则的实际效果展示给用户。
+        """
+        parsed_start = _parse_start_date(start_date)
+        if parsed_start is None:
+            raise Exception('请先选择周期起始日期')
+
+        rule = normalize_rule(recurrence_rule)
+        ok, message = validate_rule(rule)
+        if not ok:
+            raise Exception(message)
+
+        return preview_occurrences(parsed_start, rule, limit=limit)
+
+    @api_handler
     def toggle_todo(self, task_id: str) -> Dict[str, Any]:
-        """切换任务完成状态"""
+        """切换任务完成状态
+
+        习惯类周期任务在「标记完成」时按规则续建下一条待办，
+        保证同一时刻只有一条未完成实例。
+        """
         task = self.db.get_task(task_id)
         if not task:
             raise Exception(f'Task not found')
         # 只提交变更字段：避免回灌整份任务（含 tags）触发无必要的标签重写
-        return self.db.update_task(task_id, {'completed': not task['completed']})
+        result = self.db.update_task(task_id, {'completed': not task['completed']})
+        # 由未完成 -> 完成时才续建；重新开启不产生新任务
+        if not task['completed']:
+            self.db.create_next_habit_task(task_id)
+        return result
 
     @api_handler
     def get_stats(self) -> Dict[str, Any]:

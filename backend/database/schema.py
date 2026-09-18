@@ -19,6 +19,8 @@ from typing import Dict, List, Tuple
 
 # 补充说明：tasks.parent_task_id 字段仅用于周期性任务，标记父模板 ID，
 # 与普通父子任务关联（task_relations）无关。
+# recurrence_rule 存放周期性任务的完整规则（JSON，仅父任务持有），
+# recurrence_type / recurrence_interval / recurrence_count 为兼容旧数据保留的摘要字段。
 TABLE_TASKS = '''
     CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
@@ -35,6 +37,7 @@ TABLE_TASKS = '''
         parent_task_id TEXT,
         created_at TEXT,
         updated_at TEXT,
+        recurrence_rule TEXT,
         FOREIGN KEY (category_id) REFERENCES categories (id)
     )
 '''
@@ -153,6 +156,7 @@ TASK_MIGRATION_COLUMNS: Tuple[Tuple[str, str], ...] = (
     ('recurrence_interval', 'INTEGER DEFAULT 1'),
     ('recurrence_count', 'INTEGER'),
     ('parent_task_id', 'TEXT'),
+    ('recurrence_rule', 'TEXT'),
 )
 
 # 启用外键约束前必须清理的孤儿数据（历史库在约束关闭期间产生）

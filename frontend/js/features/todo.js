@@ -21,6 +21,22 @@ const TASK_LIST_MIN_WIDTH = 1060;
 // 列配置本地缓存键（数据库为唯一来源，本地仅作首屏兜底）
 const TASK_LIST_COLUMNS_CACHE_KEY = 'todolist_task_list_columns';
 
+// 周期性任务规则校验失败的兜底文案（i18n key → 中文默认值）
+const RECURRENCE_ERROR_MESSAGES = {
+    errorRecurrenceTypeRequired: '请选择重复周期',
+    errorRecurrenceCronRequired: '请输入 Cron 表达式',
+    errorRecurrenceTimesRequired: '请至少添加一个提醒时间点',
+    errorRecurrenceWeekdaysRequired: '请至少选择一个星期',
+    errorRecurrenceMonthDaysRequired: '请至少选择一个日期',
+    errorRecurrenceYearlyRequired: '请选择有效的月份和日期',
+    errorRecurrenceIntervalRequired: '请填写完整的时间段',
+    errorRecurrenceIntervalOrder: '时间段结束时间需晚于开始时间',
+    errorRecurrenceIntervalMinutes: '间隔分钟需在 1-1440 之间',
+    errorRecurrenceCountRequired: '请输入有效的循环次数',
+    errorRecurrenceEndDateRequired: '请选择有效的结束日期',
+    errorRecurrenceTimesLimit: '提醒时间点数量已达上限',
+};
+
 // 标签相关常量（TAG_INPUT_PATTERN 等）与 TagManager 均定义在 js/features/tag.js，
 // 该文件必须在本文件之前引入。
 
@@ -99,21 +115,32 @@ class TodoManager {
         this.cacheDomRefs();
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
         this.attachmentManager = new AttachmentManager(this);
-        // 设置日期组件
-        this.pikaday = new Pikaday({
-            field: this.datePicker,
+        // 设置日期组件：单次任务截止日期 / 周期性任务结束日期共用同一套日历
+        this.pikaday = this.createDatePicker(this.datePicker);
+        this.recurrenceEndPikaday = this.createDatePicker(this.recurrenceEndDate, {
+            onChange: () => this.clearRecurrencePreview()
+        });
+
+        this.configureTagManager();
+    }
+
+    // 统一的日期选择器：返回一个绑定在指定输入框上的日历实例。
+    // 输入框是只读文本框（配合自定义日历弹出），避免 `<input type="date">`
+    // 在各浏览器下的原生默认外观与其它输入框不一致。
+    createDatePicker(field, { onChange } = {}) {
+        if (!field) return null;
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        return new Pikaday({
+            field,
             format: 'YYYY-MM-DD',
             showDaysInNextAndPreviousMonths: true,
             firstDay: 1,
-            toString: function(date, format) {
-                const months = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-
-                const day = String(date.getDate()).padStart(2, '0');
-                const monthName = String(months[date.getMonth()]).padStart(2, '0');
-                const year = date.getFullYear();
-
-                return `${year}-${monthName}-${day}`;
-            },
+            toString: (date) => formatDate(date),
             i18n: {
                 previousMonth: 'Prev',
                 nextMonth: 'Next',
@@ -121,20 +148,12 @@ class TodoManager {
                 weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
                 weekdaysShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             },
-            onSelect: function(selectedDate) {
-                if (selectedDate) {
-                    const months = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-
-                    const year = selectedDate.getFullYear();
-                    const day = String(selectedDate.getDate()).padStart(2, '0');
-                    const monthName = String(months[selectedDate.getMonth()]).padStart(2, '0');
-
-                    document.getElementById('task-due-date-picker').value = `${year}-${monthName}-${day}`;
-                }
+            onSelect: (selectedDate) => {
+                if (!selectedDate) return;
+                field.value = formatDate(selectedDate);
+                onChange?.();
             }
         });
-
-        this.configureTagManager();
     }
 
     // 注入 TagManager 的联动回调：保持 TodoManager → TagManager 的单向依赖，
@@ -206,11 +225,48 @@ class TodoManager {
             searchInput: 'search-input',
             searchTagWrapper: 'search-tag-wrapper',
             searchClearBtn: 'search-clear-btn',
-            isRecurringCheckbox: 'is-recurring',
             recurringOptions: 'recurring-options',
-            recurrenceToggle: 'recurrence-toggle',
+            // 时间设置：单次任务 / 周期性任务（并列）
+            scheduleModeOnce: 'schedule-mode-once',
+            scheduleModeRecurring: 'schedule-mode-recurring',
             recurrenceCount: 'recurrence-count',
             recurrenceType: 'recurrence-type',
+            recurrenceHabitHint: 'recurrence-habit-hint',
+            // 周期配置：模式切换
+            recurrenceModeNormal: 'recurrence-mode-normal',
+            recurrenceModeCron: 'recurrence-mode-cron',
+            recurrenceNormalPanel: 'recurrence-normal-panel',
+            recurrenceCronPanel: 'recurrence-cron-panel',
+            // 每天
+            dailyModeGroup: 'daily-mode-group',
+            dailyModeTimes: 'daily-mode-times',
+            dailyModeInterval: 'daily-mode-interval',
+            dailyIntervalGroup: 'daily-interval-group',
+            dailyIntervalStart: 'daily-interval-start',
+            dailyIntervalEnd: 'daily-interval-end',
+            dailyIntervalMinutes: 'daily-interval-minutes',
+            // 每周 / 每月 / 每年
+            weeklyGroup: 'weekly-group',
+            weeklyDays: 'weekly-days',
+            monthlyGroup: 'monthly-group',
+            monthlyDays: 'monthly-days',
+            yearlyGroup: 'yearly-group',
+            yearlyMonth: 'yearly-month',
+            yearlyDay: 'yearly-day',
+            // 提醒时间点
+            recurrenceTimesGroup: 'recurrence-times-group',
+            recurrenceTimes: 'recurrence-times',
+            recurrenceAddTime: 'recurrence-add-time',
+            // Cron
+            recurrenceCron: 'recurrence-cron',
+            // 结束条件与预览
+            recurrenceEndType: 'recurrence-end-type',
+            recurrenceEndDate: 'recurrence-end-date',
+            clearRecurrenceEndDateBtn: 'clear-recurrence-end-date',
+            recurrenceEndDateGroup: 'recurrence-end-date-group',
+            recurrenceCountGroup: 'recurrence-count-group',
+            recurrencePreviewBtn: 'recurrence-preview-btn',
+            recurrencePreview: 'recurrence-preview',
             datePicker: 'task-due-date-picker',
             timeInput: 'task-due-time',
             clearDateBtn: 'clear-date',
@@ -234,7 +290,6 @@ class TodoManager {
             addTaskFab: 'add-task-fab',
             taskModalClose: 'modal-close',
             taskCancelBtn: 'cancel-btn',
-            recurrenceError: 'recurrence-error',
             datetimeError: 'datetime-error',
             emptyState: 'empty-state',
             parentTaskCombobox: 'parent-task-combobox',
@@ -303,8 +358,22 @@ class TodoManager {
         // 更多选项展开/收起按钮
         this.moreOptionsToggle?.addEventListener('click', () => this.toggleMoreOptions());
 
-        // 周期性任务复选框
-        this.isRecurringCheckbox?.addEventListener('change', (e) => this.toggleRecurringOptions());
+        // 时间设置：单次任务 / 周期性任务切换
+        document.querySelectorAll('input[name="schedule-mode"]').forEach((radio) => {
+            radio.addEventListener('change', () => this.updateScheduleMode());
+        });
+
+        // 周期配置：模式 / 周期 / 提醒方式 / 结束方式切换
+        document.querySelectorAll('input[name="recurrence-mode"]').forEach((radio) => {
+            radio.addEventListener('change', () => this.updateRecurrencePanels());
+        });
+        document.querySelectorAll('input[name="daily-mode"]').forEach((radio) => {
+            radio.addEventListener('change', () => this.updateRecurrencePanels());
+        });
+        this.recurrenceType?.addEventListener('change', () => this.updateRecurrencePanels());
+        this.recurrenceEndType?.addEventListener('change', () => this.updateRecurrencePanels());
+        this.recurrenceAddTime?.addEventListener('click', () => this.addRecurrenceTimeChip());
+        this.recurrencePreviewBtn?.addEventListener('click', () => this.previewRecurrence());
 
         // 日期时间清空按钮
         this.clearDateBtn?.addEventListener('click', () => {
@@ -317,6 +386,11 @@ class TodoManager {
             this.clearTimeBtn.classList.remove('visible');
             this.addInputValueListeners();
         });
+        this.clearRecurrenceEndDateBtn?.addEventListener('click', () => {
+            this.recurrenceEndDate.value = '';
+            this.recurrenceEndPikaday?.setDate?.(null);
+            this.clearRecurrencePreview();
+        });
 
         // 绑定分页相关的监听事件
         this.firstBtn?.addEventListener('click', () => this.goToPage(1));
@@ -328,8 +402,14 @@ class TodoManager {
         // 任务列表显示列配置
         this.bindColumnConfigEvents();
 
-        // 语言切换后刷新列表（表头与列内容文案跟随语言变化）
-        window.languageManager?.addObserver?.(() => this.renderTasks());
+        // 语言切换后刷新列表（表头与列内容文案跟随语言变化），
+        // 并重建周期性任务的星期 / 日期选择器文案（保留已选值）
+        window.languageManager?.addObserver?.(() => {
+            this.renderTasks();
+            this.initRecurrencePickers();
+            // 「截止日期 / 起始日期」标签随模式切换，语言变化后需要重新渲染
+            this.updateScheduleMode();
+        });
     }
 
     // ============ 任务列表显示列配置 ============
@@ -579,15 +659,334 @@ class TodoManager {
         this.moreOptionsToggle.classList.remove('expanded');
         this.moreOptionsToggle.querySelector('.toggle-icon').textContent = '+';
 
-        // 重置周期性任务选项
-        this.isRecurringCheckbox.checked = false;
+        // 默认回到「单次任务」
+        if (this.scheduleModeOnce) this.scheduleModeOnce.checked = true;
         this.recurringOptions.style.display = 'none';
+        this.datePicker.required = false;
+        this.timeInput.required = false;
 
-        // 重置循环次数的必填状态
-        this.recurrenceCount.required = false;
-        this.recurrenceCount.value = '';
         this.recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
-        this.recurrenceType.value = '';
+        this.resetRecurrenceConfig();
+    }
+
+    // ============ 周期性任务规则配置 ============
+
+    // 重置周期规则的全部控件到默认状态
+    resetRecurrenceConfig() {
+        if (this.recurrenceModeNormal) this.recurrenceModeNormal.checked = true;
+        if (this.recurrenceModeCron) this.recurrenceModeCron.checked = false;
+        if (this.recurrenceType) this.recurrenceType.value = '';
+        if (this.dailyModeTimes) this.dailyModeTimes.checked = true;
+        if (this.dailyModeInterval) this.dailyModeInterval.checked = false;
+        if (this.dailyIntervalStart) this.dailyIntervalStart.value = '09:00';
+        if (this.dailyIntervalEnd) this.dailyIntervalEnd.value = '18:00';
+        if (this.dailyIntervalMinutes) this.dailyIntervalMinutes.value = '60';
+        if (this.recurrenceCron) this.recurrenceCron.value = '';
+        // 默认「习惯」：只保留一条待办，避免一次创建大量任务
+        if (this.recurrenceEndType) this.recurrenceEndType.value = 'habit';
+        if (this.recurrenceCount) this.recurrenceCount.value = '';
+        if (this.recurrenceEndDate) {
+            this.recurrenceEndDate.value = '';
+            // 同步清掉日历内部的选中态，否则重开日历仍高亮上一次的日期
+            this.recurrenceEndPikaday?.setDate?.(null);
+        }
+
+        // 重建星期 / 日期选择器并清空已选
+        this.initRecurrencePickers({ clear: true });
+
+        const today = new Date();
+        if (this.yearlyMonth) this.yearlyMonth.value = String(today.getMonth() + 1);
+        if (this.yearlyDay) this.yearlyDay.value = String(today.getDate());
+
+        if (this.recurrenceTimes) {
+            this.recurrenceTimes.innerHTML = '';
+            this.addRecurrenceTimeChip('09:00');
+        }
+        this.clearRecurrencePreview();
+        this.updateRecurrencePanels();
+    }
+
+    // 构建星期 / 每月日期 / 每年月日的选项（语言切换时重建，默认保留已选值）
+    initRecurrencePickers({ clear = false } = {}) {
+        const lang = (key, fallback) => window.languageManager.getText(key, fallback);
+        const buildChips = (container, selected, items) => {
+            if (!container) return;
+            container.innerHTML = '';
+            items.forEach(({ value, text }) => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'chip-option';
+                // 「最后一天」这类非数字选项独占一行横向排布，
+                // 否则它会在日期网格里占一个格子并把整行文字挤到换行
+                if (Number(value) < 0) chip.classList.add('chip-option--wide');
+                chip.dataset.value = String(value);
+                chip.textContent = text;
+                chip.classList.toggle('active', !clear && selected.includes(value));
+                chip.addEventListener('click', () => {
+                    chip.classList.toggle('active');
+                    this.clearRecurrencePreview();
+                });
+                container.appendChild(chip);
+            });
+        };
+
+        // 星期：ISO 1-7（周一 ~ 周日）
+        buildChips(this.weeklyDays, this.getSelectedWeekdays(),
+            [1, 2, 3, 4, 5, 6, 7].map((value) => ({
+                value,
+                text: lang(`recurrenceWeekdays.${value - 1}`,
+                    ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][value - 1]),
+            })));
+
+        // 每月日期：1-31 加上「最后一天」
+        const monthItems = Array.from({ length: 31 }, (_, index) => ({
+            value: index + 1,
+            text: String(index + 1),
+        }));
+        monthItems.push({ value: -1, text: lang('recurrenceLastDay', '最后一天') });
+        buildChips(this.monthlyDays, this.getSelectedMonthDays(), monthItems);
+
+        // 每年：月份与日期
+        if (this.yearlyMonth) {
+            const current = this.yearlyMonth.value;
+            this.yearlyMonth.innerHTML = '';
+            for (let month = 1; month <= 12; month += 1) {
+                this.yearlyMonth.appendChild(
+                    new Option(lang('recurrenceMonthUnit', '{month}月').replace('{month}', month), month));
+            }
+            if (!clear && current) this.yearlyMonth.value = current;
+        }
+        if (this.yearlyDay) {
+            const current = this.yearlyDay.value;
+            this.yearlyDay.innerHTML = '';
+            for (let day = 1; day <= 31; day += 1) {
+                this.yearlyDay.appendChild(
+                    new Option(lang('recurrenceDayUnit', '{day}日').replace('{day}', day), day));
+            }
+            this.yearlyDay.appendChild(new Option(lang('recurrenceLastDay', '最后一天'), -1));
+            if (!clear && current) this.yearlyDay.value = current;
+        }
+    }
+
+    getSelectedWeekdays() {
+        return [...(this.weeklyDays?.querySelectorAll('.chip-option.active') || [])]
+            .map((chip) => parseInt(chip.dataset.value, 10))
+            .filter((value) => !Number.isNaN(value));
+    }
+
+    getSelectedMonthDays() {
+        return [...(this.monthlyDays?.querySelectorAll('.chip-option.active') || [])]
+            .map((chip) => parseInt(chip.dataset.value, 10))
+            .filter((value) => !Number.isNaN(value));
+    }
+
+    getRecurrenceTimes() {
+        return [...(this.recurrenceTimes?.querySelectorAll('input[type="time"]') || [])]
+            .map((input) => input.value)
+            .filter((value) => !!value);
+    }
+
+    // 新增一个提醒时间点输入项
+    addRecurrenceTimeChip(value = '') {
+        if (!this.recurrenceTimes) return;
+        // 每年只做单次提醒
+        const max = this.recurrenceType?.value === 'yearly' ? 1 : 20;
+        if (this.recurrenceTimes.children.length >= max) {
+            Utils.showToast(window.languageManager.getText('errorRecurrenceTimesLimit',
+                RECURRENCE_ERROR_MESSAGES.errorRecurrenceTimesLimit), 'warning');
+            return;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'time-chip';
+        const index = document.createElement('span');
+        index.className = 'time-chip__index';
+
+        const input = document.createElement('input');
+        input.type = 'time';
+        input.step = '60';
+        input.className = 'time-chip__input';
+        input.value = value;
+        input.addEventListener('change', () => this.clearRecurrencePreview());
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn--colorless time-chip__remove';
+        remove.textContent = '×';
+        remove.title = window.languageManager.getText('delete', '删除');
+        remove.addEventListener('click', () => {
+            item.remove();
+            // 至少保留一个输入项，避免用户无从填写
+            if (!this.recurrenceTimes.children.length) this.addRecurrenceTimeChip();
+            this.refreshTimeChipIndexes();
+            this.clearRecurrencePreview();
+        });
+
+        item.append(index, input, remove);
+        this.recurrenceTimes.appendChild(item);
+        this.refreshTimeChipIndexes();
+    }
+
+    // 刷新提醒时间点的序号（删除后保持连续）
+    refreshTimeChipIndexes() {
+        [...(this.recurrenceTimes?.children || [])].forEach((chip, position) => {
+            const badge = chip.querySelector('.time-chip__index');
+            if (badge) badge.textContent = String(position + 1);
+        });
+    }
+
+    // 按当前模式 / 周期显示对应的配置项
+    updateRecurrencePanels() {
+        const show = (element, visible) => {
+            if (element) element.style.display = visible ? '' : 'none';
+        };
+        const isCron = !!this.recurrenceModeCron?.checked;
+        const freq = this.recurrenceType?.value;
+        const isDailyInterval = !isCron && freq === 'daily' && !!this.dailyModeInterval?.checked;
+        const isDailyTimes = !isCron && freq === 'daily' && !isDailyInterval;
+
+        show(this.recurrenceNormalPanel, !isCron);
+        show(this.recurrenceCronPanel, isCron);
+
+        show(this.dailyModeGroup, !isCron && freq === 'daily');
+        show(this.dailyIntervalGroup, isDailyInterval);
+        show(this.weeklyGroup, !isCron && freq === 'weekly');
+        show(this.monthlyGroup, !isCron && freq === 'monthly');
+        show(this.yearlyGroup, !isCron && freq === 'yearly');
+        // 时间点：每天-指定时间点 / 每周 / 每月 / 每年
+        show(this.recurrenceTimesGroup,
+            isDailyTimes || (!isCron && ['weekly', 'monthly', 'yearly'].includes(freq)));
+
+        // 每年只保留一个时间点
+        if (freq === 'yearly' && this.recurrenceTimes?.children.length > 1) {
+            [...this.recurrenceTimes.children].slice(1).forEach((child) => child.remove());
+        }
+
+        const endType = this.recurrenceEndType?.value || 'habit';
+        show(this.recurrenceCountGroup, endType === 'count');
+        show(this.recurrenceEndDateGroup, endType === 'date');
+        // 面板隐藏时收起日历，避免浮层残留在页面上
+        if (endType !== 'date') this.recurrenceEndPikaday?.hide?.();
+        // 习惯：只保留一条待办，完成后才续建，因此不需要次数 / 结束日期
+        show(this.recurrenceHabitHint, endType === 'habit');
+
+        // 同步分段控件的选中态（不依赖 CSS :has，兼容旧版内核）
+        document.querySelectorAll('.segmented .segmented-item').forEach((item) => {
+            item.classList.toggle('active', !!item.querySelector('input[type="radio"]')?.checked);
+        });
+
+        this.clearRecurrencePreview();
+    }
+
+    // 收集当前表单上的周期规则
+    collectRecurrenceRule() {
+        const isCron = !!this.recurrenceModeCron?.checked;
+        const endType = this.recurrenceEndType?.value || 'habit';
+        const rule = {
+            mode: isCron ? 'cron' : 'normal',
+            endType,
+            count: endType === 'count' ? (parseInt(this.recurrenceCount?.value, 10) || null) : null,
+            endDate: endType === 'date' ? (this.recurrenceEndDate?.value || null) : null,
+        };
+
+        if (isCron) {
+            rule.cron = (this.recurrenceCron?.value || '').trim();
+            return rule;
+        }
+
+        return Object.assign(rule, {
+            freq: this.recurrenceType?.value || null,
+            dailyMode: this.dailyModeInterval?.checked ? 'interval' : 'times',
+            times: this.getRecurrenceTimes(),
+            intervalStart: this.dailyIntervalStart?.value || null,
+            intervalEnd: this.dailyIntervalEnd?.value || null,
+            intervalMinutes: parseInt(this.dailyIntervalMinutes?.value, 10) || null,
+            weekdays: this.getSelectedWeekdays(),
+            monthDays: this.getSelectedMonthDays(),
+            yearlyMonth: this.yearlyMonth?.value ? parseInt(this.yearlyMonth.value, 10) : null,
+            yearlyDay: this.yearlyDay?.value !== '' && this.yearlyDay?.value !== undefined
+                ? parseInt(this.yearlyDay.value, 10) : null,
+        });
+    }
+
+    // 校验周期规则，返回错误文案的 i18n key（通过时返回 null）
+    validateRecurrenceRule(rule) {
+        if (rule.mode === 'cron') {
+            return rule.cron ? null : 'errorRecurrenceCronRequired';
+        }
+        if (!rule.freq) return 'errorRecurrenceTypeRequired';
+
+        if (rule.freq === 'daily') {
+            if (rule.dailyMode === 'interval') {
+                if (!rule.intervalStart || !rule.intervalEnd) return 'errorRecurrenceIntervalRequired';
+                if (rule.intervalEnd <= rule.intervalStart) return 'errorRecurrenceIntervalOrder';
+                if (!(rule.intervalMinutes >= 1 && rule.intervalMinutes <= 1440)) {
+                    return 'errorRecurrenceIntervalMinutes';
+                }
+            } else if (!rule.times.length) {
+                return 'errorRecurrenceTimesRequired';
+            }
+        } else if (rule.freq === 'weekly') {
+            if (!rule.weekdays.length) return 'errorRecurrenceWeekdaysRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        } else if (rule.freq === 'monthly') {
+            if (!rule.monthDays.length) return 'errorRecurrenceMonthDaysRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        } else if (rule.freq === 'yearly') {
+            if (!rule.yearlyMonth || rule.yearlyDay === null) return 'errorRecurrenceYearlyRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        }
+
+        if (rule.endType === 'count' && (!rule.count || rule.count < 1)) return 'errorRecurrenceCountRequired';
+        if (rule.endType === 'date' && !rule.endDate) return 'errorRecurrenceEndDateRequired';
+        return null;
+    }
+
+    clearRecurrencePreview() {
+        if (!this.recurrencePreview) return;
+        this.recurrencePreview.style.display = 'none';
+        this.recurrencePreview.innerHTML = '';
+    }
+
+    // 预览周期规则接下来会产生的提醒时间
+    async previewRecurrence() {
+        const rule = this.collectRecurrenceRule();
+        const errorKey = this.validateRecurrenceRule(rule);
+        if (errorKey) {
+            Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
+            return;
+        }
+        await Utils.apiCall({
+            apiMethod: 'preview_recurring_occurrences',
+            apiArgs: [this.getTodayISO(), rule, 10],
+            onSuccess: (response) => {
+                const occurrences = response.data || [];
+                const preview = this.recurrencePreview;
+                if (!preview) return;
+
+                if (!occurrences.length) {
+                    preview.textContent = window.languageManager.getText('recurrencePreviewEmpty',
+                        '当前规则没有匹配到提醒时间，请调整配置');
+                    preview.style.display = 'block';
+                    return;
+                }
+
+                // 习惯类任务每次只保留一条待办，预览只展示首次提醒
+                const title = rule.endType === 'habit'
+                    ? window.languageManager.getText('recurrencePreviewHabitTitle', '首次提醒时间：')
+                    : window.languageManager.getText('recurrencePreviewTitle', '接下来 10 次提醒：');
+                const items = occurrences
+                    .map((iso) => `<li>${iso.slice(0, 16).replace('T', ' ')}</li>`)
+                    .join('');
+                const footer = rule.endType === 'habit'
+                    ? `<div class="recurrence-preview__hint">${window.languageManager.getText(
+                        'recurrenceHabitHint', '每次只保留一条待办，完成后才按周期生成下一条')}</div>`
+                    : '';
+                preview.innerHTML =
+                    `<div class="recurrence-preview__title">${title}</div><ul>${items}</ul>${footer}`;
+                preview.style.display = 'block';
+            }
+        });
     }
     
     // 展开"更多选项"（用于让自动填充的父任务等字段对用户可见）
@@ -621,24 +1020,35 @@ class TodoManager {
         if (notice) notice.remove();
     }
     
-    // 展开/收起周期性任务选项
-    toggleRecurringOptions() {
-        this.recurrenceError.textContent =
-            window.languageManager.getText('recurringErrorNotice', '周期性任务，日期不能为空，否则无法确定周期开始时间');
-
-        const isChecked = this.isRecurringCheckbox.checked;
-        this.recurringOptions.style.display = isChecked ? 'block' : 'none';
-        this.recurrenceCount.required = isChecked;
-        this.datePicker.required = isChecked;
-        this.timeInput.required = isChecked;
-        this.recurrenceCount.placeholder = window.languageManager.getText('recurrenceCountRequired', '循环次数不能为空');
-
-        const hasError = isChecked && (!this.datePicker.value || !this.timeInput.value);
-        this.recurrenceError.style.display = hasError ? 'block' : 'none';
-        this.datePicker.style.borderColor = hasError ? 'var(--danger-color)' : '';
-        this.timeInput.style.borderColor = hasError ? 'var(--danger-color)' : '';
+    // 当前时间设置模式：once（单次带截止时间） / recurring（周期性任务）
+    getScheduleMode() {
+        return this.scheduleModeRecurring?.checked ? 'recurring' : 'once';
     }
-    
+
+    // 周期起始日期：规则里已包含完整周期配置，默认从今天开始，无需用户填写
+    getTodayISO() {
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    // 切换「单次任务 / 周期性任务」：两者并列互斥，切换后只展示对应配置
+    updateScheduleMode() {
+        const isRecurring = this.getScheduleMode() === 'recurring';
+        // 容器本身是纵向 flex（分区之间有间距），这里显式还原为 flex 而非 block
+        this.recurringOptions.style.display = isRecurring ? 'flex' : 'none';
+        // 周期性任务的提醒时间完全由规则决定，日期与时间都不再需要
+        const datetimeInputs = document.getElementById('datetime-inputs');
+        if (datetimeInputs) datetimeInputs.style.display = isRecurring ? 'none' : '';
+        this.datePicker.required = false;
+        this.timeInput.required = false;
+        // 分段控件选中态由 CSS :has 之外的 class 维护（兼容旧内核）
+        document.querySelectorAll('#schedule-mode-switch .segmented-item').forEach((item) => {
+            item.classList.toggle('active', !!item.querySelector('input[type="radio"]')?.checked);
+        });
+        if (isRecurring) this.updateRecurrencePanels();
+    }
+
     // 添加输入值变化监听
     addInputValueListeners() {
         const setError = (valid, msg) => {
@@ -647,10 +1057,14 @@ class TodoManager {
             const color = valid ? '' : 'var(--danger-color)';
             this.datePicker.style.borderColor = color;
             this.timeInput.style.borderColor = color;
-            if (valid) this.toggleRecurringOptions();
         };
 
         const validate = () => {
+            // 周期性任务没有日期时间输入，提醒时间由规则决定，无需校验
+            if (this.getScheduleMode() === 'recurring') {
+                setError(true, '');
+                return;
+            }
             const { valid, message } = BusinessUtils.DateTimeValidator.validateDateTime(
                 this.datePicker.value || null,
                 this.timeInput.value || null
@@ -2195,40 +2609,35 @@ class TodoManager {
         await this.loadParentTaskOptions(parentId);
     }
     
-    // 禁用周期性任务选项
+    // 禁用周期模式切换（编辑模式下不允许把任务改成周期性任务）
     disableRecurringOptions() {
-        // 禁用复选框和相关选项
-        this.isRecurringCheckbox.disabled = true;
-        this.isRecurringCheckbox.checked = false;
-        this.isRecurringCheckbox.title = '编辑模式下不支持创建周期性任务';
-        this.recurrenceToggle.style.display = 'none';
-        this.isRecurringCheckbox.style.display = 'none';
+        // 固定为「单次任务」
+        if (this.scheduleModeOnce) this.scheduleModeOnce.checked = true;
+        document.querySelectorAll('input[name="schedule-mode"]').forEach((radio) => {
+            radio.disabled = true;
+        });
+        document.getElementById('schedule-mode-switch')?.classList.add('is-disabled');
 
         // 隐藏周期性选项区域
         this.recurringOptions.style.display = 'none';
-
-        // 重置相关字段
-        this.recurrenceType.value = '';
-        this.recurrenceType.disabled = true;
-        this.recurrenceCount.value = '';
-        this.recurrenceCount.disabled = true;
+        this.datePicker.required = false;
+        this.timeInput.required = false;
+        this.resetRecurrenceConfig();
+        this.updateScheduleMode();
     }
     
-    // 启用周期性任务选项
+    // 启用周期模式切换（新建任务模式下允许）
     enableRecurringOptions() {
-        // 启用复选框
-        this.isRecurringCheckbox.disabled = false;
-        this.isRecurringCheckbox.checked = false;
-        this.isRecurringCheckbox.title = '';
-        this.recurrenceToggle.style.display = 'flex';
-        this.isRecurringCheckbox.style.display = 'block';
-
-        // 启用其他字段
-        this.recurrenceType.disabled = false;
-        this.recurrenceCount.disabled = false;
+        document.querySelectorAll('input[name="schedule-mode"]').forEach((radio) => {
+            radio.disabled = false;
+        });
+        document.getElementById('schedule-mode-switch')?.classList.remove('is-disabled');
+        if (this.scheduleModeOnce) this.scheduleModeOnce.checked = true;
 
         // 确保周期性选项区域是隐藏的（默认状态）
         this.recurringOptions.style.display = 'none';
+        this.resetRecurrenceConfig();
+        this.updateScheduleMode();
     }
     
     // 加载分类选项
@@ -2259,16 +2668,22 @@ class TodoManager {
 
         const dateStr = this.datePicker.value || null;
         const timeStr = this.timeInput.value || null;
-        
-        // 校验截止时间
-        const dateTimeValidation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
-        if (!dateTimeValidation.valid) {
-            Utils.showToast(dateTimeValidation.message, 'warning');
-            return;
+
+        // 周期性任务不再要求填写起始日期，默认从今天开始；提醒时间点由周期规则决定
+        const isRecurringTask = !isEdit && this.getScheduleMode() === 'recurring';
+
+        if (!isRecurringTask) {
+            const dateTimeValidation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
+            if (!dateTimeValidation.valid) {
+                Utils.showToast(dateTimeValidation.message, 'warning');
+                return;
+            }
         }
-        
+
         let isoDateStr = null;
         if (dateStr && timeStr) isoDateStr = `${dateStr}T${timeStr}`;
+        else if (dateStr) isoDateStr = dateStr;
+        if (isRecurringTask) isoDateStr = this.getTodayISO();
 
         const parentTaskId = this.taskParent.value || null;
 
@@ -2285,27 +2700,29 @@ class TodoManager {
         // 编辑模式下强制清除周期性任务相关数据
         if (!isEdit) {
             // 只有在新建模式下才允许设置周期性任务
-            taskData.isRecurring = this.isRecurringCheckbox.checked;
-            taskData.recurrenceType = this.recurrenceType.value || null;
-            taskData.recurrenceCount = this.recurrenceCount.value ?
-                parseInt(this.recurrenceCount.value) : null;
-
-            // 验证周期性任务的必填项
-            if (taskData.isRecurring) {
-                if (!taskData.recurrenceType) {
-                    Utils.showToast(window.languageManager.getText('errorRecurrenceTypeRequired', '请选择重复周期'), 'warning');
+            taskData.isRecurring = isRecurringTask;
+            if (isRecurringTask) {
+                const rule = this.collectRecurrenceRule();
+                const errorKey = this.validateRecurrenceRule(rule);
+                if (errorKey) {
+                    Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
                     return;
                 }
-                if (!taskData.recurrenceCount || taskData.recurrenceCount < 1) {
-                    Utils.showToast(window.languageManager.getText('errorRecurrenceCountRequired', '请输入有效的循环次数'), 'warning');
-                    return;
-                }
+                taskData.recurrenceRule = rule;
+                // 兼容旧字段：供列表展示与历史数据读取
+                taskData.recurrenceType = rule.mode === 'cron' ? 'cron' : rule.freq;
+                taskData.recurrenceCount = rule.endType === 'count' ? rule.count : null;
+            } else {
+                taskData.recurrenceRule = null;
+                taskData.recurrenceType = null;
+                taskData.recurrenceCount = null;
             }
         } else {
             // 编辑模式下确保不会提交周期性任务数据
             taskData.isRecurring = false;
             taskData.recurrenceType = null;
             taskData.recurrenceCount = null;
+            taskData.recurrenceRule = null;
         }
         
         if (!taskData.title) {

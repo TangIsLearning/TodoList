@@ -472,9 +472,9 @@ class LanguageManager {
         const tagsLabel = document.querySelector('.form-group label[for="tags-selector"]');
         if (tagsLabel) tagsLabel.innerHTML = `${lang.taskTags} <span style="color: #999; font-size: 12px;">${lang.optional}</span>`;
         
-        // 截止日期标签
-        const dueDateLabel = document.querySelector('.datetime-group label');
-        if (dueDateLabel) dueDateLabel.innerHTML = `${lang.taskDueDate} <span style="color: #666; font-size: 12px;">${lang.optional}</span>`;
+        // 截止日期标签（仅单次任务使用该字段）
+        const dueDateLabel = document.getElementById('date-field-label');
+        if (dueDateLabel) dueDateLabel.textContent = lang.taskDueDate;
 
         // 优先级选项
         const priorityOptions = document.querySelectorAll('#task-priority option');
@@ -500,25 +500,59 @@ class LanguageManager {
             }
         }
         
-        // 周期性任务选项
-        const recurrenceToggle = document.getElementById('recurrence-toggle');
-        if (recurrenceToggle) recurrenceToggle.textContent = lang.createRecurringTask;
+        // 时间设置：单次任务 / 周期性任务（并列二选一）
+        const recurrenceTypeLabels = [lang.recurrenceChoose, lang.recurrenceDaily,
+            lang.recurrenceWeekly, lang.recurrenceMonthly, lang.recurrenceYearly];
+        document.querySelectorAll('#recurrence-type option').forEach((option, index) => {
+            if (recurrenceTypeLabels[index]) option.textContent = recurrenceTypeLabels[index];
+        });
 
-        const recurrenceTypeLabel = document.querySelector('label[for="recurrence-type"]');
-        if (recurrenceTypeLabel) recurrenceTypeLabel.textContent = lang.recurrenceType;
+        // 结束方式：习惯 / 按次数 / 按日期
+        const recurrenceEndTypeLabels = [lang.recurrenceEndHabit, lang.recurrenceEndByCount,
+            lang.recurrenceEndByDate];
+        document.querySelectorAll('#recurrence-end-type option').forEach((option, index) => {
+            if (recurrenceEndTypeLabels[index]) option.textContent = recurrenceEndTypeLabels[index];
+        });
 
-        const recurrenceCountLabel = document.querySelector('label[for="recurrence-count"]');
-        if (recurrenceCountLabel) recurrenceCountLabel.textContent = lang.recurrenceCount;
+        // 周期性任务其余静态文案（id → 文案）
+        const recurrenceTexts = {
+            'schedule-mode-label': lang.scheduleMode,
+            'schedule-mode-once-text': lang.scheduleModeOnce,
+            'schedule-mode-recurring-text': lang.scheduleModeRecurring,
+            'time-field-label': lang.timeLabel,
+            'recurrence-habit-hint': lang.recurrenceHabitHint,
+            'recurrence-mode-label': lang.recurrenceMode,
+            'recurrence-mode-normal-text': lang.recurrenceModeNormal,
+            'recurrence-mode-cron-text': lang.recurrenceModeCron,
+            'recurrence-type-label': lang.recurrenceTypeLabel,
+            'daily-mode-label': lang.recurrenceDailyMode,
+            'daily-mode-times-text': lang.recurrenceDailyModeTimes,
+            'daily-mode-interval-text': lang.recurrenceDailyModeInterval,
+            'daily-interval-label': lang.dailyIntervalLabel,
+            'daily-interval-start-label': lang.recurrenceIntervalStartShort,
+            'daily-interval-end-label': lang.recurrenceIntervalEndShort,
+            'daily-interval-minutes-label': lang.recurrenceIntervalMinutes,
+            'recurrence-times-label': lang.recurrenceTimes,
+            'recurrence-add-time': lang.recurrenceAddTime,
+            'weekly-days-label': lang.recurrenceWeeklyDays,
+            'weekly-days-hint': lang.recurrenceWeeklyDaysHint,
+            'monthly-days-label': lang.recurrenceMonthlyDays,
+            'monthly-days-hint': lang.recurrenceMonthlyDaysHint,
+            'yearly-label': lang.recurrenceYearlyLabel,
+            'yearly-month-label': lang.recurrenceYearlyMonth,
+            'yearly-day-label': lang.recurrenceYearlyDay,
+            'recurrence-cron-label': lang.recurrenceCron,
+            'recurrence-cron-hint': lang.recurrenceCronHint,
+            'recurrence-end-type-label': lang.recurrenceEndType,
+            'recurrence-count-label': lang.recurrenceCountLabel,
+            'recurrence-end-date-label': lang.recurrenceEndDate,
+            'recurrence-preview-btn': lang.recurrencePreviewBtn,
+        };
+        Object.entries(recurrenceTexts).forEach(([id, text]) => {
+            const element = document.getElementById(id);
+            if (element && text) element.textContent = text;
+        });
 
-        const recurrenceTypeOptions = document.querySelectorAll('#recurrence-type option');
-        if (recurrenceTypeOptions.length >= 5) {
-            recurrenceTypeOptions[0].textContent = lang.recurrenceChoose;
-            recurrenceTypeOptions[1].textContent = lang.recurrenceDaily;
-            recurrenceTypeOptions[2].textContent = lang.recurrenceWeekly;
-            recurrenceTypeOptions[3].textContent = lang.recurrenceMonthly;
-            recurrenceTypeOptions[4].textContent = lang.recurrenceYearly;
-        }
-        
         const recurrenceCountInput = document.getElementById('recurrence-count');
         if (recurrenceCountInput) recurrenceCountInput.placeholder = lang.recurrenceCountRequired;
 

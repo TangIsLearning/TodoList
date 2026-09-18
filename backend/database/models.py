@@ -16,7 +16,8 @@ class Task:
                  due_date: Optional[datetime] = None, is_recurring: bool = False,
                  recurrence_type: Optional[str] = None, recurrence_interval: int = 1,
                  recurrence_count: Optional[int] = None,
-                 parent_task_id: Optional[str] = None) -> None:
+                 parent_task_id: Optional[str] = None,
+                 recurrence_rule: Optional[str] = None) -> None:
         self.id = id or str(uuid.uuid4())
         self.title = title
         self.description = description
@@ -25,10 +26,11 @@ class Task:
         self.category_id = category_id
         self.due_date = due_date
         self.is_recurring = is_recurring  # 是否为周期性任务
-        self.recurrence_type = recurrence_type  # 'daily', 'weekly', 'monthly', 'yearly'
+        self.recurrence_type = recurrence_type  # 'daily', 'weekly', 'monthly', 'yearly', 'cron'
         self.recurrence_interval = recurrence_interval  # 间隔数
         self.recurrence_count = recurrence_count  # 循环次数，None表示无限循环
         self.parent_task_id = parent_task_id  # 父任务ID，用于周期性任务的子任务
+        self.recurrence_rule = recurrence_rule  # 完整周期规则（JSON 字符串），仅父任务持有
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
 
@@ -46,6 +48,7 @@ class Task:
             'recurrenceInterval': self.recurrence_interval,
             'recurrenceCount': self.recurrence_count,
             'parentTaskId': self.parent_task_id,
+            'recurrenceRule': self.recurrence_rule,
             'createdAt': self.created_at.isoformat(),
             'updatedAt': self.updated_at.isoformat()
         }
@@ -65,7 +68,8 @@ class Task:
             recurrence_type=data.get('recurrenceType'),
             recurrence_interval=data.get('recurrenceInterval', 1),
             recurrence_count=data.get('recurrenceCount'),
-            parent_task_id=data.get('parentTaskId')
+            parent_task_id=data.get('parentTaskId'),
+            recurrence_rule=data.get('recurrenceRule')
         )
         if 'createdAt' in data:
             task.created_at = datetime.fromisoformat(data['createdAt'])

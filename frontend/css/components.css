@@ -52,6 +52,7 @@
 
 .btn--width-100 { --width: 100%; }
 .btn--padding-md { padding: var(--spacing-sm) var(--spacing-md); }
+.btn--padding-sm { padding: var(--spacing-xs) var(--spacing-sm); }
 .btn--font-size-lg { --font-size: var(--font-size-lg) !important; }
 
 /* 移动/悬停 -> 深色（利用 filter 亮度，一招通吃所有颜色） */
@@ -301,10 +302,24 @@
     font-weight: 500;
 }
 
+/* 统一的自定义控件外观。
+
+   时间设置与周期性任务的配置项为了排版需要不再层层嵌套 `.form-group`，
+   这里把同一样式显式覆盖到它们的控件上，保证和优先级 / 分类等下拉
+   在边框、圆角、行高上完全一致（否则会退回浏览器默认外观）。
+   选择器按容器收敛到具体层级，避免误伤嵌在分段控件里的 radio / checkbox。 */
 .form-group input,
 .form-group textarea,
-.form-group select {
+.form-group select,
+.datetime-inputs input,
+.datetime-inputs select,
+.mini-field input,
+.mini-field select,
+.recur-section > input,
+.recur-section > select {
+    box-sizing: border-box;
     width: 100%;
+    height: 40px;
     padding: var(--spacing-sm) var(--spacing-md);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm);
@@ -384,11 +399,6 @@
     min-width: 0;
 }
 
-/* 日期时间组特殊样式 */
-.datetime-group {
-    width: 100%;
-}
-
 /* 输入框和清空按钮的容器 */
 .input-wrapper {
     position: relative;
@@ -436,7 +446,7 @@
 }
 
 /* 日期时间校验错误消息样式 */
-.datetime-error, .recurrence-error {
+.datetime-error {
     color: var(--danger-color);
     font-size: var(--font-size-sm);
     margin-top: var(--spacing-xs);
@@ -448,7 +458,7 @@
     animation: fadeIn 0.3s ease-in-out;
 }
 
-.datetime-error.show, .recurrence-error.show {
+.datetime-error.show {
     display: block;
 }
 
@@ -470,7 +480,13 @@
 
 .form-group input:focus,
 .form-group textarea:focus,
-.form-group select:focus {
+.form-group select:focus,
+.datetime-inputs input:focus,
+.datetime-inputs select:focus,
+.mini-field input:focus,
+.mini-field select:focus,
+.recur-section > input:focus,
+.recur-section > select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px var(--focus-ring);
@@ -1062,6 +1078,316 @@
 
 .recurring-delete-option-label .secondary {
     font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* ---------- 时间设置：单次任务 / 周期性任务 ---------- */
+
+.schedule-group {
+    margin-bottom: var(--spacing-sm);
+}
+
+.schedule-group .schedule-group__label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 分段控件（模式切换） */
+.segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+/* 撑满一行的等分版本，更像「标签页」 */
+.segmented--block {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    width: 100%;
+}
+
+.segmented.is-disabled {
+    opacity: 0.55;
+}
+
+.segmented.is-disabled .segmented-item {
+    cursor: not-allowed;
+}
+
+/* 选择器需要压过 `.form-group label`，否则处于表单组内的分段项会被
+   追加 `margin-bottom`，导致上下留白不等宽显得突兀 */
+.segmented .segmented-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    min-height: 30px;
+    /* 上下内边距一致，保证文字在两个分段里垂直居中位置相同 */
+    padding: 6px var(--spacing-md);
+    line-height: 18px;
+    border-radius: calc(var(--border-radius) - 2px);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: var(--transition-fast);
+}
+
+.segmented-item input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.segmented-item:hover {
+    color: var(--text-primary);
+}
+
+.segmented-item.active {
+    background-color: var(--primary-color);
+    color: var(--on-primary);
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* 日期 / 时间字段：自带小标签，两种时间模式共用 */
+.datetime-inputs {
+    align-items: start;
+}
+
+.field-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.field-block__label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.datetime-error {
+    margin-top: var(--spacing-xs);
+}
+
+/* ---------- 周期性任务配置 ----------
+
+   整块不套边框、不做卡片悬浮：与优先级 / 分类等选项保持同一种「轻量分组」
+   观感，只用小标题 + 间距切分层次。 */
+
+.recurring-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+}
+
+.recur-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.recur-section__title {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+}
+
+/* 分区内的二级配置块：仅靠左侧细线与主层级区分 */
+.recur-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-left: var(--spacing-sm);
+    border-left: 1px solid var(--border-light);
+}
+
+.recur-block__title {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+/* 紧凑排布的小字段（时间段、每年月日等） */
+.mini-grid {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.mini-grid--1 { grid-template-columns: 1fr; }
+.mini-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mini-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.mini-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.mini-field__label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.mini-field input,
+.mini-field select {
+    width: 100%;
+    min-width: 0;
+}
+
+/* 星期 / 日期多选 */
+.chip-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.chip-picker--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    gap: 6px;
+}
+
+.chip-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 30px;
+    padding: 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    /* 文本不换行：中文在窄格子里折行会把整行撑高，导致同一排的日期变形 */
+    white-space: nowrap;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.chip-option:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.chip-option.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--on-primary);
+}
+
+/* 文字较长的选项（如「最后一天」）独占一行横向排列，避免挤压日期格子 */
+.chip-option--wide {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+}
+
+/* 提醒时间点 */
+.time-chip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.time-chip {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.time-chip__index {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    font-size: var(--font-size-xs);
+    line-height: 18px;
+    text-align: center;
+    color: var(--text-secondary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+}
+
+.time-chip__input {
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 40px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition-fast);
+}
+
+.time-chip__input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.time-chip__remove {
+    flex: 0 0 auto;
+    font-size: var(--font-size-lg);
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.time-chip__remove:hover {
+    color: var(--danger-color);
+}
+
+.recurrence-hint {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* 预览结果 */
+.recurrence-preview {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+}
+
+.recurrence-preview__title {
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+}
+
+.recurrence-preview ul {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    max-height: 160px;
+    overflow-y: auto;
+    color: var(--text-secondary);
+}
+
+.recurrence-preview__hint {
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
 

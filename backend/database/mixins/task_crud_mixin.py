@@ -9,15 +9,22 @@ from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Task
 from backend.database.query.builder import SearchClauseBuilder
 from backend.database.query.parser import parse_search_query
-
-# recurrence_count 为空（无限循环）时，周期性任务最多生成的任务总数（含父任务）
-MAX_RECURRENCE_OCCURRENCES = 200
+from backend.database.recurrence import (
+    END_HABIT,
+    MAX_RECURRENCE_OCCURRENCES,
+    build_occurrences,
+    next_occurrence_after,
+    normalize_rule,
+    parse_date,
+    rule_from_json,
+    rule_to_json,
+)
 
 # 任务统一查询列：顺序即 _row_to_task 依赖的顺序，INSERT 复用同一份列名
 _TASK_COLUMNS = (
     'id, title, description, completed, priority, category_id, due_date, '
     'is_recurring, recurrence_type, recurrence_interval, recurrence_count, '
-    'parent_task_id, created_at, updated_at'
+    'parent_task_id, created_at, updated_at, recurrence_rule'
 )
 _COLUMN_COUNT = len(_TASK_COLUMNS.split(','))
 
@@ -45,6 +52,32 @@ _RECURRENCE_STEPS = {
     'yearly': lambda n: relativedelta(years=n),
 }
 
+
+def _legacy_occurrences(start: datetime, recurrence_type: Optional[str],
+                        recurrence_interval: Any,
+                        recurrence_count: Any) -> List[datetime]:
+    """历史数据（仅 recurrence_type + interval）的发生时间，用于兼容旧周期任务。"""
+    step = _RECURRENCE_STEPS.get(recurrence_type or '')
+    if not step:
+        return []
+
+    try:
+        interval = max(1, int(recurrence_interval or 1))
+    except (TypeError, ValueError):
+        interval = 1
+
+    # recurrence_count 表示任务总数（含父任务）；为空时按上限截断
+    try:
+        total = int(recurrence_count) if recurrence_count else MAX_RECURRENCE_OCCURRENCES
+    except (TypeError, ValueError):
+        total = MAX_RECURRENCE_OCCURRENCES
+    total = max(1, min(total, MAX_RECURRENCE_OCCURRENCES))
+
+    occurrences = [start]
+    while len(occurrences) < total:
+        occurrences.append(occurrences[-1] + step(interval))
+    return occurrences
+
 # 允许部分更新的字段：前端驼峰键 → 数据库列名
 _TASK_FIELD_MAP: Dict[str, str] = {
     'title': 'title',
@@ -58,6 +91,7 @@ _TASK_FIELD_MAP: Dict[str, str] = {
     'recurrenceInterval': 'recurrence_interval',
     'recurrenceCount': 'recurrence_count',
     'parentTaskId': 'parent_task_id',
+    'recurrenceRule': 'recurrence_rule',
 }
 
 
@@ -72,12 +106,31 @@ def _as_iso_date(value: Union[str, date]) -> str:
     return value.isoformat() if isinstance(value, date) else str(value)
 
 
+def _parse_task_datetime(value: Any) -> Optional[datetime]:
+    """解析任务里存的截止时间字符串（'YYYY-MM-DD' 或完整 ISO 串）。"""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _dump_rule(value: Any) -> Optional[str]:
+    """把前端传入的周期规则（dict / JSON 字符串）序列化为存储用的 JSON 字符串。"""
+    if not value:
+        return None
+    return rule_to_json(normalize_rule(value))
+
+
 def _normalize_task_value(column: str, value: Any) -> Any:
     """把前端传入的值归一化成可写入数据库的形式。"""
     if isinstance(value, bool):
         return int(value)
     if column == 'due_date' and isinstance(value, (datetime, date)):
         return value.isoformat()
+    if column == 'recurrence_rule' and not isinstance(value, (str, type(None))):
+        return _dump_rule(value)
     return value
 
 
@@ -202,6 +255,8 @@ class TaskCrudMixin:
             'recurrenceInterval': row['recurrence_interval'] if row['recurrence_interval'] is not None else 1,
             'recurrenceCount': row['recurrence_count'],
             'parentTaskId': row['parent_task_id'],
+            # 规则以 JSON 字符串存储，直接透传给前端（前端可回显编辑）
+            'recurrenceRule': rule_from_json(row['recurrence_rule']),
             'createdAt': row['created_at'],
             'updatedAt': row['updated_at'],
             'tags': tags if tags is not None else [],
@@ -228,6 +283,7 @@ class TaskCrudMixin:
             int(bool(task.is_recurring)), task.recurrence_type, task.recurrence_interval,
             task.recurrence_count, task.parent_task_id,
             task.created_at.isoformat(), task.updated_at.isoformat(),
+            task.recurrence_rule,
         )
 
     # ------------------------------------------------------------------ #
@@ -248,6 +304,7 @@ class TaskCrudMixin:
             recurrence_interval=task_data.get('recurrenceInterval', 1),
             recurrence_count=task_data.get('recurrenceCount'),
             parent_task_id=task_data.get('parentTaskId'),
+            recurrence_rule=_dump_rule(task_data.get('recurrenceRule')),
         )
 
         with self.tx() as conn:
@@ -539,9 +596,13 @@ class TaskCrudMixin:
     def create_recurring_tasks(self, parent_task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建周期性任务系列（父任务 + 子任务在同一事务内写入）
 
-        recurrence_count 为空表示无限循环，此时按 MAX_RECURRENCE_OCCURRENCES 截断，
+        周期由 ``recurrenceRule``（普通模式 / Cron 模式）描述，按规则展开出全部发生时间：
+        第一个发生时间落在父任务上，其余作为子任务写入。
+
+        结束条件为空（永不结束）时按 MAX_RECURRENCE_OCCURRENCES 截断，
         避免无限生成任务写满磁盘。
         """
+        rule = normalize_rule(parent_task_data.get('recurrenceRule'))
         parent_task = Task(
             title=parent_task_data.get('title', ''),
             description=parent_task_data.get('description', ''),
@@ -554,6 +615,7 @@ class TaskCrudMixin:
             recurrence_interval=parent_task_data.get('recurrenceInterval', 1),
             recurrence_count=parent_task_data.get('recurrenceCount'),
             parent_task_id=None,
+            recurrence_rule=rule_to_json(rule),
         )
 
         children = self._build_recurring_children(parent_task)
@@ -571,38 +633,116 @@ class TaskCrudMixin:
 
     @staticmethod
     def _build_recurring_children(parent_task: Task) -> List[Task]:
-        """按周期规则生成子任务列表（不含父任务本身）。"""
-        step = _RECURRENCE_STEPS.get(parent_task.recurrence_type or '')
-        if not step or parent_task.due_date is None:
+        """按周期规则生成子任务列表（不含父任务本身）。
+
+        规则优先使用 ``recurrence_rule``；历史数据没有规则时退回旧的
+        ``recurrence_type + recurrence_interval`` 步进方式，保证兼容。
+        """
+        if parent_task.due_date is None:
             return []
 
-        try:
-            interval = max(1, int(parent_task.recurrence_interval or 1))
-        except (TypeError, ValueError):
-            interval = 1
+        rule = rule_from_json(parent_task.recurrence_rule)
+        occurrences = build_occurrences(parent_task.due_date.date(), rule) if rule else None
+        if occurrences is None:
+            # 无规则（历史数据）：沿用按类型步进的旧逻辑
+            occurrences = _legacy_occurrences(
+                parent_task.due_date,
+                parent_task.recurrence_type,
+                parent_task.recurrence_interval,
+                parent_task.recurrence_count,
+            )
 
-        # recurrence_count 表示任务总数（含父任务）；为空时按上限截断
-        try:
-            total = int(parent_task.recurrence_count) if parent_task.recurrence_count else MAX_RECURRENCE_OCCURRENCES
-        except (TypeError, ValueError):
-            total = MAX_RECURRENCE_OCCURRENCES
-        total = max(1, min(total, MAX_RECURRENCE_OCCURRENCES))
+        if not occurrences:
+            return []
 
-        children: List[Task] = []
-        current_date = parent_task.due_date
-        while len(children) + 1 < total:
-            current_date = current_date + step(interval)
-            children.append(Task(
+        # 第一个发生时间就是父任务自身的截止时间，其余作为子任务
+        parent_task.due_date = occurrences[0]
+        return [
+            Task(
                 title=parent_task.title,
                 description=parent_task.description,
                 completed=False,
                 priority=parent_task.priority,
                 category_id=parent_task.category_id,
-                due_date=current_date,
+                due_date=occurrence,
                 is_recurring=False,
                 parent_task_id=parent_task.id,
-            ))
-        return children
+            )
+            for occurrence in occurrences[1:]
+        ]
+
+    def is_habit_task(self, task_id: str) -> bool:
+        """任务是否属于「习惯」类周期任务（完成后只续建一条，不会无限生成）。"""
+        return self._habit_root_and_rule(task_id)[1] is not None
+
+    def _habit_root_and_rule(self, task_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """取习惯任务的「根任务」与其规则；非习惯任务返回 ``(None, None)``。
+
+        规则存放在周期族的根任务上（``is_recurring=1``），当前待办可能是根任务
+        自身，也可能是它续建出来的子实例，两者共用同一份规则。
+        """
+        task = self.get_task(task_id)
+        if not task:
+            return None, None
+
+        root = task
+        if not task.get('isRecurring') and task.get('parentTaskId'):
+            root = self.get_task(task['parentTaskId']) or task
+
+        rule = normalize_rule(root.get('recurrenceRule'))
+        if not rule or rule.get('endType') != END_HABIT:
+            return None, None
+        return root, rule
+
+    def create_next_habit_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """习惯任务完成后续建下一条待办。
+
+        按「根任务规则 + 已完成任务的截止时间」算出下一个发生时间并写入新实例，
+        同时只存在一条未完成实例，从根本上避免无限创建任务。非习惯任务返回 None。
+        """
+        root, rule = self._habit_root_and_rule(task_id)
+        if root is None or rule is None:
+            return None
+
+        task = self.get_task(task_id)
+        if not task:
+            return None
+
+        completed_at = _parse_task_datetime(task.get('dueDate')) or datetime.now()
+        start_date = parse_date(root.get('dueDate')) or completed_at.date()
+        next_due = next_occurrence_after(start_date, rule, completed_at)
+        if next_due is None:
+            return None
+
+        next_task = Task(
+            title=root.get('title', ''),
+            description=root.get('description', ''),
+            completed=False,
+            priority=root.get('priority', 'none'),
+            category_id=root.get('categoryId'),
+            due_date=next_due,
+            is_recurring=False,
+            parent_task_id=root['id'],
+        )
+
+        with self.tx() as conn:
+            # 同一周期族里已经存在更晚的实例时不再续建：
+            # 避免「完成 -> 重新开启 -> 再完成」这类反复操作生成重复待办
+            later = conn.execute(
+                'SELECT id FROM tasks WHERE id != ? AND due_date > ? '
+                'AND (parent_task_id = ? OR id = ?) LIMIT 1',
+                (task_id, completed_at.isoformat(), root['id'], root['id']),
+            ).fetchone()
+            if later:
+                return None
+
+            conn.execute(_INSERT_TASK_SQL, self._task_to_params(next_task))
+            # 标签随习惯继承，避免续建的待办丢失筛选维度
+            self._replace_tags(conn, next_task.id,
+                               [tag.get('name') for tag in (root.get('tags') or []) if tag.get('name')])
+            row = conn.execute(f'{_TASK_SELECT} WHERE id = ?', (next_task.id,)).fetchone()
+
+        return self._row_to_task(row) if row else None
 
     def _recurring_family_ids(self, conn: sqlite3.Connection, task_id: str) -> List[str]:
         """在同一事务内取出周期任务族（父任务 + 全部子任务）的 id。
