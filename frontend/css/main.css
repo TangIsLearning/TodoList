@@ -542,6 +542,17 @@ input:checked + .slider:before {
     background-color: var(--bg-tertiary);
 }
 
+.device-item.is-loading {
+    pointer-events: none;
+    opacity: 0.6;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.device-item.is-selected {
+    border-color: var(--primary-color);
+    background-color: var(--bg-tertiary);
+}
+
 .device-name {
     font-weight: 500;
     color: var(--text-primary);

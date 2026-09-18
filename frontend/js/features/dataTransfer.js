@@ -8,6 +8,7 @@ class DataTransfer {
         this.currentMode = 'share';
         this.sharedData = null;
         this.isInitialized = false;
+        this.isReceiving = false;
 
         try {
             // 获取DOM元素
@@ -243,13 +244,29 @@ class DataTransfer {
     }
 
     async receiveData(ip) {
-        this.deviceList.innerHTML = '<p style="text-align: center;">正在接收数据...</p>';
+        // 防止重复点击导致并发接收
+        if (this.isReceiving) return;
+
+        const item = this.deviceList.querySelector(`.device-item[data-ip="${ip}"]`);
+        const ipSpan = item?.querySelector('.device-ip');
+        const originalIpText = ipSpan?.textContent;
+
+        // 只在被点击的设备项上展示接收中状态，保留设备列表，避免整块重绘
+        this.isReceiving = true;
+        item?.classList.add('is-loading');
+        if (ipSpan) ipSpan.textContent = '正在接收数据...';
+
         await Utils.apiCall({
             apiMethod: 'p2p_receive_data',
             apiArgs: [ip],
             onSuccess: (response) => {
                 const data = response.data;
                 if (data) {
+                    // 高亮当前数据来源设备
+                    this.deviceList.querySelectorAll('.device-item.is-selected')
+                        .forEach(el => el.classList.remove('is-selected'));
+                    item?.classList.add('is-selected');
+
                     this.displayReceivedData(data);
                     this.receiveDataPreviewSection.style.display = 'block';
 
@@ -264,8 +281,12 @@ class DataTransfer {
                 }
             },
             onError: (error) => {
-                this.deviceList.innerHTML = `<p style="text-align: center;">${window.languageManager.getText('receiveDataFailed', '接收数据失败')}</p>`;
                 Utils.showToast(`${window.languageManager.getText('receiveDataFailed', '接收数据失败')}: ${error.message}`, 'error');
+            },
+            onFinally: () => {
+                this.isReceiving = false;
+                item?.classList.remove('is-loading');
+                if (ipSpan) ipSpan.textContent = originalIpText;
             }
         });
     }
@@ -285,8 +306,6 @@ class DataTransfer {
             <p><strong>${window.languageManager.getText('attachmentRecords', '附件记录数')}:</strong> ${attachmentCount}</p>
             <p><strong>${window.languageManager.getText('attachmentFiles', '附件文件数')}:</strong> ${attachmentFileCount}</p>
         `;
-
-        this.scanDevicesBtn.click();
     }
 
     async confirmImport() {
@@ -337,6 +356,8 @@ class DataTransfer {
     cancelImport() {
         this.receiveDataPreviewSection.style.display = 'none';
         this.importWarning.style.display = 'none';
+        this.deviceList?.querySelectorAll('.device-item.is-selected')
+            .forEach(el => el.classList.remove('is-selected'));
         // 释放后端缓存的接收数据（可能包含较大的附件实体文件）
         Utils.apiCall({ apiMethod: 'p2p_clear_received_data' });
     }
