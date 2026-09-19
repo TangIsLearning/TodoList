@@ -1,0 +1,493 @@
+/**
+ * 任务管理 - 搜索 chips 与子任务搜索建议（mixin）
+ * 依赖：todo.js（TodoManager 类），须在 todo.js 之后加载
+ */
+
+Object.assign(TodoManager.prototype, {
+    // ===== 标签筛选状态访问（对标签模块与统计模块的统一出口） =====
+
+    // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
+    getTagFilterChips() {
+        return this.searchChips.filter(chip => chip.type === 'tag' && chip.value);
+    },
+
+    // 列表筛选中的标签 id（尚无 id 的名称型 chip 不在其中）
+    getTagFilterIds() {
+        return this.getTagFilterChips()
+            .filter(chip => chip.tagId)
+            .map(chip => chip.tagId);
+    },
+
+    // 列表筛选中的标签名称（供统计等模块展示当前标签筛选）
+    getTagFilterNames() {
+        return this.getTagFilterChips().map(chip => chip.value);
+    },
+
+    // 清空全部搜索 chips 并同步视图（左侧标签选中态 + 清空按钮显隐）。
+    // 只负责视图与状态，不触发重新加载，由调用方决定何时 loadTasks。
+    clearSearchChips() {
+        if (this.searchChips.length === 0) {
+            this.tagManager.refreshSelection();
+            return false;
+        }
+        this.searchChips = [];
+        this.renderSearchChips();
+        this.tagManager.refreshSelection();
+        this.updateSearchClearButton();
+        return true;
+    },
+
+    // ===== 搜索标签 chips 相关 =====
+    // 初始化搜索标签输入框
+    initSearchTagInput() {
+        // 键盘交互：空格提交 #标签、退格删除最后一个 chip、回车提交/搜索
+        this.searchInput.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
+
+        // 输入变化：实时更新清空按钮，并防抖触发搜索（自由文本搜索）
+        // 当输入以 ">" 开头（且无 chip）时，进入子任务建议模式：仅刷新下拉，不重载主列表
+        this.searchInput.addEventListener('input', () => {
+            this.updateSearchClearButton();
+            if (this.isSubtaskSuggestMode(this.searchInput.value)) {
+                // 仍以 ">" 开头但文本已被改写时，之前选中的父任务精确ID不再可信，
+                // 清除后自动回退为按名称解析
+                if (this.subtaskParent.title
+                    && this.searchInput.value.trim() !== `>${this.subtaskParent.title}`) {
+                    this.setSubtaskParent(null, null);
+                }
+                this.scheduleSubtaskSuggestions(250);
+            } else {
+                // 退出 ">" 子任务搜索模式，清除记录的父任务
+                this.setSubtaskParent(null, null);
+                this.hideSubtaskSuggestions();
+                this.scheduleSearch(300);
+            }
+        });
+        this.searchInput.addEventListener('change', () => this.updateSearchClearButton());
+
+        // 失焦时延时关闭下拉（延时以允许点击命中建议项）
+        this.searchInput.addEventListener('blur', () => {
+            setTimeout(() => this.hideSubtaskSuggestions(), 150);
+        });
+
+        // 点击 wrapper 空白区域时聚焦输入框
+        this.searchTagWrapper.addEventListener('click', (e) => {
+            if (e.target === this.searchInput) return;
+            if (e.target.classList && e.target.classList.contains('search-chip-remove')) return;
+            this.searchInput.focus();
+        });
+
+        // 初始渲染（空）
+        this.renderSearchChips();
+    },
+
+    // 处理搜索输入框的键盘事件
+    handleSearchKeydown(e) {
+        const searchInput = e.target;
+        const val = searchInput.value;
+        const tagPattern = TAG_INPUT_PATTERN;
+
+        // 子任务建议下拉的键盘交互（仅当处于 ">" 模式且下拉有项时）
+        if (this.isSubtaskSuggestMode(val) && this._subtaskSuggestItems.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this._subtaskSuggestIndex = (this._subtaskSuggestIndex + 1) % this._subtaskSuggestItems.length;
+                this._highlightSubtaskSuggestion();
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this._subtaskSuggestIndex = (this._subtaskSuggestIndex - 1 + this._subtaskSuggestItems.length) % this._subtaskSuggestItems.length;
+                this._highlightSubtaskSuggestion();
+                return;
+            }
+            if (e.key === 'Enter' && this._subtaskSuggestIndex >= 0) {
+                const item = this._subtaskSuggestItems[this._subtaskSuggestIndex];
+                if (item) {
+                    e.preventDefault();
+                    this.selectSubtaskSuggestion(item.title, item.id);
+                    return;
+                }
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.hideSubtaskSuggestions();
+                return;
+            }
+        }
+
+        // 空格：若当前输入是一个完整的 #标签，则提交为 chip
+        if ((e.key === ' ' || e.code === 'Space') && tagPattern.test(val)) {
+            e.preventDefault();
+            this.addSearchChip({ type: 'tag', value: val.substring(1) });
+            searchInput.value = '';
+            this.syncSearchQuery(0);
+            return;
+        }
+
+        // 退格：输入框为空时删除最后一个 chip
+        if (e.key === 'Backspace' && val === '' && this.searchChips.length > 0) {
+            e.preventDefault();
+            this.removeSearchChip(this.searchChips.length - 1);
+            this.syncSearchQuery(0);
+            return;
+        }
+
+        // 回车：提交 #标签（若是），并触发搜索
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (tagPattern.test(val)) {
+                this.addSearchChip({ type: 'tag', value: val.substring(1) });
+                searchInput.value = '';
+            }
+            this.hideSubtaskSuggestions();
+            this.syncSearchQuery(0);
+            return;
+        }
+    },
+
+    // 若输入框内容是完整的 #标签，提交为 chip（用于搜索按钮点击）
+    commitInputAsChipIfTag() {
+        const val = this.searchInput.value.trim();
+        if (TAG_INPUT_PATTERN.test(val)) {
+            this.addSearchChip({ type: 'tag', value: val.substring(1) });
+            this.searchInput.value = '';
+        }
+    },
+
+    // 创建一个 chip DOM 元素
+    createChipElement(chip) {
+        const el = document.createElement('span');
+        el.className = 'search-chip';
+        const label = chip.type === 'tag' ? '#' + chip.value : chip.value;
+        el.innerHTML = `
+            <span class="search-chip-label"></span>
+            <span class="search-chip-remove" title="移除">×</span>
+        `;
+        el.querySelector('.search-chip-label').textContent = label;
+        el.querySelector('.search-chip-remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = this.searchChips.indexOf(chip);
+            if (idx !== -1) {
+                this.removeSearchChip(idx);
+                this.syncSearchQuery(0);
+            }
+        });
+        this._chipEls.set(chip, el);
+        return el;
+    },
+
+    // 全量重建所有 chips（插入到输入框之前）
+    // 仅用于批量替换（如保存任务后整体重建标签筛选、外部模块清空筛选）；
+    // 单个 chip 的增删走 addSearchChip / removeSearchChip 的增量路径，避免整排重绘
+    renderSearchChips() {
+        // 清除旧 chips
+        this.searchTagWrapper.querySelectorAll('.search-chip').forEach(el => el.remove());
+        // 在输入框前依次插入
+        this.searchChips.forEach(chip => {
+            this.searchTagWrapper.insertBefore(this.createChipElement(chip), this.searchInput);
+        });
+    },
+
+    // 添加一个 chip（自动按名称匹配已有标签以补全 tagId/color，去重）
+    addSearchChip(chip) {
+        if (!chip || !chip.value) return false;
+        // 标签类型：若没有 tagId，尝试按名称匹配已加载的标签
+        if (chip.type === 'tag' && !chip.tagId) {
+            const match = this.tagManager.getTags().find(t => t.name.toLowerCase() === chip.value.toLowerCase());
+            if (match) {
+                chip.tagId = match.id;
+                chip.color = chip.color || match.color;
+            }
+        }
+        // 去重（按类型 + 值，忽略大小写）
+        const exists = this.searchChips.some(c =>
+            c.type === chip.type && c.value.toLowerCase() === chip.value.toLowerCase());
+        if (exists) return false;
+        this.searchChips.push(chip);
+        // 增量插入单个 chip，不重建整排
+        this.searchTagWrapper.insertBefore(this.createChipElement(chip), this.searchInput);
+        return true;
+    },
+
+    // 移除指定索引的 chip
+    removeSearchChip(index) {
+        if (index < 0 || index >= this.searchChips.length) return false;
+        const [chip] = this.searchChips.splice(index, 1);
+        // 增量移除对应 DOM，不重建整排
+        const el = this._chipEls.get(chip);
+        if (el) {
+            el.remove();
+            this._chipEls.delete(chip);
+        }
+        return true;
+    },
+
+    // 按 tagId 移除 chip（用于标签模块取消选择）
+    removeSearchChipByTagId(tagId) {
+        const idx = this.searchChips.findIndex(c => c.type === 'tag' && c.tagId === tagId);
+        if (idx !== -1) {
+            this.removeSearchChip(idx);
+            return true;
+        }
+        return false;
+    },
+
+    // 切换左侧标签的 chip 选择状态
+    toggleTagChip(tagId) {
+        const tag = this.tagManager.getTags().find(t => t.id === tagId);
+        if (!tag) return;
+        const existing = this.searchChips.findIndex(c => c.type === 'tag' && c.tagId === tagId);
+        if (existing !== -1) {
+            this.removeSearchChip(existing);
+        } else {
+            this.addSearchChip({ type: 'tag', value: tag.name, tagId: tag.id, color: tag.color });
+        }
+        this.syncSearchQuery(0);
+    },
+
+    // 将 chips + 输入框文本转换为后端 query 解析层支持的结构化查询对象。
+    // 三种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
+    //   tags     - 标签 chips（有 tagId 时带精确 id，否则按名称匹配）
+    //   keywords - 文本 chips + 输入框文本
+    //   parent   - 输入以 ">" 开头时，查询该父任务的直接子任务
+    buildSearchQuery() {
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        const isParentMode = this.isSubtaskSuggestMode(inputText);
+
+        const tags = this.getTagFilterChips()
+            .map(chip => (chip.tagId
+                ? { id: chip.tagId, name: chip.value }
+                : { name: chip.value }));
+
+        // 单独的 "#" 是快捷筛选"含标签任务"，不参与普通文本匹配
+        const isAnyTag = inputText === '#';
+
+        // 父任务模式下，输入框文本已被父任务消费，不再作为普通关键词
+        const keywords = this.searchChips
+            .filter(chip => chip.type !== 'tag' && chip.value)
+            .map(chip => chip.value);
+        if (!isParentMode && !isAnyTag && inputText) keywords.push(inputText);
+
+        let parent = null;
+        if (isParentMode) {
+            const name = inputText.substring(1).trim();
+            if (name) {
+                parent = { id: this.subtaskParent.id || null, name };
+            }
+        }
+
+        return { tags, keywords, parent, anyTag: isAnyTag };
+    },
+
+    // 同步 searchQuery、清空按钮、标签模块选中态，并触发搜索
+    syncSearchQuery(delay = 0) {
+        this.searchQuery = this.buildSearchQuery();
+        this.updateSearchClearButton();
+        this.tagManager.refreshSelection();
+        this.scheduleSearch(delay);
+    },
+
+    // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
+    // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
+    _syncStatsFilterIfVisible() {
+        const cm = window.calendarManager;
+        if (cm && cm.currentView === 'stats' && window.statsManager) {
+            window.statsManager.reloadStatsIfVisible();
+        }
+    },
+
+    // 防抖触发搜索任务加载
+    scheduleSearch(delay = 300) {
+        if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(async () => {
+            this._searchDebounceTimer = null;
+            this.searchQuery = this.buildSearchQuery();
+            this.currentPage = 1;
+            this.customDateFilter = null; // 清除自定义日期筛选
+            this.resetInfiniteScroll(); // 重置无限下拉状态
+            await this.loadTasks();
+        }, delay);
+    },
+
+    // ===== 子任务搜索建议下拉（输入 ">" 触发） =====
+    // 判断当前是否处于子任务建议模式：输入以 ">" 开头。
+    // 仅输入 ">" 时关键字为空，后端返回"有子任务的父任务"列表供选择，因此不能要求后面必须有内容。
+    // 标签 chips 允许与父任务条件并存（后端按 AND 组合），因此不再要求 chips 为空。
+    isSubtaskSuggestMode(value) {
+        const v = (value || '').trim();
+        return v.startsWith('>');
+    },
+
+    // 防抖拉取「有子任务的父任务」建议
+    // 调用后端前，自动将搜索内容 ">" 转换为后端支持的关键字（剥离 ">" 前缀并 trim）
+    scheduleSubtaskSuggestions(delay = 250) {
+        if (this._subtaskSuggestTimer) clearTimeout(this._subtaskSuggestTimer);
+        this._subtaskSuggestTimer = setTimeout(async () => {
+            this._subtaskSuggestTimer = null;
+            // 防抖期间状态可能变化，再次确认仍处于 ">" 模式
+            if (!this.isSubtaskSuggestMode(this.searchInput.value)) {
+                this.hideSubtaskSuggestions();
+                return;
+            }
+            // 转换：剥离 ">" 前缀并 trim，得到后端支持的关键字
+            const keyword = this.searchInput.value.trim().substring(1).trim();
+            await Utils.apiCall({
+                apiMethod: 'search_tasks_with_subtasks',
+                apiArgs: [keyword, 5],
+                onSuccess: (response) => this.renderSubtaskSuggestions(response.data || []),
+                onError: () => this.hideSubtaskSuggestions()
+            });
+        }, delay);
+    },
+
+    // 下拉容器按需创建（初始不在 DOM 中），统一做惰性解析并缓存引用
+    _getSubtaskDropdown() {
+        if (!this.dropdown || !this.dropdown.isConnected) {
+            this.dropdown = document.getElementById('subtask-suggestions');
+        }
+        return this.dropdown;
+    },
+
+    // 渲染建议下拉（至多 5 条）
+    renderSubtaskSuggestions(tasks) {
+        let dropdown = document.getElementById('subtask-suggestions');
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.id = 'subtask-suggestions';
+            dropdown.className = 'subtask-suggestions';
+            this.searchTagWrapper.appendChild(dropdown);
+        }
+        // 缓存引用：否则 hideSubtaskSuggestions/_highlightSubtaskSuggestion 拿到的是 null，
+        // 下拉会一直停在那里关不掉、键盘上下选择也会报错
+        this.dropdown = dropdown;
+        dropdown.innerHTML = '';
+        this._subtaskSuggestItems = (tasks || []).slice(0, 5);
+        this._subtaskSuggestIndex = -1;
+
+        if (this._subtaskSuggestItems.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'subtask-suggestion-empty';
+            empty.textContent = window.languageManager
+                ? window.languageManager.getText('subtaskSuggestEmpty', '无匹配的父任务')
+                : '无匹配的父任务';
+            dropdown.appendChild(empty);
+            dropdown.classList.add('visible');
+            return;
+        }
+
+        const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢', none: '⚪' };
+        const unitText = window.languageManager
+            ? window.languageManager.getText('subtaskUnit', '子任务')
+            : '子任务';
+        this._subtaskSuggestItems.forEach((task, idx) => {
+            const item = document.createElement('div');
+            item.className = 'subtask-suggestion-item';
+            item.dataset.index = String(idx);
+
+            const titleEl = document.createElement('span');
+            titleEl.className = 'subtask-suggestion-title';
+            const emoji = priorityEmoji[task.priority] || '⚪';
+            titleEl.textContent = `${emoji} ${task.title}`;
+
+            const countEl = document.createElement('span');
+            countEl.className = 'subtask-suggestion-count';
+            countEl.textContent = `${task.subtaskCount} ${unitText}`;
+
+            // mousedown 阻止默认行为，防止输入框失焦导致下拉先被关闭
+            item.addEventListener('mousedown', (e) => e.preventDefault());
+            item.addEventListener('click', () => this.selectSubtaskSuggestion(task.title, task.id));
+
+            item.appendChild(titleEl);
+            item.appendChild(countEl);
+            dropdown.appendChild(item);
+        });
+        dropdown.classList.add('visible');
+    },
+
+    // 高亮当前选中的建议项并滚动到可见
+    _highlightSubtaskSuggestion() {
+        const dropdown = this._getSubtaskDropdown();
+        if (!dropdown) return;
+        const items = dropdown.querySelectorAll('.subtask-suggestion-item');
+        items.forEach((el, i) => el.classList.toggle('active', i === this._subtaskSuggestIndex));
+        const active = dropdown.querySelector('.subtask-suggestion-item.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    },
+
+    // 搜索框当前是否处于"按父任务查子任务"模式，且已确定到具体的父任务。
+    // 返回 { id, title }；仅输入 ">" 但未选中具体父任务（无 id），或文本已被改写时返回 null。
+    getSubtaskParentFilter() {
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        if (!this.isSubtaskSuggestMode(inputText)) return null;
+        if (!this.subtaskParent.id) return null;
+        if (this.subtaskParent.title && inputText !== `>${this.subtaskParent.title}`) return null;
+        return {
+            id: this.subtaskParent.id,
+            title: this.subtaskParent.title || inputText.substring(1).trim()
+        };
+    },
+
+    // 记录当前子任务搜索对应的父任务（id 用于精确查询，title 用于校验搜索文本是否被改写）
+    setSubtaskParent(id, title) {
+        const cleanTitle = (title || '').trim() || null;
+        this.subtaskParent = {
+            // 没有标题就无法判断搜索文本是否仍指向该父任务，此时连 id 一起丢弃，
+            // 否则残留的失效 id 会让后续查询命中错误的父任务（表现为查不到子任务）
+            id: cleanTitle ? (id || null) : null,
+            title: cleanTitle
+        };
+    },
+
+    // 选中某条建议：填充 ">+精确标题" 并触发现有子任务搜索流程
+    // id 为父任务精确ID，用于避免同名任务导致按标题解析到错误的父任务
+    selectSubtaskSuggestion(title, id = null) {
+        this.setSubtaskParent(id, title);
+        this.searchInput.value = '>' + title;
+        this.hideSubtaskSuggestions();
+        this.syncSearchQuery(0);
+    },
+
+    // 隐藏建议下拉并清理状态
+    hideSubtaskSuggestions() {
+        if (this._subtaskSuggestTimer) {
+            clearTimeout(this._subtaskSuggestTimer);
+            this._subtaskSuggestTimer = null;
+        }
+        const dropdown = this._getSubtaskDropdown();
+        if (dropdown) dropdown.classList.remove('visible');
+        this._subtaskSuggestItems = [];
+        this._subtaskSuggestIndex = -1;
+    },
+
+
+    // 清空搜索
+    async clearSearch() {
+        if (this._searchDebounceTimer) {
+            clearTimeout(this._searchDebounceTimer);
+            this._searchDebounceTimer = null;
+        }
+        this.hideSubtaskSuggestions();
+        this.setSubtaskParent(null, null);
+        this.searchChips = [];
+        this.renderSearchChips();
+        this.searchInput.value = '';
+        this.searchQuery = null;
+        this.currentPage = 1;
+        this.customDateFilter = null;
+        this.resetInfiniteScroll(); // 重置无限下拉状态
+        this.tagManager.refreshSelection();
+        await this.loadTasks();
+        this.updateSearchClearButton();
+    },
+
+    // 更新搜索清空按钮状态
+    updateSearchClearButton() {
+        const hasText = this.searchInput.value.trim().length > 0;
+        const hasChips = this.searchChips.length > 0;
+        if (hasText || hasChips) {
+            this.searchClearBtn.classList.add('visible');
+        } else {
+            this.searchClearBtn.classList.remove('visible');
+        }
+    },
+});

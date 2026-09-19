@@ -62,9 +62,7 @@ class App {
     
     // 绑定全局事件
     bindGlobalEvents() {
-        // 设置中心按钮
-        const settingsBtn = document.getElementById('settings-btn');
-        settingsBtn?.addEventListener('click', () => window.settingsManager?.openModal());
+        // 设置中心按钮的点击事件由 settings/settings.js 的 bindEvents 自行绑定，此处不再重复绑定
 
         // 移动端菜单按钮
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
