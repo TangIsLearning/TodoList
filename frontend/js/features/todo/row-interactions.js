@@ -9,9 +9,9 @@
  *
  * 依赖的 TodoManager 成员：
  *   状态：instances / _globalCloseHandlerBound / tasks
+ *   方法：viewTaskDetails
  *   其它控制器：ctx.actions.toggleTask / ctx.actions.deleteTask /
- *        ctx.form.editTask / ctx.form.loadSubtaskCounts / ctx.form.bindSubtaskCountEvents /
- *        ctx.detail.viewTaskDetails
+ *        ctx.form.editTask / ctx.form.loadSubtaskCounts / ctx.form.bindSubtaskCountEvents
  */
 class RowInteractionsController {
     constructor(ctx) {
@@ -36,7 +36,7 @@ class RowInteractionsController {
         scope.querySelectorAll('.btn.view').forEach(btn => {
             btn.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
-                ctx.detail.viewTaskDetails(taskId);
+                ctx.viewTaskDetails(taskId);
             };
         });
 

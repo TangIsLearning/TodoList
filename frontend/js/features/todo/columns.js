@@ -9,8 +9,8 @@
  *   DOM：tasksList / columnConfigCloseBtn / columnConfigCancelBtn /
  *        columnConfigResetBtn / columnConfigSaveBtn / columnConfigTitle /
  *        columnConfigDesc / columnConfigList
- *   其它控制器：ctx.renderer.renderTasks / ctx.detail.viewTaskDetails /
- *        ctx.detail.openListAttachment
+ *   方法：viewTaskDetails / openListAttachment
+ *   其它控制器：ctx.renderer.renderTasks
  */
 class ColumnsController {
     constructor(ctx) {
@@ -123,14 +123,14 @@ class ColumnsController {
                 const parentLink = e.target.closest('.task-parent-link[data-task-id]');
                 if (parentLink) {
                     e.stopPropagation();
-                    ctx.detail.viewTaskDetails(parentLink.dataset.taskId);
+                    ctx.viewTaskDetails(parentLink.dataset.taskId);
                     return;
                 }
 
                 const attachmentChip = e.target.closest('.task-attachment-chip[data-attachment-id]');
                 if (attachmentChip) {
                     e.stopPropagation();
-                    ctx.detail.openListAttachment(attachmentChip.dataset.taskId, attachmentChip.dataset.attachmentId);
+                    ctx.openListAttachment(attachmentChip.dataset.taskId, attachmentChip.dataset.attachmentId);
                 }
             });
         }
