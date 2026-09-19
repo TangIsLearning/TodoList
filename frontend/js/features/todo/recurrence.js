@@ -18,9 +18,6 @@
  *
  * 注意：提醒时间点的 DOM 事件回调里会调用本控制器方法，
  * 因此这些闭包通过 controller 而非 ctx 调用。
- *
- * 校验失败文案表直接挂在类上（见文件末尾 RecurrenceController.ERROR_MESSAGES），
- * 不再依赖顶层 const 与 index.html 中的脚本加载顺序。
  */
 class RecurrenceController {
     constructor(ctx) {
@@ -153,7 +150,8 @@ class RecurrenceController {
         // 每年只做单次提醒
         const max = ctx.recurrenceType && ctx.recurrenceType.value === 'yearly' ? 1 : 20;
         if (ctx.recurrenceTimes.children.length >= max) {
-            this.reportError('errorRecurrenceTimesLimit');
+            Utils.showToast(window.languageManager.getText('errorRecurrenceTimesLimit',
+                RECURRENCE_ERROR_MESSAGES.errorRecurrenceTimesLimit), 'warning');
             return;
         }
 
@@ -310,23 +308,6 @@ class RecurrenceController {
         return null;
     }
 
-    // 弹出周期规则相关提示（文案表见 RecurrenceController.ERROR_MESSAGES）
-    reportError(errorKey) {
-        Utils.showToast(
-            window.languageManager.getText(errorKey, RecurrenceController.ERROR_MESSAGES[errorKey]),
-            'warning'
-        );
-    }
-
-    // 校验并在失败时弹出提示：返回 true 表示校验通过
-    // 文案表由本控制器统一维护，调用方（预览、表单提交）无需各自拼装提示
-    validateAndReport(rule = this.collectRule()) {
-        const errorKey = this.validateRule(rule);
-        if (!errorKey) return true;
-        this.reportError(errorKey);
-        return false;
-    }
-
     clearPreview() {
         if (!this.ctx.recurrencePreview) return;
         this.ctx.recurrencePreview.style.display = 'none';
@@ -336,7 +317,11 @@ class RecurrenceController {
     // 预览周期规则接下来会产生的提醒时间
     async preview() {
         const rule = this.collectRule();
-        if (!this.validateAndReport(rule)) return;
+        const errorKey = this.validateRule(rule);
+        if (errorKey) {
+            Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
+            return;
+        }
         await Api.tasks.previewRecurring({
             apiArgs: [this.getTodayISO(), rule, 10],
             onSuccess: (response) => {
@@ -422,21 +407,3 @@ class RecurrenceController {
         if (isRecurring) this.updatePanels();
     }
 }
-
-// ===== 周期规则校验提示文案（i18n key → 中文默认值）=====
-// 采用类上赋值而非 static 字段，兼容较老的 WebView；仅供本控制器的
-// reportError / validateAndReport 使用，外部不要再直接引用。
-RecurrenceController.ERROR_MESSAGES = {
-    errorRecurrenceTypeRequired: '请选择重复周期',
-    errorRecurrenceCronRequired: '请输入 Cron 表达式',
-    errorRecurrenceTimesRequired: '请至少添加一个提醒时间点',
-    errorRecurrenceWeekdaysRequired: '请至少选择一个星期',
-    errorRecurrenceMonthDaysRequired: '请至少选择一个日期',
-    errorRecurrenceYearlyRequired: '请选择有效的月份和日期',
-    errorRecurrenceIntervalRequired: '请填写完整的时间段',
-    errorRecurrenceIntervalOrder: '时间段结束时间需晚于开始时间',
-    errorRecurrenceIntervalMinutes: '间隔分钟需在 1-1440 之间',
-    errorRecurrenceCountRequired: '请输入有效的循环次数',
-    errorRecurrenceEndDateRequired: '请选择有效的结束日期',
-    errorRecurrenceTimesLimit: '提醒时间点数量已达上限',
-};

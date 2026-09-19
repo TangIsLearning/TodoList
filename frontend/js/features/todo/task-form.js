@@ -22,10 +22,9 @@
  *        addRecurringEditNotice / addInputValueListeners / getSubtaskParentFilter /
  *        setSubtaskParent / hideSubtaskSuggestions / getTagFilterIds /
  *        renderSearchChips / buildSearchQuery / updateSearchClearButton /
- *        syncSearchQuery / collectRecurrenceRule / getTodayISO / getScheduleMode /
- *        resetRecurrenceConfig / updateScheduleMode / isMobileDevice /
- *        resetInfiniteScroll / loadTasks
- *   其它控制器：ctx.recurrence.validateAndReport（周期规则校验 + 失败提示）
+ *        syncSearchQuery / collectRecurrenceRule / validateRecurrenceRule /
+ *        getTodayISO / getScheduleMode / resetRecurrenceConfig / updateScheduleMode /
+ *        isMobileDevice / resetInfiniteScroll / loadTasks
  */
 class TaskFormController {
     constructor(ctx) {
@@ -540,7 +539,11 @@ class TaskFormController {
             taskData.isRecurring = isRecurringTask;
             if (isRecurringTask) {
                 const rule = ctx.collectRecurrenceRule();
-                if (!ctx.recurrence.validateAndReport(rule)) return;
+                const errorKey = ctx.validateRecurrenceRule(rule);
+                if (errorKey) {
+                    Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
+                    return;
+                }
                 taskData.recurrenceRule = rule;
                 // 兼容旧字段：供列表展示与历史数据读取
                 taskData.recurrenceType = rule.mode === 'cron' ? 'cron' : rule.freq;
