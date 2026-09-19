@@ -259,11 +259,13 @@ class TaskFormController {
         });
     }
 
-    // 加载子任务数量（scope 用于限定作用域，默认全文档）
-    async loadSubtaskCounts(scope = document) {
-        const root = scope || document;
-        // 先取快照：scope 可能是游离容器，节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到
-        const subtaskCountEls = Array.from(root.querySelectorAll('.subtask-count'));
+    // 加载子任务数量
+    // target 可以是查询作用域（默认全文档），也可以是调用方预先取好的元素数组：
+    // 无限下拉追加时作用域是游离容器，节点会在 await 期间被搬进文档，届时再查询会查不到
+    async loadSubtaskCounts(target = document) {
+        const subtaskCountEls = Array.isArray(target)
+            ? target
+            : Array.from((target || document).querySelectorAll('.subtask-count'));
         if (subtaskCountEls.length === 0) return;
 
         const elByTaskId = new Map(subtaskCountEls.map(el => [el.dataset.taskId, el]));
@@ -286,10 +288,14 @@ class TaskFormController {
         })));
     }
 
-    bindSubtaskCountEvents(scope = document) {
+    // 入参同 loadSubtaskCounts：查询作用域或元素数组
+    bindSubtaskCountEvents(target = document) {
         const ctx = this.ctx;
-        const root = scope || document;
-        root.querySelectorAll('.subtask-count').forEach(el => {
+        const subtaskCountEls = Array.isArray(target)
+            ? target
+            : Array.from((target || document).querySelectorAll('.subtask-count'));
+
+        subtaskCountEls.forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
 

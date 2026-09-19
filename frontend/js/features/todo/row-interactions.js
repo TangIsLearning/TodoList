@@ -18,6 +18,13 @@ class RowInteractionsController {
         const scope = root || document;
         const isFullBind = scope === document;
 
+        // scope 可能是游离容器（无限下拉追加时用的 temp）：调用方会在本函数 await 期间
+        // 把节点搬进真实文档，之后再查 scope 就只能查到空集合。
+        // 所以所有需要在 await 之后绑定的元素，都必须在这里先取成快照。
+        const editButtons = Array.from(scope.querySelectorAll('.btn.edit'));
+        const deleteButtons = Array.from(scope.querySelectorAll('.btn.delete'));
+        const subtaskCountEls = Array.from(scope.querySelectorAll('.subtask-count'));
+
         scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
@@ -243,28 +250,10 @@ class RowInteractionsController {
             ctx._globalCloseHandlerBound = true;
         }
 
-        await ctx.form.loadSubtaskCounts(scope);
-        ctx.form.bindSubtaskCountEvents(scope);
-
-        // 注入 CSS 防止移动端默认行为（只注入一次）
-        if (!document.getElementById('small-screen-task-style')) {
-            const style = document.createElement('style');
-            style.id = 'small-screen-task-style';
-            style.textContent = `
-            .small-screen-task-item {
-                user-select: none;
-                -webkit-user-select: none;
-            }
-            /* 注意：不要再给 .task-header 加 will-change: transform。
-               它会被提升为独立合成层，合成层的绘制边界按设备像素对齐，
-               而外层操作区仍按精确的小数坐标绘制，于是部分任务项（高度取整后不凑巧的那些）
-               会在卡片下边沿露出约 1px 的操作按钮颜色。
-               这里滑动用的是 left（布局属性），will-change: transform 本来也不会带来任何性能收益。 */
-        `;
-            document.head.appendChild(style);
-        }
-
-        scope.querySelectorAll('.btn.edit').forEach(btn => {
+        // 删除/编辑按钮必须赶在子任务数量请求之前绑定：
+        // 1) 无限下拉追加时 scope 是游离容器，await 期间节点已被搬进真实列表，再查 scope 只能查到空集合；
+        // 2) 请求往返期间按钮处于未绑定状态，此时点击同样会"没反应"
+        editButtons.forEach(btn => {
             const taskId = btn.dataset.taskId;
             const task = ctx.tasks.find(t => t.id === taskId);
 
@@ -293,11 +282,37 @@ class RowInteractionsController {
             }
         });
 
-        scope.querySelectorAll('.btn.delete').forEach(btn => {
+        deleteButtons.forEach(btn => {
             btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;
                 await ctx.actions.deleteTask(taskId);
             };
         });
+
+        // 子任务数量只是锦上添花的信息：请求失败不应影响列表交互，因此吞掉异常
+        try {
+            await ctx.form.loadSubtaskCounts(subtaskCountEls);
+        } catch (e) {
+            logger.warn('加载子任务数量失败:', e);
+        }
+        ctx.form.bindSubtaskCountEvents(subtaskCountEls);
+
+        // 注入 CSS 防止移动端默认行为（只注入一次）
+        if (!document.getElementById('small-screen-task-style')) {
+            const style = document.createElement('style');
+            style.id = 'small-screen-task-style';
+            style.textContent = `
+            .small-screen-task-item {
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            /* 注意：不要再给 .task-header 加 will-change: transform。
+               它会被提升为独立合成层，合成层的绘制边界按设备像素对齐，
+               而外层操作区仍按精确的小数坐标绘制，于是部分任务项（高度取整后不凑巧的那些）
+               会在卡片下边沿露出约 1px 的操作按钮颜色。
+               这里滑动用的是 left（布局属性），will-change: transform 本来也不会带来任何性能收益。 */
+        `;
+            document.head.appendChild(style);
+        }
     }
 }
