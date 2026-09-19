@@ -9,7 +9,7 @@ from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Task
 from backend.database.query.builder import SearchClauseBuilder
 from backend.database.query.parser import parse_search_query
-from backend.database.recurrence import (
+from backend.features.recurrence import (
     END_HABIT,
     MAX_RECURRENCE_OCCURRENCES,
     build_occurrences,

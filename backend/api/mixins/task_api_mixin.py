@@ -1,7 +1,7 @@
 # backend/api/mixins/task_api_mixin.py
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
-from backend.database.recurrence import (
+from backend.features.recurrence import (
     END_COUNT,
     MODE_CRON,
     PREVIEW_OCCURRENCE_LIMIT,

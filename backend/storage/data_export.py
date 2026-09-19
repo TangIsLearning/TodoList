@@ -6,16 +6,9 @@ from __future__ import annotations
 import sqlite3
 import json
 from pathlib import Path
-import sys
 from typing import Any, Callable, Dict, List, Optional
 from backend.database import schema
 from backend.utils.logger import LogManager
-
-# 添加backend目录到Python路径
-current_dir = Path(__file__).parent
-backend_dir = current_dir.parent
-if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
 
 
 class DataExportManager(LogManager):

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 from backend.database.todo_database import TodoDatabase
-from backend.database.data_export import DataExportManager
+from backend.storage.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient
 from backend.api.mixins import AllApiMixins
