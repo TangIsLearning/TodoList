@@ -109,6 +109,8 @@ class TodoManager {
         this.actions = new TaskActionsController(this);
         // 任务表单（新建/编辑/提交/父任务选择器）：实现见 TaskFormController
         this.form = new TaskFormController(this);
+        // 任务详情弹窗（取数 / HTML 拼装 / 关联任务跳转）：实现见 TaskDetailController
+        this.detail = new TaskDetailController(this);
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
         this.attachmentManager = new AttachmentManager(this);
         // 设置日期组件：单次任务截止日期 / 周期性任务结束日期共用同一套日历
@@ -436,13 +438,6 @@ class TodoManager {
         });
     }
 
-    // 打开列表中点击的附件
-    openListAttachment(taskId, attachmentId) {
-        const task = this.tasks.find(t => t.id === taskId);
-        const attachment = task && (task.attachments || []).find(a => a.id === attachmentId);
-        if (attachment) this.attachmentManager?.openAttachment(attachment);
-    }
-
     // 通用筛选器处理
     async onFilterChange(filterType, value) {
         this[filterType] = value;
@@ -673,177 +668,8 @@ class TodoManager {
     // ===== 任务表单：实现见 js/features/todo/task-form.js =====
     // 统一通过 this.form 调用，不再设门面。
 
-    // 查看任务详情
-    async viewTaskDetails(taskId) {
-        let task = this.tasks.find(t => t.id === taskId);
-
-        // 如果当前页任务中不存在该任务，再查询数据库
-        if (!task) {
-            await Api.tasks.get({
-                apiArgs: [taskId],
-                onSuccess: (response) => task = response.data
-            });
-        }
-        if (!task) return;
-
-        const priorityInfo = Utils.getPriorityInfo(task.priority);
-        const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
-
-        // 渲染标签HTML
-        let tagsHtml = '';
-        if (task.tags && task.tags.length > 0) {
-            tagsHtml = task.tags.map(tag =>
-                `<span class="task-tag" style="background-color: ${tag.color}; border: 1px solid ${tag.color};">
-                    #${Utils.escapeHtml(tag.name)}
-                </span>`
-            ).join('');
-        } else {
-            tagsHtml = `<span style="color: var(--text-secondary);">${window.languageManager.getText('noTaskTags', '无标签')}</span>`;
-        }
-
-        // 获取父任务和子任务信息
-        let parentInfo = '';
-        let childrenInfo = '';
-
-        await Api.relations.parent({
-            apiArgs: [taskId],
-            onSuccess: (response) => {
-                const parent = response.data;
-                if (parent) {
-                    parentInfo = `
-                        <div>
-                            <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('parentTask', '父任务')}</strong>
-                            <span style="color: var(--primary-color); font-size: 14px; cursor: pointer;" class="link-text" data-task-id="${parent.id}">
-                                🔗 ${Utils.escapeHtml(parent.title)}
-                            </span>
-                        </div>
-                    `;
-                }
-            }
-        });
-
-        await Api.relations.children({
-            apiArgs: [taskId],
-            onSuccess: (response) => {
-                const children = response.data;
-                if (children && children.length > 0) {
-                    const childrenHtml = children.map(child =>
-                        `<span style="display: block; color: var(--primary-color); font-size: 14px; cursor: pointer; margin-bottom: 4px;" class="link-text" data-task-id="${child.id}">
-                            📋 ${Utils.escapeHtml(child.title)} ${child.completed ? '✓' : ''}
-                        </span>`
-                    ).join('');
-                    childrenInfo = `
-                        <div style="grid-column: 1 / -1;">
-                            <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('subTasks', '子任务')} (${children.length})</strong>
-                            <div>${childrenHtml}</div>
-                        </div>
-                    `;
-                }
-            }
-        });
-
-        // 附件信息
-        const attachmentsInfo = this.attachmentManager
-            ? this.attachmentManager.buildDetailHtml(task)
-            : '';
-
-        // 分类名称直接写进详情 HTML，避免依赖弹窗弹出后再异步回填
-        await this.ensureCategoryMap();
-
-        const categoryName = task.categoryId ? this.getCategoryName(task.categoryId) : '';
-        const detailContent = `
-            <div style="padding: 20px;">
-                <div style="margin-bottom: 20px;">
-                    <h3 style="font-size: 20px; color: var(--text-primary); margin-bottom: 10px;">
-                        ${Utils.escapeHtml(task.title)}
-                        ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
-                        ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                    </h3>
-                    <p class="task-detail-description">${task.description
-                        ? Utils.escapeHtml(task.description.replace(/\r\n/g, '\n'))
-                        : window.languageManager.getText('noTaskDescription', '无描述')}</p>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskStatus', '状态')}</strong>
-                        <span style="padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
-                              ${task.completed ? 'background-color: var(--success-color); color: var(--on-success);' : 'background-color: var(--priority-medium); color: var(--on-priority-medium);'}">
-                            ${task.completed ? window.languageManager.getText('statusCompleted', '已完成') : window.languageManager.getText('statusUncompleted', '未完成')}
-                        </span>
-                    </div>
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskPriority', '优先级')}</strong>
-                        <span class="task-priority ${task.priority}" style="font-size: 14px; padding: 6px 12px;">
-                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
-                        </span>
-                    </div>
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskDueDate', '截止日期')}</strong>
-                        <span style="color: ${isOverdue ? 'var(--danger-color)' : 'var(--text-primary)'}; font-size: 14px;">
-                            ${task.dueDate ? `📅 ${Utils.formatDate(task.dueDate)}` : window.languageManager.getText('dueDateNoDueDate', '无截止日期')}
-                        </span>
-                    </div>
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCategory', '分类')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.categoryId ? `📁 ${Utils.escapeHtml(categoryName)}` : window.languageManager.getText('uncategorized', '无分类')}
-                        </span>
-                    </div>
-
-                    ${parentInfo}
-
-                    <div style="grid-column: 1 / -1;">
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskTags', '标签')}</strong>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            ${tagsHtml}
-                        </div>
-                    </div>
-
-                    ${attachmentsInfo}
-
-                    ${childrenInfo}
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskCreateTime', '创建时间')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.createdAt ? `📅 ${Utils.formatDate(task.createdAt)}` : '-'}
-                        </span>
-                    </div>
-
-                    <div>
-                        <strong style="display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">${window.languageManager.getText('taskUpdateTime', '更新时间')}</strong>
-                        <span style="color: var(--text-primary); font-size: 14px;">
-                            ${task.updatedAt ? `📅 ${Utils.formatDate(task.updatedAt)}` : '-'}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        Utils.confirmDialog(
-            detailContent,
-            null,
-            null,
-            '任务详情',
-            'view-modal'
-        );
-
-        // 绑定关联任务点击事件
-        document.querySelectorAll('.link-text[data-task-id]').forEach(el => {
-            el.onclick = (e) => {
-                const targetTaskId = e.currentTarget.dataset.taskId;
-                Utils.ModalManager.hide('view-modal');
-                this.viewTaskDetails(targetTaskId);
-            };
-        });
-
-        // 绑定附件点击事件（图片预览 / 文件打开 / 链接跳转）
-        this.attachmentManager?.bindDetailEvents(task);
-    }
+    // ===== 任务详情：实现见 js/features/todo/task-detail.js =====
+    // 统一通过 this.detail 调用，不再设门面。
 
     // ===== 分页：实现见 js/features/todo/pagination.js =====
     // 统一通过 this.paginationControl 调用，不再设门面。
