@@ -9,8 +9,9 @@
  *
  * 依赖的 TodoManager 成员：
  *   状态：instances / _globalCloseHandlerBound / tasks
- *   方法：toggleTask / viewTaskDetails / editTask / deleteTask /
- *        loadSubtaskCounts / bindSubtaskCountEvents
+ *   方法：viewTaskDetails
+ *   其它控制器：ctx.actions.toggleTask / ctx.actions.deleteTask /
+ *        ctx.form.editTask / ctx.form.loadSubtaskCounts / ctx.form.bindSubtaskCountEvents
  */
 class RowInteractionsController {
     constructor(ctx) {
@@ -27,7 +28,7 @@ class RowInteractionsController {
         scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
-                ctx.toggleTask(taskId);
+                ctx.actions.toggleTask(taskId);
             };
         });
 
@@ -271,10 +272,10 @@ class RowInteractionsController {
             ctx._globalCloseHandlerBound = true;
         }
 
-        await ctx.loadSubtaskCounts(scope);
+        await ctx.form.loadSubtaskCounts(scope);
 
         // 绑定子任务数量徽章点击事件
-        ctx.bindSubtaskCountEvents(scope);
+        ctx.form.bindSubtaskCountEvents(scope);
 
         // 添加CSS样式防止移动端默认行为（只注入一次）
         if (!document.getElementById('small-screen-task-style')) {
@@ -321,7 +322,7 @@ class RowInteractionsController {
                 // 设置编辑功能
                 btn.onclick = (e) => {
                     const id = e.target.dataset.taskId;
-                    ctx.editTask(id);
+                    ctx.form.editTask(id);
                 };
             }
         });
@@ -330,7 +331,7 @@ class RowInteractionsController {
         scope.querySelectorAll('.btn.delete').forEach(btn => {
             btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;
-                await ctx.deleteTask(taskId);
+                await ctx.actions.deleteTask(taskId);
             };
         });
     }

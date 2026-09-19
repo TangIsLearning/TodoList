@@ -5,16 +5,15 @@
  * 这些方法读写的是同一个列表状态（tasks / currentPage / totalPages /
  * listLoadToken / isLoadingMore ...），若改成独立模块 + 消息通信，
  * 需要一次性把状态所有权也搬走，风险过高。
- * 因此保留 TodoManager 持有状态与公开方法签名，本控制器只负责实现，
- * 通过 ctx 访问状态，从而让 todo.js 与外部调用点（main.js）无需改动。
+ * 因此保留 TodoManager 持有状态，本控制器只负责实现，通过 ctx 访问状态。
  *
  * 依赖的 TodoManager 成员：
  *   状态：tasksContainer / tasksList / tasks / currentPage / totalPages /
  *        totalTasks / hasMoreTasks / isLoadingMore / scrollListener /
  *        scrollThreshold / listLoadToken / autoFillTimer / autoFillCount /
  *        maxAutoFill / _scrollFrameId
- *   方法：isMobileDevice / buildListQuery / syncCategoryMap /
- *        createTaskElement / bindTaskEvents
+ *   方法：isMobileDevice / buildListQuery / syncCategoryMap
+ *   其它控制器：ctx.renderer.createTaskElement / ctx.rowInteractions.bindEvents
  */
 class InfiniteScrollController {
     constructor(ctx) {
@@ -193,10 +192,10 @@ class InfiniteScrollController {
 
         // 生成新任务的HTML（先在游离容器中构建，便于只给新增节点绑定事件）
         const temp = document.createElement('div');
-        temp.innerHTML = newTasks.map(task => ctx.createTaskElement(task)).join('');
+        temp.innerHTML = newTasks.map(task => ctx.renderer.createTaskElement(task)).join('');
 
         // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
-        ctx.bindTaskEvents(temp);
+        ctx.rowInteractions.bindEvents(temp);
 
         // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
         const anchor = this.getLoadingMoreEl();

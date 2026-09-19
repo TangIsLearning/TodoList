@@ -9,7 +9,8 @@
  *        currentFilter / statusFilter / priorityFilter / dueDateFilter /
  *        searchQuery / customDateFilter / tagManager
  *   DOM：tasksList
- *   方法：loadTasks / getTaskToggleTarget
+ *   方法：loadTasks
+ *   其它控制器：ctx.actions.getTaskToggleTarget
  */
 class TaskLocateController {
     constructor(ctx) {
@@ -111,7 +112,7 @@ class TaskLocateController {
     async animateRemoval(taskId) {
         if (Utils.prefersReducedMotion()) return;
 
-        const { row } = this.ctx.getTaskToggleTarget(taskId);
+        const { row } = this.ctx.actions.getTaskToggleTarget(taskId);
         if (!row) return;
 
         row.classList.add('is-removing');

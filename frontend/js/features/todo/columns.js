@@ -9,7 +9,8 @@
  *   DOM：tasksList / columnConfigCloseBtn / columnConfigCancelBtn /
  *        columnConfigResetBtn / columnConfigSaveBtn / columnConfigTitle /
  *        columnConfigDesc / columnConfigList
- *   方法：renderTasks / viewTaskDetails / openListAttachment
+ *   方法：viewTaskDetails / openListAttachment
+ *   其它控制器：ctx.renderer.renderTasks
  */
 class ColumnsController {
     constructor(ctx) {
@@ -222,7 +223,7 @@ class ColumnsController {
             onError: () => Utils.showToast(window.languageManager.getText('columnConfigSaveFailed', '显示列配置保存失败'), 'error')
         });
 
-        await ctx.renderTasks();
+        await ctx.renderer.renderTasks();
     }
 }
 
