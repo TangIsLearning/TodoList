@@ -1,7 +1,41 @@
 // 任务管理模块
-//
-// 列定义与周期规则兜底文案已移至 js/features/todo/constants.js（须先加载）。
-// 列表渲染、无限下拉、周期规则、搜索 chips 等子模块见 js/features/todo/ 目录。
+
+// 任务列表可配置的显示列
+// fixedWidth：固定像素宽度列（内容长度可预期，不随窗口变宽而变宽）
+// minWidth：弹性列（任务名称）的最小像素宽度，弹性列会占据表格剩余宽度
+const TASK_LIST_COLUMN_DEFS = [
+    { key: 'name', i18nKey: 'taskHeaderName', fallback: '任务名称', defaultVisible: true, locked: true, minWidth: 420 },
+    { key: 'priority', i18nKey: 'taskHeaderPriority', fallback: '优先级', defaultVisible: true, fixedWidth: 100 },
+    { key: 'dueDate', i18nKey: 'taskHeaderDueDate', fallback: '到期时间', defaultVisible: true, fixedWidth: 185 },
+    { key: 'tags', i18nKey: 'taskHeaderTag', fallback: '标签', defaultVisible: true, fixedWidth: 145 },
+    { key: 'category', i18nKey: 'taskHeaderCategory', fallback: '所属分类', defaultVisible: false, fixedWidth: 160 },
+    { key: 'parentTask', i18nKey: 'taskHeaderParentTask', fallback: '关联父项任务', defaultVisible: false, fixedWidth: 170 },
+    { key: 'attachments', i18nKey: 'taskHeaderAttachments', fallback: '任务附件', defaultVisible: false, fixedWidth: 130 }
+];
+// 操作列固定展示且不参与配置；内部是固定数量的按钮，使用固定像素宽度避免列变窄后换行变形
+const TASK_LIST_ACTION_COLUMN = { key: 'actions', i18nKey: 'taskHeaderAction', fallback: '操作', fixedWidth: 150 };
+// 任务名称列的最小像素宽度（同时保证不小于其他列中最宽一列的 2 倍）
+const TASK_LIST_NAME_MIN_WIDTH = 420;
+// 表格最小宽度（列较多时自动增大，保证列内容可读）
+const TASK_LIST_MIN_WIDTH = 1060;
+// 列配置本地缓存键（数据库为唯一来源，本地仅作首屏兜底）
+const TASK_LIST_COLUMNS_CACHE_KEY = 'todolist_task_list_columns';
+
+// 周期性任务规则校验失败的兜底文案（i18n key → 中文默认值）
+const RECURRENCE_ERROR_MESSAGES = {
+    errorRecurrenceTypeRequired: '请选择重复周期',
+    errorRecurrenceCronRequired: '请输入 Cron 表达式',
+    errorRecurrenceTimesRequired: '请至少添加一个提醒时间点',
+    errorRecurrenceWeekdaysRequired: '请至少选择一个星期',
+    errorRecurrenceMonthDaysRequired: '请至少选择一个日期',
+    errorRecurrenceYearlyRequired: '请选择有效的月份和日期',
+    errorRecurrenceIntervalRequired: '请填写完整的时间段',
+    errorRecurrenceIntervalOrder: '时间段结束时间需晚于开始时间',
+    errorRecurrenceIntervalMinutes: '间隔分钟需在 1-1440 之间',
+    errorRecurrenceCountRequired: '请输入有效的循环次数',
+    errorRecurrenceEndDateRequired: '请选择有效的结束日期',
+    errorRecurrenceTimesLimit: '提醒时间点数量已达上限',
+};
 
 // 标签相关常量（TAG_INPUT_PATTERN 等）与 TagManager 均定义在 js/features/tag.js，
 // 该文件必须在本文件之前引入。
@@ -88,14 +122,6 @@ class TodoManager {
         this._tagPendingFromZero = false;
         // DOM 元素缓存与统一管理
         this.cacheDomRefs();
-        // 无限下拉（小屏幕模式）：状态仍由本实例持有，实现见 InfiniteScrollController
-        this.infiniteScroll = new InfiniteScrollController(this);
-        // 周期性任务规则：实现见 RecurrenceController
-        this.recurrence = new RecurrenceController(this);
-        // 显示列配置：实现见 ColumnsController
-        this.columns = new ColumnsController(this);
-        // 搜索 chips / 结构化查询 / 子任务联想：实现见 SearchController
-        this.search = new SearchController(this);
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
         this.attachmentManager = new AttachmentManager(this);
         // 设置日期组件：单次任务截止日期 / 周期性任务结束日期共用同一套日历
@@ -396,33 +422,195 @@ class TodoManager {
     }
 
     // ============ 任务列表显示列配置 ============
-    // 实现见 js/features/todo/columns.js；以下为对外保留的门面方法
 
-    // 当前显示的列
+    // 获取列定义
+    getColumnDef(key) {
+        return TASK_LIST_COLUMN_DEFS.find(c => c.key === key);
+    }
+
+    // 规范化列配置：过滤非法列，并保证必选列始终存在
+    normalizeColumns(keys) {
+        const source = Array.isArray(keys) ? keys : [];
+        const valid = TASK_LIST_COLUMN_DEFS.filter(c => source.includes(c.key)).map(c => c.key);
+        TASK_LIST_COLUMN_DEFS.filter(c => c.locked).forEach(c => {
+            if (!valid.includes(c.key)) valid.unshift(c.key);
+        });
+        return valid;
+    }
+
+    // 当前显示的列（按定义顺序排列，结果按配置数组引用缓存，避免逐行重复计算）
     getVisibleColumns() {
-        return this.columns.getVisibleColumns();
+        if (!this._visibleColumnsCache || this._visibleColumnsCacheSource !== this.visibleColumns) {
+            this._visibleColumnsCache = this.normalizeColumns(this.visibleColumns);
+            this._visibleColumnsCacheSource = this.visibleColumns;
+        }
+        return this._visibleColumnsCache;
     }
 
     // 判断指定列是否显示
     isColumnVisible(key) {
-        return this.columns.isColumnVisible(key);
+        return this.getVisibleColumns().includes(key);
     }
 
     // 依据当前显示的列计算列宽与表格最小宽度
+    // - 除任务名称外的列均为固定像素宽度，列数变化时不会被压缩（避免内容换行变形）
+    // - 任务名称作为唯一弹性列占据剩余宽度，窗口越宽名称列越宽，并至少为最宽固定列的 2 倍
     getColumnLayout() {
-        return this.columns.getColumnLayout();
+        const columns = this.getVisibleColumns()
+            .map(key => this.getColumnDef(key))
+            .filter(Boolean)
+            .concat([TASK_LIST_ACTION_COLUMN]);
+
+        const fixedTotal = columns.reduce((sum, c) => sum + (c.fixedWidth || 0), 0);
+        const maxFixed = columns.reduce((max, c) => Math.max(max, c.fixedWidth || 0), 0);
+        const flexWeight = columns.reduce((sum, c) => sum + (c.fixedWidth ? 0 : (c.minWidth || TASK_LIST_NAME_MIN_WIDTH)), 0) || 1;
+
+        // 表格最小宽度：固定列总和 + 任务名称列最小宽度
+        const minWidth = Math.max(
+            TASK_LIST_MIN_WIDTH,
+            fixedTotal + Math.max(TASK_LIST_NAME_MIN_WIDTH, maxFixed * 2)
+        );
+
+        return {
+            minWidth,
+            columns: columns.map(c => ({
+                key: c.key,
+                label: window.languageManager.getText(c.i18nKey, c.fallback),
+                width: c.fixedWidth
+                    ? `${c.fixedWidth}px`
+                    : `calc((100% - ${fixedTotal}px) * ${((c.minWidth || TASK_LIST_NAME_MIN_WIDTH) / flexWeight).toFixed(5)})`
+            }))
+        };
     }
 
     // 读取列配置：数据库为唯一来源，localStorage 仅用于首屏兜底
-    loadColumnConfig() {
-        return this.columns.loadConfig();
+    async loadColumnConfig() {
+        this.applyCachedColumnConfig();
+        await Api.config.get({
+            apiArgs: ['task_list_columns'],
+            successCheck: (result) => !!result && !!result.data,
+            onSuccess: (response) => {
+                const keys = response.data.task_list_columns;
+                if (Array.isArray(keys)) this.visibleColumns = this.normalizeColumns(keys);
+            }
+        });
+    }
+
+    // 应用本地缓存的列配置
+    applyCachedColumnConfig() {
+        try {
+            const cached = localStorage.getItem(TASK_LIST_COLUMNS_CACHE_KEY);
+            if (!cached) return;
+            const keys = JSON.parse(cached);
+            if (Array.isArray(keys)) this.visibleColumns = this.normalizeColumns(keys);
+        } catch (e) {
+            logger.warn('解析任务列表列配置缓存失败:', e);
+        }
     }
 
     // 绑定列配置相关事件
     bindColumnConfigEvents() {
-        this.columns.bindEvents();
+        // 列表内容会整体重绘，操作栏/父任务/附件均使用事件委托
+        this.tasksList?.addEventListener('click', (e) => {
+            const configBtn = e.target.closest('#task-columns-setting-btn');
+            if (configBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openColumnConfigModal();
+                return;
+            }
+
+            const parentLink = e.target.closest('.task-parent-link[data-task-id]');
+            if (parentLink) {
+                e.stopPropagation();
+                this.viewTaskDetails(parentLink.dataset.taskId);
+                return;
+            }
+
+            const attachmentChip = e.target.closest('.task-attachment-chip[data-attachment-id]');
+            if (attachmentChip) {
+                e.stopPropagation();
+                this.openListAttachment(attachmentChip.dataset.taskId, attachmentChip.dataset.attachmentId);
+            }
+        });
+
+        this.columnConfigCloseBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-columns-modal'));
+        this.columnConfigCancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-columns-modal'));
+        this.columnConfigResetBtn?.addEventListener('click', () => this.resetColumnConfigForm());
+        this.columnConfigSaveBtn?.addEventListener('click', () => this.saveColumnConfigFromForm());
     }
 
+    // 打开列配置弹窗
+    openColumnConfigModal() {
+        this.updateColumnConfigText();
+        this.renderColumnConfigForm();
+        Utils.ModalManager.show('task-columns-modal');
+    }
+
+    // 刷新列配置弹窗中的静态文案（跟随语言切换）
+    updateColumnConfigText() {
+        if (this.columnConfigTitle) {
+            this.columnConfigTitle.textContent = window.languageManager.getText('columnConfigTitle', '配置显示列');
+        }
+        if (this.columnConfigDesc) {
+            this.columnConfigDesc.textContent = window.languageManager.getText('columnConfigDesc', '勾选需要在任务列表中展示的列');
+        }
+    }
+
+    // 渲染列勾选列表
+    renderColumnConfigForm(checkedKeys = null) {
+        if (!this.columnConfigList) return;
+
+        const selected = checkedKeys || this.getVisibleColumns();
+        const lockedText = Utils.escapeHtml(window.languageManager.getText('columnConfigLocked', '必选'));
+
+        this.columnConfigList.innerHTML = TASK_LIST_COLUMN_DEFS.map(def => {
+            const checked = !!def.locked || selected.includes(def.key);
+            const label = Utils.escapeHtml(window.languageManager.getText(def.i18nKey, def.fallback));
+            return `
+                <label class="column-config-item${def.locked ? ' locked' : ''}">
+                    <input type="checkbox" class="column-config-checkbox" value="${def.key}"
+                           ${checked ? 'checked' : ''} ${def.locked ? 'disabled' : ''}>
+                    <span class="column-config-name">${label}</span>
+                    ${def.locked ? `<span class="column-config-tag">${lockedText}</span>` : ''}
+                </label>
+            `;
+        }).join('');
+    }
+
+    // 恢复默认列配置（仅重置勾选，需点击保存生效）
+    resetColumnConfigForm() {
+        this.renderColumnConfigForm(TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key));
+    }
+
+    // 从表单中读取勾选结果并保存
+    async saveColumnConfigFromForm() {
+        const keys = Array.from(this.columnConfigList?.querySelectorAll('.column-config-checkbox') || [])
+            .filter(box => box.checked)
+            .map(box => box.value);
+        await this.saveColumnConfig(keys);
+    }
+
+    // 保存列配置并刷新列表
+    async saveColumnConfig(keys) {
+        const normalized = this.normalizeColumns(keys);
+        if (normalized.length === 0) {
+            Utils.showToast(window.languageManager.getText('columnConfigMinTip', '至少需要保留一列'), 'warning');
+            return;
+        }
+
+        this.visibleColumns = normalized;
+        localStorage.setItem(TASK_LIST_COLUMNS_CACHE_KEY, JSON.stringify(normalized));
+        Utils.ModalManager.hide('task-columns-modal');
+
+        await Api.config.set({
+            apiArgs: ['task_list_columns', normalized],
+            onSuccess: () => Utils.showToast(window.languageManager.getText('columnConfigSaved', '显示列配置已保存'), 'success'),
+            onError: () => Utils.showToast(window.languageManager.getText('columnConfigSaveFailed', '显示列配置保存失败'), 'error')
+        });
+
+        await this.renderTasks();
+    }
 
     // 批量加载当前列表任务的父任务（供"关联父项任务"列使用）
     async loadParentTaskMap() {
@@ -488,72 +676,324 @@ class TodoManager {
     }
 
     // ============ 周期性任务规则配置 ============
-    // 实现见 js/features/todo/recurrence.js；以下为对外保留的门面方法
 
     // 重置周期规则的全部控件到默认状态
     resetRecurrenceConfig() {
-        this.recurrence.reset();
+        if (this.recurrenceModeNormal) this.recurrenceModeNormal.checked = true;
+        if (this.recurrenceModeCron) this.recurrenceModeCron.checked = false;
+        if (this.recurrenceType) this.recurrenceType.value = '';
+        if (this.dailyModeTimes) this.dailyModeTimes.checked = true;
+        if (this.dailyModeInterval) this.dailyModeInterval.checked = false;
+        if (this.dailyIntervalStart) this.dailyIntervalStart.value = '09:00';
+        if (this.dailyIntervalEnd) this.dailyIntervalEnd.value = '18:00';
+        if (this.dailyIntervalMinutes) this.dailyIntervalMinutes.value = '60';
+        if (this.recurrenceCron) this.recurrenceCron.value = '';
+        // 默认「习惯」：只保留一条待办，避免一次创建大量任务
+        if (this.recurrenceEndType) this.recurrenceEndType.value = 'habit';
+        if (this.recurrenceCount) this.recurrenceCount.value = '';
+        if (this.recurrenceEndDate) {
+            this.recurrenceEndDate.value = '';
+            // 同步清掉日历内部的选中态，否则重开日历仍高亮上一次的日期
+            this.recurrenceEndPikaday?.setDate?.(null);
+        }
+
+        // 重建星期 / 日期选择器并清空已选
+        this.initRecurrencePickers({ clear: true });
+
+        const today = new Date();
+        if (this.yearlyMonth) this.yearlyMonth.value = String(today.getMonth() + 1);
+        if (this.yearlyDay) this.yearlyDay.value = String(today.getDate());
+
+        if (this.recurrenceTimes) {
+            this.recurrenceTimes.innerHTML = '';
+            this.addRecurrenceTimeChip('09:00');
+        }
+        this.clearRecurrencePreview();
+        this.updateRecurrencePanels();
     }
 
     // 构建星期 / 每月日期 / 每年月日的选项（语言切换时重建，默认保留已选值）
     initRecurrencePickers({ clear = false } = {}) {
-        this.recurrence.initPickers({ clear });
+        const lang = (key, fallback) => window.languageManager.getText(key, fallback);
+        const buildChips = (container, selected, items) => {
+            if (!container) return;
+            container.innerHTML = '';
+            items.forEach(({ value, text }) => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'chip-option';
+                // 「最后一天」这类非数字选项独占一行横向排布，
+                // 否则它会在日期网格里占一个格子并把整行文字挤到换行
+                if (Number(value) < 0) chip.classList.add('chip-option--wide');
+                chip.dataset.value = String(value);
+                chip.textContent = text;
+                chip.classList.toggle('active', !clear && selected.includes(value));
+                chip.addEventListener('click', () => {
+                    chip.classList.toggle('active');
+                    this.clearRecurrencePreview();
+                });
+                container.appendChild(chip);
+            });
+        };
+
+        // 星期：ISO 1-7（周一 ~ 周日）
+        buildChips(this.weeklyDays, this.getSelectedWeekdays(),
+            [1, 2, 3, 4, 5, 6, 7].map((value) => ({
+                value,
+                text: lang(`recurrenceWeekdays.${value - 1}`,
+                    ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][value - 1]),
+            })));
+
+        // 每月日期：1-31 加上「最后一天」
+        const monthItems = Array.from({ length: 31 }, (_, index) => ({
+            value: index + 1,
+            text: String(index + 1),
+        }));
+        monthItems.push({ value: -1, text: lang('recurrenceLastDay', '最后一天') });
+        buildChips(this.monthlyDays, this.getSelectedMonthDays(), monthItems);
+
+        // 每年：月份与日期
+        if (this.yearlyMonth) {
+            const current = this.yearlyMonth.value;
+            this.yearlyMonth.innerHTML = '';
+            for (let month = 1; month <= 12; month += 1) {
+                this.yearlyMonth.appendChild(
+                    new Option(lang('recurrenceMonthUnit', '{month}月').replace('{month}', month), month));
+            }
+            if (!clear && current) this.yearlyMonth.value = current;
+        }
+        if (this.yearlyDay) {
+            const current = this.yearlyDay.value;
+            this.yearlyDay.innerHTML = '';
+            for (let day = 1; day <= 31; day += 1) {
+                this.yearlyDay.appendChild(
+                    new Option(lang('recurrenceDayUnit', '{day}日').replace('{day}', day), day));
+            }
+            this.yearlyDay.appendChild(new Option(lang('recurrenceLastDay', '最后一天'), -1));
+            if (!clear && current) this.yearlyDay.value = current;
+        }
+    }
+
+    getSelectedWeekdays() {
+        return [...(this.weeklyDays?.querySelectorAll('.chip-option.active') || [])]
+            .map((chip) => parseInt(chip.dataset.value, 10))
+            .filter((value) => !Number.isNaN(value));
+    }
+
+    getSelectedMonthDays() {
+        return [...(this.monthlyDays?.querySelectorAll('.chip-option.active') || [])]
+            .map((chip) => parseInt(chip.dataset.value, 10))
+            .filter((value) => !Number.isNaN(value));
+    }
+
+    getRecurrenceTimes() {
+        return [...(this.recurrenceTimes?.querySelectorAll('input[type="time"]') || [])]
+            .map((input) => input.value)
+            .filter((value) => !!value);
     }
 
     // 新增一个提醒时间点输入项
     addRecurrenceTimeChip(value = '') {
-        this.recurrence.addTimeChip(value);
+        if (!this.recurrenceTimes) return;
+        // 每年只做单次提醒
+        const max = this.recurrenceType?.value === 'yearly' ? 1 : 20;
+        if (this.recurrenceTimes.children.length >= max) {
+            Utils.showToast(window.languageManager.getText('errorRecurrenceTimesLimit',
+                RECURRENCE_ERROR_MESSAGES.errorRecurrenceTimesLimit), 'warning');
+            return;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'time-chip';
+        const index = document.createElement('span');
+        index.className = 'time-chip__index';
+
+        const input = document.createElement('input');
+        input.type = 'time';
+        input.step = '60';
+        input.className = 'time-chip__input';
+        input.value = value;
+        input.addEventListener('change', () => this.clearRecurrencePreview());
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn--colorless time-chip__remove';
+        remove.textContent = '×';
+        remove.title = window.languageManager.getText('delete', '删除');
+        remove.addEventListener('click', () => {
+            item.remove();
+            // 至少保留一个输入项，避免用户无从填写
+            if (!this.recurrenceTimes.children.length) this.addRecurrenceTimeChip();
+            this.refreshTimeChipIndexes();
+            this.clearRecurrencePreview();
+        });
+
+        item.append(index, input, remove);
+        this.recurrenceTimes.appendChild(item);
+        this.refreshTimeChipIndexes();
+    }
+
+    // 刷新提醒时间点的序号（删除后保持连续）
+    refreshTimeChipIndexes() {
+        [...(this.recurrenceTimes?.children || [])].forEach((chip, position) => {
+            const badge = chip.querySelector('.time-chip__index');
+            if (badge) badge.textContent = String(position + 1);
+        });
     }
 
     // 按当前模式 / 周期显示对应的配置项
     updateRecurrencePanels() {
-        this.recurrence.updatePanels();
+        const show = (element, visible) => {
+            if (element) element.style.display = visible ? '' : 'none';
+        };
+        const isCron = !!this.recurrenceModeCron?.checked;
+        const freq = this.recurrenceType?.value;
+        const isDailyInterval = !isCron && freq === 'daily' && !!this.dailyModeInterval?.checked;
+        const isDailyTimes = !isCron && freq === 'daily' && !isDailyInterval;
+
+        show(this.recurrenceNormalPanel, !isCron);
+        show(this.recurrenceCronPanel, isCron);
+
+        show(this.dailyModeGroup, !isCron && freq === 'daily');
+        show(this.dailyIntervalGroup, isDailyInterval);
+        show(this.weeklyGroup, !isCron && freq === 'weekly');
+        show(this.monthlyGroup, !isCron && freq === 'monthly');
+        show(this.yearlyGroup, !isCron && freq === 'yearly');
+        // 时间点：每天-指定时间点 / 每周 / 每月 / 每年
+        show(this.recurrenceTimesGroup,
+            isDailyTimes || (!isCron && ['weekly', 'monthly', 'yearly'].includes(freq)));
+
+        // 每年只保留一个时间点
+        if (freq === 'yearly' && this.recurrenceTimes?.children.length > 1) {
+            [...this.recurrenceTimes.children].slice(1).forEach((child) => child.remove());
+        }
+
+        const endType = this.recurrenceEndType?.value || 'habit';
+        show(this.recurrenceCountGroup, endType === 'count');
+        show(this.recurrenceEndDateGroup, endType === 'date');
+        // 面板隐藏时收起日历，避免浮层残留在页面上
+        if (endType !== 'date') this.recurrenceEndPikaday?.hide?.();
+        // 习惯：只保留一条待办，完成后才续建，因此不需要次数 / 结束日期
+        show(this.recurrenceHabitHint, endType === 'habit');
+
+        // 同步分段控件的选中态（不依赖 CSS :has，兼容旧版内核）
+        document.querySelectorAll('.segmented .segmented-item').forEach((item) => {
+            item.classList.toggle('active', !!item.querySelector('input[type="radio"]')?.checked);
+        });
+
+        this.clearRecurrencePreview();
     }
 
     // 收集当前表单上的周期规则
     collectRecurrenceRule() {
-        return this.recurrence.collectRule();
+        const isCron = !!this.recurrenceModeCron?.checked;
+        const endType = this.recurrenceEndType?.value || 'habit';
+        const rule = {
+            mode: isCron ? 'cron' : 'normal',
+            endType,
+            count: endType === 'count' ? (parseInt(this.recurrenceCount?.value, 10) || null) : null,
+            endDate: endType === 'date' ? (this.recurrenceEndDate?.value || null) : null,
+        };
+
+        if (isCron) {
+            rule.cron = (this.recurrenceCron?.value || '').trim();
+            return rule;
+        }
+
+        return Object.assign(rule, {
+            freq: this.recurrenceType?.value || null,
+            dailyMode: this.dailyModeInterval?.checked ? 'interval' : 'times',
+            times: this.getRecurrenceTimes(),
+            intervalStart: this.dailyIntervalStart?.value || null,
+            intervalEnd: this.dailyIntervalEnd?.value || null,
+            intervalMinutes: parseInt(this.dailyIntervalMinutes?.value, 10) || null,
+            weekdays: this.getSelectedWeekdays(),
+            monthDays: this.getSelectedMonthDays(),
+            yearlyMonth: this.yearlyMonth?.value ? parseInt(this.yearlyMonth.value, 10) : null,
+            yearlyDay: this.yearlyDay?.value !== '' && this.yearlyDay?.value !== undefined
+                ? parseInt(this.yearlyDay.value, 10) : null,
+        });
     }
 
     // 校验周期规则，返回错误文案的 i18n key（通过时返回 null）
     validateRecurrenceRule(rule) {
-        return this.recurrence.validateRule(rule);
+        if (rule.mode === 'cron') {
+            return rule.cron ? null : 'errorRecurrenceCronRequired';
+        }
+        if (!rule.freq) return 'errorRecurrenceTypeRequired';
+
+        if (rule.freq === 'daily') {
+            if (rule.dailyMode === 'interval') {
+                if (!rule.intervalStart || !rule.intervalEnd) return 'errorRecurrenceIntervalRequired';
+                if (rule.intervalEnd <= rule.intervalStart) return 'errorRecurrenceIntervalOrder';
+                if (!(rule.intervalMinutes >= 1 && rule.intervalMinutes <= 1440)) {
+                    return 'errorRecurrenceIntervalMinutes';
+                }
+            } else if (!rule.times.length) {
+                return 'errorRecurrenceTimesRequired';
+            }
+        } else if (rule.freq === 'weekly') {
+            if (!rule.weekdays.length) return 'errorRecurrenceWeekdaysRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        } else if (rule.freq === 'monthly') {
+            if (!rule.monthDays.length) return 'errorRecurrenceMonthDaysRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        } else if (rule.freq === 'yearly') {
+            if (!rule.yearlyMonth || rule.yearlyDay === null) return 'errorRecurrenceYearlyRequired';
+            if (!rule.times.length) return 'errorRecurrenceTimesRequired';
+        }
+
+        if (rule.endType === 'count' && (!rule.count || rule.count < 1)) return 'errorRecurrenceCountRequired';
+        if (rule.endType === 'date' && !rule.endDate) return 'errorRecurrenceEndDateRequired';
+        return null;
     }
 
     clearRecurrencePreview() {
-        this.recurrence.clearPreview();
+        if (!this.recurrencePreview) return;
+        this.recurrencePreview.style.display = 'none';
+        this.recurrencePreview.innerHTML = '';
     }
 
     // 预览周期规则接下来会产生的提醒时间
-    previewRecurrence() {
-        return this.recurrence.preview();
-    }
+    async previewRecurrence() {
+        const rule = this.collectRecurrenceRule();
+        const errorKey = this.validateRecurrenceRule(rule);
+        if (errorKey) {
+            Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
+            return;
+        }
+        await Api.tasks.previewRecurring({
+            apiArgs: [this.getTodayISO(), rule, 10],
+            onSuccess: (response) => {
+                const occurrences = response.data || [];
+                const preview = this.recurrencePreview;
+                if (!preview) return;
 
-    // 为编辑模式添加周期性任务提示
-    addRecurringEditNotice() {
-        this.recurrence.addEditNotice();
-    }
+                if (!occurrences.length) {
+                    preview.textContent = window.languageManager.getText('recurrencePreviewEmpty',
+                        '当前规则没有匹配到提醒时间，请调整配置');
+                    preview.style.display = 'block';
+                    return;
+                }
 
-    // 移除编辑模式提示
-    removeRecurringEditNotice() {
-        this.recurrence.removeEditNotice();
+                // 习惯类任务每次只保留一条待办，预览只展示首次提醒
+                const title = rule.endType === 'habit'
+                    ? window.languageManager.getText('recurrencePreviewHabitTitle', '首次提醒时间：')
+                    : window.languageManager.getText('recurrencePreviewTitle', '接下来 10 次提醒：');
+                const items = occurrences
+                    .map((iso) => `<li>${iso.slice(0, 16).replace('T', ' ')}</li>`)
+                    .join('');
+                const footer = rule.endType === 'habit'
+                    ? `<div class="recurrence-preview__hint">${window.languageManager.getText(
+                        'recurrenceHabitHint', '每次只保留一条待办，完成后才按周期生成下一条')}</div>`
+                    : '';
+                preview.innerHTML =
+                    `<div class="recurrence-preview__title">${title}</div><ul>${items}</ul>${footer}`;
+                preview.style.display = 'block';
+            }
+        });
     }
-
-    // 当前时间设置模式：once（单次带截止时间） / recurring（周期性任务）
-    getScheduleMode() {
-        return this.recurrence.getScheduleMode();
-    }
-
-    // 周期起始日期：规则里已包含完整周期配置，默认从今天开始，无需用户填写
-    getTodayISO() {
-        return this.recurrence.getTodayISO();
-    }
-
-    // 切换「单次任务 / 周期性任务」：两者并列互斥，切换后只展示对应配置
-    updateScheduleMode() {
-        this.recurrence.updateScheduleMode();
-    }
-
+    
     // 展开"更多选项"（用于让自动填充的父任务等字段对用户可见）
     expandMoreOptions() {
         this.moreOptionsContent.style.display = 'block';
@@ -563,6 +1003,57 @@ class TodoManager {
     }
 
     // 为编辑模式添加周期性任务提示
+    addRecurringEditNotice() {
+        const recurringSection = document.querySelector('.recurring-options')?.parentElement;
+        if (recurringSection) {
+            // 检查是否已有提示
+            let notice = recurringSection.querySelector('.edit-notice');
+            if (!notice) {
+                notice = document.createElement('div');
+                notice.className = 'edit-notice';
+                notice.innerHTML = `⚠️ ${window.languageManager.getText('recurringEditNotice', '非周期性任务编辑模式下不支持改周期性任务')}`;
+                
+                // 插入到周期性选项区域之前
+                recurringSection.insertBefore(notice, this.recurringOptions);
+            }
+        }
+    }
+    
+    // 移除编辑模式提示
+    removeRecurringEditNotice() {
+        const notice = document.querySelector('.edit-notice');
+        if (notice) notice.remove();
+    }
+    
+    // 当前时间设置模式：once（单次带截止时间） / recurring（周期性任务）
+    getScheduleMode() {
+        return this.scheduleModeRecurring?.checked ? 'recurring' : 'once';
+    }
+
+    // 周期起始日期：规则里已包含完整周期配置，默认从今天开始，无需用户填写
+    getTodayISO() {
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    // 切换「单次任务 / 周期性任务」：两者并列互斥，切换后只展示对应配置
+    updateScheduleMode() {
+        const isRecurring = this.getScheduleMode() === 'recurring';
+        // 容器本身是纵向 flex（分区之间有间距），这里显式还原为 flex 而非 block
+        this.recurringOptions.style.display = isRecurring ? 'flex' : 'none';
+        // 周期性任务的提醒时间完全由规则决定，日期与时间都不再需要
+        const datetimeInputs = document.getElementById('datetime-inputs');
+        if (datetimeInputs) datetimeInputs.style.display = isRecurring ? 'none' : '';
+        this.datePicker.required = false;
+        this.timeInput.required = false;
+        // 分段控件选中态由 CSS :has 之外的 class 维护（兼容旧内核）
+        document.querySelectorAll('#schedule-mode-switch .segmented-item').forEach((item) => {
+            item.classList.toggle('active', !!item.querySelector('input[type="radio"]')?.checked);
+        });
+        if (isRecurring) this.updateRecurrencePanels();
+    }
+
     // 添加输入值变化监听
     addInputValueListeners() {
         const setError = (valid, msg) => {
@@ -2122,6 +2613,21 @@ class TodoManager {
         Utils.ModalManager.show('task-modal');
     }
     
+    // 加载父任务选项（编辑模式）
+    async loadParentTaskOptionsForEdit(taskId) {
+        let parentId = '';
+        await Api.relations.parent({
+            apiArgs: [taskId],
+            onSuccess: (response) => {
+                const parent = response.data;
+                if (parent) {
+                    parentId = parent.id
+                }
+            }
+        });
+        await this.loadParentTaskOptions(parentId);
+    }
+    
     // 禁用周期模式切换（编辑模式下不允许把任务改成周期性任务）
     disableRecurringOptions() {
         // 固定为「单次任务」
@@ -2717,89 +3223,288 @@ class TodoManager {
     }
 
     // ===== 标签筛选状态访问（对标签模块与统计模块的统一出口） =====
-    // 实现见 js/features/todo/search.js；以下为对外保留的门面方法
+
+    // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
+    getTagFilterChips() {
+        return this.searchChips.filter(chip => chip.type === 'tag' && chip.value);
+    }
 
     // 列表筛选中的标签 id（尚无 id 的名称型 chip 不在其中）
     getTagFilterIds() {
-        return this.search.getTagFilterIds();
+        return this.getTagFilterChips()
+            .filter(chip => chip.tagId)
+            .map(chip => chip.tagId);
     }
 
     // 列表筛选中的标签名称（供统计等模块展示当前标签筛选）
     getTagFilterNames() {
-        return this.search.getTagFilterNames();
+        return this.getTagFilterChips().map(chip => chip.value);
     }
 
-    // 清空全部搜索 chips（不触发重新加载，由调用方决定何时 loadTasks）
+    // 清空全部搜索 chips 并同步视图（左侧标签选中态 + 清空按钮显隐）。
+    // 只负责视图与状态，不触发重新加载，由调用方决定何时 loadTasks。
     clearSearchChips() {
-        return this.search.clearChips();
+        if (this.searchChips.length === 0) {
+            this.tagManager.refreshSelection();
+            return false;
+        }
+        this.searchChips = [];
+        this.renderSearchChips();
+        this.tagManager.refreshSelection();
+        this.updateSearchClearButton();
+        return true;
     }
 
+    // ===== 搜索标签 chips 相关 =====
     // 初始化搜索标签输入框
     initSearchTagInput() {
-        this.search.initInput();
+        // 键盘交互：空格提交 #标签、退格删除最后一个 chip、回车提交/搜索
+        this.searchInput.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
+
+        // 输入变化：实时更新清空按钮，并防抖触发搜索（自由文本搜索）
+        // 当输入以 ">" 开头（且无 chip）时，进入子任务建议模式：仅刷新下拉，不重载主列表
+        this.searchInput.addEventListener('input', () => {
+            this.updateSearchClearButton();
+            if (this.isSubtaskSuggestMode(this.searchInput.value)) {
+                // 仍以 ">" 开头但文本已被改写时，之前选中的父任务精确ID不再可信，
+                // 清除后自动回退为按名称解析
+                if (this.subtaskParent.title
+                    && this.searchInput.value.trim() !== `>${this.subtaskParent.title}`) {
+                    this.setSubtaskParent(null, null);
+                }
+                this.scheduleSubtaskSuggestions(250);
+            } else {
+                // 退出 ">" 子任务搜索模式，清除记录的父任务
+                this.setSubtaskParent(null, null);
+                this.hideSubtaskSuggestions();
+                this.scheduleSearch(300);
+            }
+        });
+        this.searchInput.addEventListener('change', () => this.updateSearchClearButton());
+
+        // 失焦时延时关闭下拉（延时以允许点击命中建议项）
+        this.searchInput.addEventListener('blur', () => {
+            setTimeout(() => this.hideSubtaskSuggestions(), 150);
+        });
+
+        // 点击 wrapper 空白区域时聚焦输入框
+        this.searchTagWrapper.addEventListener('click', (e) => {
+            if (e.target === this.searchInput) return;
+            if (e.target.classList && e.target.classList.contains('search-chip-remove')) return;
+            this.searchInput.focus();
+        });
+
+        // 初始渲染（空）
+        this.renderSearchChips();
     }
 
-    // 添加一个搜索 chip
-    addSearchChip(chip) {
-        return this.search.addChip(chip);
-    }
+    // 处理搜索输入框的键盘事件
+    handleSearchKeydown(e) {
+        const searchInput = e.target;
+        const val = searchInput.value;
+        const tagPattern = TAG_INPUT_PATTERN;
 
-    // 全量重建所有 chips（用于标签重命名、批量替换筛选等场景）
-    renderSearchChips() {
-        this.search.renderChips();
+        // 子任务建议下拉的键盘交互（仅当处于 ">" 模式且下拉有项时）
+        if (this.isSubtaskSuggestMode(val) && this._subtaskSuggestItems.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this._subtaskSuggestIndex = (this._subtaskSuggestIndex + 1) % this._subtaskSuggestItems.length;
+                this._highlightSubtaskSuggestion();
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this._subtaskSuggestIndex = (this._subtaskSuggestIndex - 1 + this._subtaskSuggestItems.length) % this._subtaskSuggestItems.length;
+                this._highlightSubtaskSuggestion();
+                return;
+            }
+            if (e.key === 'Enter' && this._subtaskSuggestIndex >= 0) {
+                const item = this._subtaskSuggestItems[this._subtaskSuggestIndex];
+                if (item) {
+                    e.preventDefault();
+                    this.selectSubtaskSuggestion(item.title, item.id);
+                    return;
+                }
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.hideSubtaskSuggestions();
+                return;
+            }
+        }
+
+        // 空格：若当前输入是一个完整的 #标签，则提交为 chip
+        if ((e.key === ' ' || e.code === 'Space') && tagPattern.test(val)) {
+            e.preventDefault();
+            this.addSearchChip({ type: 'tag', value: val.substring(1) });
+            searchInput.value = '';
+            this.syncSearchQuery(0);
+            return;
+        }
+
+        // 退格：输入框为空时删除最后一个 chip
+        if (e.key === 'Backspace' && val === '' && this.searchChips.length > 0) {
+            e.preventDefault();
+            this.removeSearchChip(this.searchChips.length - 1);
+            this.syncSearchQuery(0);
+            return;
+        }
+
+        // 回车：提交 #标签（若是），并触发搜索
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (tagPattern.test(val)) {
+                this.addSearchChip({ type: 'tag', value: val.substring(1) });
+                searchInput.value = '';
+            }
+            this.hideSubtaskSuggestions();
+            this.syncSearchQuery(0);
+            return;
+        }
     }
 
     // 若输入框内容是完整的 #标签，提交为 chip（用于搜索按钮点击）
     commitInputAsChipIfTag() {
-        this.search.commitInputAsChipIfTag();
+        const val = this.searchInput.value.trim();
+        if (TAG_INPUT_PATTERN.test(val)) {
+            this.addSearchChip({ type: 'tag', value: val.substring(1) });
+            this.searchInput.value = '';
+        }
+    }
+
+    // 创建一个 chip DOM 元素
+    createChipElement(chip) {
+        const el = document.createElement('span');
+        el.className = 'search-chip';
+        const label = chip.type === 'tag' ? '#' + chip.value : chip.value;
+        el.innerHTML = `
+            <span class="search-chip-label"></span>
+            <span class="search-chip-remove" title="移除">×</span>
+        `;
+        el.querySelector('.search-chip-label').textContent = label;
+        el.querySelector('.search-chip-remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = this.searchChips.indexOf(chip);
+            if (idx !== -1) {
+                this.removeSearchChip(idx);
+                this.syncSearchQuery(0);
+            }
+        });
+        this._chipEls.set(chip, el);
+        return el;
+    }
+
+    // 全量重建所有 chips（插入到输入框之前）
+    // 仅用于批量替换（如保存任务后整体重建标签筛选、外部模块清空筛选）；
+    // 单个 chip 的增删走 addSearchChip / removeSearchChip 的增量路径，避免整排重绘
+    renderSearchChips() {
+        // 清除旧 chips
+        this.searchTagWrapper.querySelectorAll('.search-chip').forEach(el => el.remove());
+        // 在输入框前依次插入
+        this.searchChips.forEach(chip => {
+            this.searchTagWrapper.insertBefore(this.createChipElement(chip), this.searchInput);
+        });
+    }
+
+    // 添加一个 chip（自动按名称匹配已有标签以补全 tagId/color，去重）
+    addSearchChip(chip) {
+        if (!chip || !chip.value) return false;
+        // 标签类型：若没有 tagId，尝试按名称匹配已加载的标签
+        if (chip.type === 'tag' && !chip.tagId) {
+            const match = this.tagManager.getTags().find(t => t.name.toLowerCase() === chip.value.toLowerCase());
+            if (match) {
+                chip.tagId = match.id;
+                chip.color = chip.color || match.color;
+            }
+        }
+        // 去重（按类型 + 值，忽略大小写）
+        const exists = this.searchChips.some(c =>
+            c.type === chip.type && c.value.toLowerCase() === chip.value.toLowerCase());
+        if (exists) return false;
+        this.searchChips.push(chip);
+        // 增量插入单个 chip，不重建整排
+        this.searchTagWrapper.insertBefore(this.createChipElement(chip), this.searchInput);
+        return true;
+    }
+
+    // 移除指定索引的 chip
+    removeSearchChip(index) {
+        if (index < 0 || index >= this.searchChips.length) return false;
+        const [chip] = this.searchChips.splice(index, 1);
+        // 增量移除对应 DOM，不重建整排
+        const el = this._chipEls.get(chip);
+        if (el) {
+            el.remove();
+            this._chipEls.delete(chip);
+        }
+        return true;
     }
 
     // 按 tagId 移除 chip（用于标签模块取消选择）
     removeSearchChipByTagId(tagId) {
-        return this.search.removeChipByTagId(tagId);
+        const idx = this.searchChips.findIndex(c => c.type === 'tag' && c.tagId === tagId);
+        if (idx !== -1) {
+            this.removeSearchChip(idx);
+            return true;
+        }
+        return false;
     }
 
     // 切换左侧标签的 chip 选择状态
     toggleTagChip(tagId) {
-        this.search.toggleTagChip(tagId);
+        const tag = this.tagManager.getTags().find(t => t.id === tagId);
+        if (!tag) return;
+        const existing = this.searchChips.findIndex(c => c.type === 'tag' && c.tagId === tagId);
+        if (existing !== -1) {
+            this.removeSearchChip(existing);
+        } else {
+            this.addSearchChip({ type: 'tag', value: tag.name, tagId: tag.id, color: tag.color });
+        }
+        this.syncSearchQuery(0);
     }
 
-    // 将 chips + 输入框文本转换为结构化查询对象
+    // 将 chips + 输入框文本转换为后端 query 解析层支持的结构化查询对象。
+    // 三种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
+    //   tags     - 标签 chips（有 tagId 时带精确 id，否则按名称匹配）
+    //   keywords - 文本 chips + 输入框文本
+    //   parent   - 输入以 ">" 开头时，查询该父任务的直接子任务
     buildSearchQuery() {
-        return this.search.buildQuery();
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        const isParentMode = this.isSubtaskSuggestMode(inputText);
+
+        const tags = this.getTagFilterChips()
+            .map(chip => (chip.tagId
+                ? { id: chip.tagId, name: chip.value }
+                : { name: chip.value }));
+
+        // 单独的 "#" 是快捷筛选"含标签任务"，不参与普通文本匹配
+        const isAnyTag = inputText === '#';
+
+        // 父任务模式下，输入框文本已被父任务消费，不再作为普通关键词
+        const keywords = this.searchChips
+            .filter(chip => chip.type !== 'tag' && chip.value)
+            .map(chip => chip.value);
+        if (!isParentMode && !isAnyTag && inputText) keywords.push(inputText);
+
+        let parent = null;
+        if (isParentMode) {
+            const name = inputText.substring(1).trim();
+            if (name) {
+                parent = { id: this.subtaskParent.id || null, name };
+            }
+        }
+
+        return { tags, keywords, parent, anyTag: isAnyTag };
     }
 
     // 同步 searchQuery、清空按钮、标签模块选中态，并触发搜索
     syncSearchQuery(delay = 0) {
-        this.search.syncQuery(delay);
+        this.searchQuery = this.buildSearchQuery();
+        this.updateSearchClearButton();
+        this.tagManager.refreshSelection();
+        this.scheduleSearch(delay);
     }
 
-    // 更新搜索清空按钮状态
-    updateSearchClearButton() {
-        this.search.updateClearButton();
-    }
-
-    // 清空搜索
-    clearSearch() {
-        return this.search.clear();
-    }
-
-    // 搜索框当前是否处于"按父任务查子任务"模式且已确定到具体父任务
-    getSubtaskParentFilter() {
-        return this.search.getParentFilter();
-    }
-
-    // 记录当前子任务搜索对应的父任务
-    setSubtaskParent(id, title) {
-        this.search.setParent(id, title);
-    }
-
-    // 隐藏子任务建议下拉
-    hideSubtaskSuggestions() {
-        this.search.hideSuggestions();
-    }
-
-    // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
     // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
     // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
     _syncStatsFilterIfVisible() {
@@ -2810,33 +3515,445 @@ class TodoManager {
     }
 
     // 防抖触发搜索任务加载
+    scheduleSearch(delay = 300) {
+        if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(async () => {
+            this._searchDebounceTimer = null;
+            this.searchQuery = this.buildSearchQuery();
+            this.currentPage = 1;
+            this.customDateFilter = null; // 清除自定义日期筛选
+            this.resetInfiniteScroll(); // 重置无限下拉状态
+            await this.loadTasks();
+        }, delay);
+    }
+
+    // ===== 子任务搜索建议下拉（输入 ">" 触发） =====
+    // 判断当前是否处于子任务建议模式：输入以 ">" 开头。
+    // 仅输入 ">" 时关键字为空，后端返回"有子任务的父任务"列表供选择，因此不能要求后面必须有内容。
+    // 标签 chips 允许与父任务条件并存（后端按 AND 组合），因此不再要求 chips 为空。
+    isSubtaskSuggestMode(value) {
+        const v = (value || '').trim();
+        return v.startsWith('>');
+    }
+
+    // 防抖拉取「有子任务的父任务」建议
+    // 调用后端前，自动将搜索内容 ">" 转换为后端支持的关键字（剥离 ">" 前缀并 trim）
+    scheduleSubtaskSuggestions(delay = 250) {
+        if (this._subtaskSuggestTimer) clearTimeout(this._subtaskSuggestTimer);
+        this._subtaskSuggestTimer = setTimeout(async () => {
+            this._subtaskSuggestTimer = null;
+            // 防抖期间状态可能变化，再次确认仍处于 ">" 模式
+            if (!this.isSubtaskSuggestMode(this.searchInput.value)) {
+                this.hideSubtaskSuggestions();
+                return;
+            }
+            // 转换：剥离 ">" 前缀并 trim，得到后端支持的关键字
+            const keyword = this.searchInput.value.trim().substring(1).trim();
+            await Api.tasks.search({
+                apiArgs: [keyword, 5],
+                onSuccess: (response) => this.renderSubtaskSuggestions(response.data || []),
+                onError: () => this.hideSubtaskSuggestions()
+            });
+        }, delay);
+    }
+
+    // 下拉容器按需创建（初始不在 DOM 中），统一做惰性解析并缓存引用
+    _getSubtaskDropdown() {
+        if (!this.dropdown || !this.dropdown.isConnected) {
+            this.dropdown = document.getElementById('subtask-suggestions');
+        }
+        return this.dropdown;
+    }
+
+    // 渲染建议下拉（至多 5 条）
+    renderSubtaskSuggestions(tasks) {
+        let dropdown = document.getElementById('subtask-suggestions');
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.id = 'subtask-suggestions';
+            dropdown.className = 'subtask-suggestions';
+            this.searchTagWrapper.appendChild(dropdown);
+        }
+        // 缓存引用：否则 hideSubtaskSuggestions/_highlightSubtaskSuggestion 拿到的是 null，
+        // 下拉会一直停在那里关不掉、键盘上下选择也会报错
+        this.dropdown = dropdown;
+        dropdown.innerHTML = '';
+        this._subtaskSuggestItems = (tasks || []).slice(0, 5);
+        this._subtaskSuggestIndex = -1;
+
+        if (this._subtaskSuggestItems.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'subtask-suggestion-empty';
+            empty.textContent = window.languageManager
+                ? window.languageManager.getText('subtaskSuggestEmpty', '无匹配的父任务')
+                : '无匹配的父任务';
+            dropdown.appendChild(empty);
+            dropdown.classList.add('visible');
+            return;
+        }
+
+        const priorityEmoji = { high: '🔴', medium: '🟡', low: '🟢', none: '⚪' };
+        const unitText = window.languageManager
+            ? window.languageManager.getText('subtaskUnit', '子任务')
+            : '子任务';
+        this._subtaskSuggestItems.forEach((task, idx) => {
+            const item = document.createElement('div');
+            item.className = 'subtask-suggestion-item';
+            item.dataset.index = String(idx);
+
+            const titleEl = document.createElement('span');
+            titleEl.className = 'subtask-suggestion-title';
+            const emoji = priorityEmoji[task.priority] || '⚪';
+            titleEl.textContent = `${emoji} ${task.title}`;
+
+            const countEl = document.createElement('span');
+            countEl.className = 'subtask-suggestion-count';
+            countEl.textContent = `${task.subtaskCount} ${unitText}`;
+
+            // mousedown 阻止默认行为，防止输入框失焦导致下拉先被关闭
+            item.addEventListener('mousedown', (e) => e.preventDefault());
+            item.addEventListener('click', () => this.selectSubtaskSuggestion(task.title, task.id));
+
+            item.appendChild(titleEl);
+            item.appendChild(countEl);
+            dropdown.appendChild(item);
+        });
+        dropdown.classList.add('visible');
+    }
+
+    // 高亮当前选中的建议项并滚动到可见
+    _highlightSubtaskSuggestion() {
+        const dropdown = this._getSubtaskDropdown();
+        if (!dropdown) return;
+        const items = dropdown.querySelectorAll('.subtask-suggestion-item');
+        items.forEach((el, i) => el.classList.toggle('active', i === this._subtaskSuggestIndex));
+        const active = dropdown.querySelector('.subtask-suggestion-item.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    // 搜索框当前是否处于"按父任务查子任务"模式，且已确定到具体的父任务。
+    // 返回 { id, title }；仅输入 ">" 但未选中具体父任务（无 id），或文本已被改写时返回 null。
+    getSubtaskParentFilter() {
+        const inputText = this.searchInput ? this.searchInput.value.trim() : '';
+        if (!this.isSubtaskSuggestMode(inputText)) return null;
+        if (!this.subtaskParent.id) return null;
+        if (this.subtaskParent.title && inputText !== `>${this.subtaskParent.title}`) return null;
+        return {
+            id: this.subtaskParent.id,
+            title: this.subtaskParent.title || inputText.substring(1).trim()
+        };
+    }
+
+    // 记录当前子任务搜索对应的父任务（id 用于精确查询，title 用于校验搜索文本是否被改写）
+    setSubtaskParent(id, title) {
+        const cleanTitle = (title || '').trim() || null;
+        this.subtaskParent = {
+            // 没有标题就无法判断搜索文本是否仍指向该父任务，此时连 id 一起丢弃，
+            // 否则残留的失效 id 会让后续查询命中错误的父任务（表现为查不到子任务）
+            id: cleanTitle ? (id || null) : null,
+            title: cleanTitle
+        };
+    }
+
+    // 选中某条建议：填充 ">+精确标题" 并触发现有子任务搜索流程
+    // id 为父任务精确ID，用于避免同名任务导致按标题解析到错误的父任务
+    selectSubtaskSuggestion(title, id = null) {
+        this.setSubtaskParent(id, title);
+        this.searchInput.value = '>' + title;
+        this.hideSubtaskSuggestions();
+        this.syncSearchQuery(0);
+    }
+
+    // 隐藏建议下拉并清理状态
+    hideSubtaskSuggestions() {
+        if (this._subtaskSuggestTimer) {
+            clearTimeout(this._subtaskSuggestTimer);
+            this._subtaskSuggestTimer = null;
+        }
+        const dropdown = this._getSubtaskDropdown();
+        if (dropdown) dropdown.classList.remove('visible');
+        this._subtaskSuggestItems = [];
+        this._subtaskSuggestIndex = -1;
+    }
+
+
+    // 清空搜索
+    async clearSearch() {
+        if (this._searchDebounceTimer) {
+            clearTimeout(this._searchDebounceTimer);
+            this._searchDebounceTimer = null;
+        }
+        this.hideSubtaskSuggestions();
+        this.setSubtaskParent(null, null);
+        this.searchChips = [];
+        this.renderSearchChips();
+        this.searchInput.value = '';
+        this.searchQuery = null;
+        this.currentPage = 1;
+        this.customDateFilter = null;
+        this.resetInfiniteScroll(); // 重置无限下拉状态
+        this.tagManager.refreshSelection();
+        await this.loadTasks();
+        this.updateSearchClearButton();
+    }
+
+    // 更新搜索清空按钮状态
+    updateSearchClearButton() {
+        const hasText = this.searchInput.value.trim().length > 0;
+        const hasChips = this.searchChips.length > 0;
+        if (hasText || hasChips) {
+            this.searchClearBtn.classList.add('visible');
+        } else {
+            this.searchClearBtn.classList.remove('visible');
+        }
+    }
+
     // 判断是否为移动端或小屏幕
     isMobileDevice() {
         return window.innerWidth <= 480;
     }
 
-    // ===== 无限下拉：实现见 js/features/todo/infinite-scroll.js =====
-    // 以下为对外保留的门面方法，签名不变，供 todo.js 内部与 main.js 调用
-
+    // 初始化无限下拉功能
     initInfiniteScroll() {
-        this.infiniteScroll.init();
+        // 移除已存在的监听器
+        this.removeScrollListener();
+        this.clearAutoFillTimer();
+
+        // 只在移动端启用无限下拉
+        if (!this.isMobileDevice() || !this.tasksContainer) return;
+
+        // 添加滚动监听器（rAF 节流，避免每个滚动事件都做布局计算）
+        this.scrollListener = () => {
+            // 用户主动滚动：重置连续自动填充计数
+            this.autoFillCount = 0;
+
+            if (this.isLoadingMore || !this.hasMoreTasks) return;
+            if (this._scrollFrameId !== null) return;
+
+            this._scrollFrameId = window.requestAnimationFrame(() => {
+                this._scrollFrameId = null;
+                if (this.isLoadingMore || !this.hasMoreTasks) return;
+
+                const container = this.tasksContainer;
+                if (!container) return;
+
+                const scrollPosition = container.scrollTop + container.clientHeight;
+                const scrollHeight = container.scrollHeight;
+
+                // 当滚动位置距离底部小于阈值时，加载更多
+                if (scrollPosition >= scrollHeight - this.scrollThreshold) this.loadMoreTasks();
+            });
+        };
+
+        this.tasksContainer.addEventListener('scroll', this.scrollListener, { passive: true });
+        logger.info('Infinite scroll listener attached');
+
+        // 检查是否需要自动加载更多（内容不足以滚动时）
+        this.scheduleAutoFillCheck();
     }
 
-    loadMoreTasks() {
-        return this.infiniteScroll.loadMoreTasks();
+    // 移除滚动监听器
+    removeScrollListener() {
+        if (this.scrollListener && this.tasksContainer) {
+            this.tasksContainer.removeEventListener('scroll', this.scrollListener);
+        }
+        this.scrollListener = null;
+
+        if (this._scrollFrameId !== null) {
+            window.cancelAnimationFrame(this._scrollFrameId);
+            this._scrollFrameId = null;
+        }
     }
 
+    // 清除自动填充定时器
+    clearAutoFillTimer() {
+        if (this.autoFillTimer) {
+            clearTimeout(this.autoFillTimer);
+            this.autoFillTimer = null;
+        }
+    }
+
+    // 延迟检查是否需要自动加载更多
+    scheduleAutoFillCheck() {
+        this.clearAutoFillTimer();
+        this.autoFillTimer = setTimeout(() => {
+            this.autoFillTimer = null;
+            this.checkAndLoadMoreIfNeeded();
+        }, 100);
+    }
+
+    // 检查是否需要自动加载更多任务
+    checkAndLoadMoreIfNeeded() {
+        if (!this.isMobileDevice() || this.isLoadingMore || !this.hasMoreTasks) return;
+
+        const container = this.tasksContainer;
+        if (!container) return;
+
+        // 列表为空（或已隐藏）时不再自动补加载，避免空列表触发无意义的请求
+        if (!Array.isArray(this.tasks) || this.tasks.length === 0) return;
+
+        // 连续自动填充达到上限时暂停，等用户滚动时再继续，避免一次性拉完全部数据
+        if (this.autoFillCount >= this.maxAutoFill) return;
+
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+
+        logger.info('Checking if need to load more - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'currentPage:', this.currentPage, 'totalPages:', this.totalPages);
+
+        // 如果内容高度小于等于容器高度，说明所有任务都在可视范围内，需要加载更多
+        // 同时确保还有更多页面可加载
+        if (scrollHeight <= clientHeight && this.currentPage < this.totalPages) {
+            logger.info('Content fits in viewport, auto-loading more tasks');
+            this.autoFillCount++;
+            this.loadMoreTasks().then(() => {
+                // 加载完成后再次检查,直到内容超过容器高度
+                if (this.isMobileDevice()) this.scheduleAutoFillCheck();
+            });
+        }
+    }
+
+    // 加载更多任务（无限下拉）
+    async loadMoreTasks() {
+        if (this.isLoadingMore || !this.hasMoreTasks) return;
+
+        // 如果已经是最后一页，不再加载
+        if (this.currentPage >= this.totalPages) {
+            this.hasMoreTasks = false;
+            this.showNoMoreTasks();
+            return;
+        }
+
+        this.isLoadingMore = true;
+        this.showLoadingMore();
+        const nextPage = this.currentPage + 1;
+        const token = this.listLoadToken; // 记录当前令牌，用于判断结果是否仍然有效
+        const { apiArgs } = this.buildListQuery(nextPage);
+        await Api.tasks.list({
+            apiArgs: apiArgs,
+            onSuccess: (response) => {
+                // 期间发生了重新加载（搜索/筛选/删除等），丢弃本次结果，避免脏数据混入新列表
+                if (token !== this.listLoadToken) {
+                    logger.info('Discard stale load-more result, page:', nextPage);
+                    return;
+                }
+
+                // 用后端最新分页信息刷新总数，避免并发增删后分页信息过期
+                if (typeof response.data.total === 'number') this.totalTasks = response.data.total;
+                if (typeof response.data.total_pages === 'number') this.totalPages = response.data.total_pages;
+
+                const newTasks = response.data.tasks || [];
+                if (newTasks.length > 0) {
+                    // 将新任务追加到现有任务列表
+                    this.tasks = [...this.tasks, ...newTasks];
+                    this.currentPage = nextPage;
+                    // 渲染新增的任务
+                    this.appendTasks(newTasks);
+                    // 检查是否还有更多任务
+                    this.hasMoreTasks = this.currentPage < this.totalPages;
+                    // 如果是最后一页，显示到底提示
+                    if (!this.hasMoreTasks) this.showNoMoreTasks();
+                } else {
+                    this.hasMoreTasks = false;
+                    this.showNoMoreTasks();
+                }
+            },
+            onError: (error) => {
+                Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error');
+            },
+            onFinally: () => {
+                this.isLoadingMore = false;
+                this.hideLoadingMore();
+            }
+        });
+    }
+
+    // 追加任务到列表
+    appendTasks(newTasks) {
+        if (!this.tasksList || !Array.isArray(newTasks) || newTasks.length === 0) return;
+
+        // 同步刷新分类缓存后拼 HTML，名称随节点一起生成，无需再回填空转的占位符
+        this.syncCategoryMap();
+
+        // 生成新任务的HTML（先在游离容器中构建，便于只给新增节点绑定事件）
+        const temp = document.createElement('div');
+        temp.innerHTML = newTasks.map(task => this.createTaskElement(task)).join('');
+
+        // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
+        this.bindTaskEvents(temp);
+
+        // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
+        const anchor = this.getLoadingMoreEl();
+        while (temp.firstChild) {
+            if (anchor) this.tasksList.insertBefore(temp.firstChild, anchor);
+            else this.tasksList.appendChild(temp.firstChild);
+        }
+    }
+
+    // 获取"加载更多"指示器（动态创建，需要实时查询）
+    getLoadingMoreEl() {
+        if (!this.tasksList) return null;
+        return this.tasksList.querySelector('#loading-more');
+    }
+
+    // 获取"已经到底了"提示（动态创建，需要实时查询）
+    getNoMoreTasksEl() {
+        if (!this.tasksList) return null;
+        return this.tasksList.querySelector('#no-more-tasks');
+    }
+
+    // 显示"加载更多"指示器
+    showLoadingMore() {
+        if (!this.tasksList) return;
+        this.hideLoadingMore();
+
+        const loadingMoreDiv = document.createElement('div');
+        loadingMoreDiv.id = 'loading-more';
+        loadingMoreDiv.className = 'loading-more';
+        loadingMoreDiv.innerHTML = `
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+        `;
+        this.tasksList.appendChild(loadingMoreDiv);
+    }
+
+    // 隐藏"加载更多"指示器
     hideLoadingMore() {
-        this.infiniteScroll.hideLoadingMore();
+        this.getLoadingMoreEl()?.remove();
     }
 
+    // 显示"已经到底了"提示
+    showNoMoreTasks() {
+        if (!this.tasksList) return;
+        // 已存在则不重复添加
+        if (this.getNoMoreTasksEl()) return;
+        // 到底时应移除加载指示器
+        this.hideLoadingMore();
+
+        const noMoreDiv = document.createElement('div');
+        noMoreDiv.id = 'no-more-tasks';
+        noMoreDiv.className = 'no-more-tasks';
+        noMoreDiv.innerHTML = `
+            <span class="no-more-text">- 已经到底了 -</span>
+        `;
+        this.tasksList.appendChild(noMoreDiv);
+    }
+
+    // 隐藏"已经到底了"提示
     hideNoMoreTasks() {
-        this.infiniteScroll.hideNoMoreTasks();
+        this.getNoMoreTasksEl()?.remove();
     }
 
     // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
     resetInfiniteScroll() {
-        this.infiniteScroll.reset();
+        // 使飞行中的"加载更多"结果失效
+        this.listLoadToken++;
+        this.isLoadingMore = false;
+        this.hasMoreTasks = true;
+        this.currentPage = 1;
+        this.autoFillCount = 0;
+        this.clearAutoFillTimer();
+        this.hideNoMoreTasks();
+        this.hideLoadingMore();
     }
 
     // 处理窗口大小变化
@@ -2851,10 +3968,10 @@ class TodoManager {
             this.tasksList.style.display = 'table';
 
             // 移除无限下拉（同时清理加载提示与待执行的自动填充）
-            this.infiniteScroll.removeScrollListener();
-            this.infiniteScroll.clearAutoFillTimer();
-            this.infiniteScroll.hideLoadingMore();
-            this.infiniteScroll.hideNoMoreTasks();
+            this.removeScrollListener();
+            this.clearAutoFillTimer();
+            this.hideLoadingMore();
+            this.hideNoMoreTasks();
 
             // 显示分页
             this.pagination.style.display = 'flex';
