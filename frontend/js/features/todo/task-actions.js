@@ -6,8 +6,7 @@
  *
  * 依赖的 TodoManager 成员：
  *   状态：tasks / statusFilter / currentPage / _completingTasks / tagManager
- *   方法：loadTasks / isMobileDevice
- *   其它控制器：ctx.locator.animateRemoval / ctx.infiniteScroll.reset
+ *   方法：loadTasks / animateTaskRemoval / isMobileDevice / resetInfiniteScroll
  */
 class TaskActionsController {
     constructor(ctx) {
@@ -246,7 +245,7 @@ class TaskActionsController {
     async performDelete(taskId, deleteAll) {
         const ctx = this.ctx;
         // 先播放离场动画，再真正删除
-        await ctx.locator.animateRemoval(taskId);
+        await ctx.animateTaskRemoval(taskId);
 
         Utils.setLoading(true, '删除中...');
         await Api.tasks.remove({
@@ -259,7 +258,7 @@ class TaskActionsController {
 
                 // 移动端调整：如果当前页不是第一页，重置到第一页
                 if (ctx.isMobileDevice()) {
-                    ctx.infiniteScroll.reset(); // 重置无限下拉状态
+                    ctx.resetInfiniteScroll(); // 重置无限下拉状态
                 } else {
                     // 安全检查：确保任务列表存在
                     if (Array.isArray(ctx.tasks)) {

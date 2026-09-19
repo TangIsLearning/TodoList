@@ -9,8 +9,7 @@
  *        _subtaskSuggestTimer / _subtaskSuggestItems / _subtaskSuggestIndex /
  *        subtaskParent / dropdown / currentPage / customDateFilter
  *   DOM：searchInput / searchTagWrapper / searchClearBtn
- *   方法：tagManager（refreshSelection / getTags）/ loadTasks
- *   其它控制器：ctx.infiniteScroll.reset
+ *   方法：tagManager（refreshSelection / getTags）/ resetInfiniteScroll / loadTasks
  */
 class SearchController {
     constructor(ctx) {
@@ -321,7 +320,7 @@ class SearchController {
             ctx.searchQuery = this.buildQuery();
             ctx.currentPage = 1;
             ctx.customDateFilter = null; // 清除自定义日期筛选
-            ctx.infiniteScroll.reset(); // 重置无限下拉状态
+            ctx.resetInfiniteScroll(); // 重置无限下拉状态
             await ctx.loadTasks();
         }, delay);
     }
@@ -499,7 +498,7 @@ class SearchController {
         ctx.searchQuery = null;
         ctx.currentPage = 1;
         ctx.customDateFilter = null;
-        ctx.infiniteScroll.reset(); // 重置无限下拉状态
+        ctx.resetInfiniteScroll(); // 重置无限下拉状态
         ctx.tagManager.refreshSelection();
         await ctx.loadTasks();
         this.updateClearButton();

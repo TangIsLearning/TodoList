@@ -18,13 +18,14 @@
  *        taskCategorySelect / datePicker / timeInput / taskParent / taskParentInput /
  *        taskParentDropdown / parentTaskCombobox / loadMoreParentTask /
  *        recurringOptions / scheduleModeOnce / moreOptionsContent / moreOptionsToggle
- *   方法：resetMoreOptions / expandMoreOptions / addInputValueListeners /
- *        isMobileDevice / loadTasks
- *   其它控制器：ctx.recurrence（reset / updateScheduleMode / getScheduleMode /
- *        getTodayISO / collectRule / addEditNotice / removeEditNotice /
- *        validateAndReport）、ctx.search（getTagFilterIds / getParentFilter /
- *        setParent / syncQuery / renderChips / hideSuggestions / buildQuery /
- *        updateClearButton）、ctx.infiniteScroll.reset
+ *   方法：resetMoreOptions / expandMoreOptions / removeRecurringEditNotice /
+ *        addRecurringEditNotice / addInputValueListeners / getSubtaskParentFilter /
+ *        setSubtaskParent / hideSubtaskSuggestions / getTagFilterIds /
+ *        renderSearchChips / buildSearchQuery / updateSearchClearButton /
+ *        syncSearchQuery / collectRecurrenceRule / getTodayISO / getScheduleMode /
+ *        resetRecurrenceConfig / updateScheduleMode / isMobileDevice /
+ *        resetInfiniteScroll / loadTasks
+ *   其它控制器：ctx.recurrence.validateAndReport（周期规则校验 + 失败提示）
  */
 class TaskFormController {
     constructor(ctx) {
@@ -45,17 +46,17 @@ class TaskFormController {
         this.enableRecurringOptions();
 
         // 移除编辑模式提示（如果存在）
-        ctx.recurrence.removeEditNotice();
+        ctx.removeRecurringEditNotice();
 
         // 截止日期默认为空，不设置默认值
         ctx.timeInput.value = '';
 
         // 搜索框正处于"按父任务查子任务"时，新建任务默认挂到该父任务下
-        const subtaskParentFilter = ctx.search.getParentFilter();
+        const subtaskParentFilter = ctx.getSubtaskParentFilter();
 
         // 记录打开弹窗时的列表筛选快照（分类 + 标签 + 父任务），提交后据此决定是否同步或清除筛选
         const currentCategory = ctx.currentFilter && ctx.currentFilter !== 'all' ? ctx.currentFilter : '';
-        const currentTagIds = ctx.search.getTagFilterIds();
+        const currentTagIds = ctx.getTagFilterIds();
         // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
         ctx.taskFilterSnapshot = {
             categoryId: currentCategory,
@@ -339,9 +340,9 @@ class TaskFormController {
                     if (taskTitle) {
                         // 进入子任务搜索模式：填充 ">父任务名"
                         // 已有的标签 chips 会保留，与父任务条件在后端按 AND 组合
-                        ctx.search.setParent(taskId, taskTitle);
+                        ctx.setSubtaskParent(taskId, taskTitle);
                         ctx.searchInput.value = `>${taskTitle}`;
-                        ctx.search.syncQuery(0);
+                        ctx.syncSearchQuery(0);
                     }
                 }
             });
@@ -370,7 +371,7 @@ class TaskFormController {
         this.enableRecurringOptions();
 
         // 移除编辑模式提示（如果存在）
-        ctx.recurrence.removeEditNotice();
+        ctx.removeRecurringEditNotice();
 
         // 填充表单
         ctx.taskTitle.value = task.title;
@@ -382,7 +383,7 @@ class TaskFormController {
 
         // 记录打开弹窗时的任务原分类/原标签与列表筛选状态，提交后据此决定是否同步筛选
         const filterCategoryId = ctx.currentFilter && ctx.currentFilter !== 'all' ? ctx.currentFilter : '';
-        const filterTagIds = ctx.search.getTagFilterIds();
+        const filterTagIds = ctx.getTagFilterIds();
         ctx.taskFilterSnapshot = {
             categoryId: task.categoryId || '',
             tagIds: ctx.tagManager.getFormSelectedTagIds(),
@@ -392,7 +393,7 @@ class TaskFormController {
             hasCategoryFilter: !!filterCategoryId,
             hasTagFilter: filterTagIds.length > 0,
             // 编辑模式下以搜索框是否处于父任务查询为准，与任务自身是否有父任务无关
-            hasParentFilter: !!ctx.search.getParentFilter()
+            hasParentFilter: !!ctx.getSubtaskParentFilter()
         };
 
         // 如果有截止日期，自动展开更多选项
@@ -412,7 +413,7 @@ class TaskFormController {
         this.disableRecurringOptions();
 
         // 添加编辑模式提示
-        ctx.recurrence.addEditNotice();
+        ctx.addRecurringEditNotice();
 
         // 加载分类选项
         this.loadCategoryOptions(task.categoryId);
@@ -448,8 +449,8 @@ class TaskFormController {
         ctx.recurringOptions.style.display = 'none';
         ctx.datePicker.required = false;
         ctx.timeInput.required = false;
-        ctx.recurrence.reset();
-        ctx.recurrence.updateScheduleMode();
+        ctx.resetRecurrenceConfig();
+        ctx.updateScheduleMode();
     }
 
     // 启用周期模式切换（新建任务模式下允许）
@@ -464,8 +465,8 @@ class TaskFormController {
 
         // 确保周期性选项区域是隐藏的（默认状态）
         ctx.recurringOptions.style.display = 'none';
-        ctx.recurrence.reset();
-        ctx.recurrence.updateScheduleMode();
+        ctx.resetRecurrenceConfig();
+        ctx.updateScheduleMode();
     }
 
     // 加载分类选项
@@ -499,7 +500,7 @@ class TaskFormController {
         const timeStr = ctx.timeInput.value || null;
 
         // 周期性任务不再要求填写起始日期，默认从今天开始；提醒时间点由周期规则决定
-        const isRecurringTask = !isEdit && ctx.recurrence.getScheduleMode() === 'recurring';
+        const isRecurringTask = !isEdit && ctx.getScheduleMode() === 'recurring';
 
         if (!isRecurringTask) {
             const dateTimeValidation = BusinessUtils.DateTimeValidator.validateDateTime(dateStr, timeStr);
@@ -512,7 +513,7 @@ class TaskFormController {
         let isoDateStr = null;
         if (dateStr && timeStr) isoDateStr = `${dateStr}T${timeStr}`;
         else if (dateStr) isoDateStr = dateStr;
-        if (isRecurringTask) isoDateStr = ctx.recurrence.getTodayISO();
+        if (isRecurringTask) isoDateStr = ctx.getTodayISO();
 
         // 编辑模式下父任务由 initParentForEdit 异步回显，必须先等它结束再取值：
         // 否则"尚未回显"会被当成"用户移除了父任务"，保存时误删已有父子关联，
@@ -538,7 +539,7 @@ class TaskFormController {
             // 只有在新建模式下才允许设置周期性任务
             taskData.isRecurring = isRecurringTask;
             if (isRecurringTask) {
-                const rule = ctx.recurrence.collectRule();
+                const rule = ctx.collectRecurrenceRule();
                 if (!ctx.recurrence.validateAndReport(rule)) return;
                 taskData.recurrenceRule = rule;
                 // 兼容旧字段：供列表展示与历史数据读取
@@ -629,7 +630,7 @@ class TaskFormController {
                 Utils.ModalManager.hide('task-modal');
 
                 // 移动端调整：如果当前页不是第一页，重置到第一页
-                if (ctx.isMobileDevice()) ctx.infiniteScroll.reset(); // 重置无限下拉状态
+                if (ctx.isMobileDevice()) ctx.resetInfiniteScroll(); // 重置无限下拉状态
 
                 // 按表单中最终选择的分类/标签同步列表筛选
                 const tagsModuleRefreshed = await this.syncFiltersAfterSave(
@@ -700,7 +701,7 @@ class TaskFormController {
 
             // 保留非标签类型的搜索 chip（如文本搜索），仅替换标签筛选部分
             ctx.searchChips = ctx.searchChips.filter(chip => chip.type !== 'tag').concat(chosenTagChips);
-            ctx.search.renderChips();
+            ctx.renderSearchChips();
 
             // 表单中可能包含新建的标签，刷新左侧标签模块以纳入新标签与新计数；
             // 此时 chips 已更新，模块渲染会直接带上正确的选中态
@@ -713,16 +714,16 @@ class TaskFormController {
         // chosenParentId 为表单中最终选择的父任务；搜索框本身没有父任务查询时不联动
         const chosenParentId = ctx.taskParent.value || null;
         if (snapshot.hasParentFilter && chosenParentId !== snapshot.parentTaskId) {
-            ctx.search.hideSuggestions();
+            ctx.hideSubtaskSuggestions();
             if (chosenParentId) {
                 // 改为其他父任务：搜索框同步为新的父任务查询
                 const parentTitle = (ctx.parentTaskState.selectedTitle || '').trim() ||
                     (ctx.taskParentInput.value || '').trim();
-                ctx.search.setParent(chosenParentId, parentTitle || null);
+                ctx.setSubtaskParent(chosenParentId, parentTitle || null);
                 ctx.searchInput.value = parentTitle ? `>${parentTitle}` : '';
             } else {
                 // 移除父任务：同步移除搜索框的父任务查询
-                ctx.search.setParent(null, null);
+                ctx.setSubtaskParent(null, null);
                 ctx.searchInput.value = '';
             }
             filterChanged = true;
@@ -730,11 +731,11 @@ class TaskFormController {
 
         if (filterChanged) {
             // 重新计算提交给后端的查询对象
-            ctx.searchQuery = ctx.search.buildQuery();
-            ctx.search.updateClearButton();
+            ctx.searchQuery = ctx.buildSearchQuery();
+            ctx.updateSearchClearButton();
             // 筛选条件已变化，回到第一页重新加载
             ctx.currentPage = 1;
-            ctx.infiniteScroll.reset();
+            ctx.resetInfiniteScroll();
         }
 
         return tagsModuleRefreshed;

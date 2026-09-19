@@ -8,8 +8,7 @@
  *   状态：totalTasks / totalPages / currentPage / pageSize
  *   DOM：pagination / paginationShow / pageSizeSelect / paginationNum /
  *        firstBtn / prevBtn / nextBtn / lastBtn / tasksContainer
- *   方法：loadTasks
- *   其它控制器：ctx.infiniteScroll.reset
+ *   方法：loadTasks / resetInfiniteScroll
  */
 class PaginationController {
     constructor(ctx) {
@@ -114,7 +113,7 @@ class PaginationController {
 
         ctx.pageSize = parseInt(pageSize);
         ctx.currentPage = 1; // 重置到第一页
-        ctx.infiniteScroll.reset(); // 重置无限下拉状态
+        ctx.resetInfiniteScroll(); // 重置无限下拉状态
         await ctx.loadTasks();
     }
 }

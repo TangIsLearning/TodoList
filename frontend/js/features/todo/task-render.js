@@ -8,9 +8,9 @@
  * 依赖的 TodoManager 成员：
  *   状态：tasks / tasksList / emptyState / pagination / parentTaskMap /
  *        attachmentManager
- *   方法：loadParentTaskMap / ensureCategoryMap / getCategoryName
- *   其它控制器：ctx.columns.getVisibleColumns / getColumnLayout / isColumnVisible /
- *        ctx.rowInteractions.bindEvents / ctx.locator.highlightPending
+ *   方法：getVisibleColumns / getColumnLayout / isColumnVisible /
+ *        loadParentTaskMap / ensureCategoryMap / getCategoryName /
+ *        bindTaskEvents / highlightPendingTask
  */
 class TaskRenderController {
     constructor(ctx) {
@@ -46,9 +46,9 @@ class TaskRenderController {
         // 大屏幕添加表头（列由用户配置决定）
         if (isLargeScreen) {
             // 展示"关联父项任务"列时需要父任务信息，统一批量查询避免逐条请求
-            if (ctx.columns.isColumnVisible('parentTask')) await ctx.loadParentTaskMap();
+            if (ctx.isColumnVisible('parentTask')) await ctx.loadParentTaskMap();
 
-            const layout = ctx.columns.getColumnLayout();
+            const layout = ctx.getColumnLayout();
             ctx.tasksList.style.minWidth = `${layout.minWidth}px`;
 
             const configTip = Utils.escapeHtml(window.languageManager.getText('columnConfigTip', '配置列表查看列'));
@@ -83,12 +83,12 @@ class TaskRenderController {
         ctx.tasksList.innerHTML = html;
 
         // 绑定任务事件
-        await ctx.rowInteractions.bindEvents();
+        await ctx.bindTaskEvents();
 
         // 取消淡出并播放入场淡入
         this.finishListRefresh();
         // 新建/编辑保存后定位并高亮对应任务
-        ctx.locator.highlightPending();
+        ctx.highlightPendingTask();
     }
 
     // 列表刷新收尾：取消淡出态并重新播放淡入动画
@@ -124,7 +124,7 @@ class TaskRenderController {
         // 大屏幕表格式布局（按用户配置的列渲染）
         if (isLargeScreen) {
             const cellCtx = { priorityInfo, isOverdue, tagsHtml };
-            const cells = ctx.columns.getVisibleColumns()
+            const cells = ctx.getVisibleColumns()
                 .map(key => this.createTaskCell(task, key, cellCtx))
                 .join('');
 
