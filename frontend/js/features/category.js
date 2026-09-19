@@ -114,7 +114,8 @@ class CategoryManager {
     
     // 加载分类
     async loadCategories() {
-        await Api.categories.list({
+        await Utils.apiCall({
+            apiMethod: 'get_categories',
             onSuccess: (response) => this.categories = response.data,
             onError: (error) => Utils.showToast(window.languageManager.getText('loadCategoriesFailed', '加载分类失败'), 'error')
         });
@@ -201,7 +202,8 @@ class CategoryManager {
                 : [1, 999999, null, 'uncompleted', null, null, null, null, null, null];
 
             // 调用公共方法，自动处理加载检查、错误日志和成功/失败回调
-            await Api.tasks.list({
+            await Utils.apiCall({
+                apiMethod: 'get_todos',
                 apiArgs: apiArgs,
                 onSuccess: (response) => tasks = response.data.tasks
             });
@@ -290,11 +292,18 @@ class CategoryManager {
             return;
         }
 
-        const saveCategory = isEdit ? Api.categories.update : Api.categories.add;
-        const apiArgs = isEdit ? [editingId, categoryData] : [categoryData];
+        let apiMethod;
+        let apiArgs = [];
+        if (isEdit) {
+            apiMethod = 'update_category';
+            apiArgs = [editingId, categoryData];
+        } else {
+            apiMethod = 'add_category';
+            apiArgs = [categoryData];
+        }
         Utils.setLoading(true, isEdit ? '更新中...' : '创建中...');
-        await saveCategory({
-            apiArgs: apiArgs,
+        await Utils.apiCall({
+            apiMethod: apiMethod,
             apiArgs: apiArgs,
             onSuccess: (response) => {
                 Utils.showToast(isEdit ?
@@ -353,7 +362,8 @@ class CategoryManager {
         
         Utils.confirmDialog(message, async () => {
             Utils.setLoading(true, '删除中...');
-            Api.categories.remove({
+            Utils.apiCall({
+                apiMethod: 'delete_category',
                 apiArgs: [categoryId],
                 onSuccess: (response) => {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
@@ -380,7 +390,8 @@ class CategoryManager {
     // 获取分类下的任务数量
     async getCategoryTaskCount(categoryId) {
         let count = 0;
-        await Api.tasks.list({
+        await Utils.apiCall({
+            apiMethod: 'get_todos',
             onSuccess: (response) => count = response.data.tasks.filter(task => task.categoryId === categoryId).length
         });
         return count;

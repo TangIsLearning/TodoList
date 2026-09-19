@@ -432,8 +432,9 @@
          * 后端无配置时保留本地缓存，避免多设备/清库场景下配色闪回默认值。
          */
         async reconcile() {
-            if (!global.Api || typeof global.Api.config.get !== 'function') return;
-            await global.Api.config.get({
+            if (!global.Utils || typeof global.Utils.apiCall !== 'function') return;
+            await global.Utils.apiCall({
+                apiMethod: 'get_config',
                 apiArgs: ['custom_accent_colors'],
                 onSuccess: (response) => {
                     const remote = response && response.data ? response.data.custom_accent_colors : null;

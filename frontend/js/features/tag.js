@@ -99,7 +99,8 @@ class TagManager {
     // 只做并发去重（同一时刻的重复请求合并），不做长期缓存——标签计数随任务增删频繁变化，缓存易读到脏数据。
     fetchTags() {
         if (this._fetching) return this._fetching;
-        this._fetching = Api.tags.list({
+        this._fetching = Utils.apiCall({
+            apiMethod: 'get_all_tags',
             onSuccess: (response) => this.setTags(response.data),
             onError: () => Utils.showToast(window.languageManager.getText('loadTagsFailed', '加载标签失败'), 'error')
         }).finally(() => { this._fetching = null; });
@@ -462,7 +463,8 @@ class TagManager {
         Utils.confirmDialog(
             name ? `确定要删除标签“${name}”吗？` : '确定要删除这个标签吗？',
             async () => {
-                await Api.tags.remove({
+                await Utils.apiCall({
+                    apiMethod: 'delete_tag',
                     apiArgs: [tagId],
                     onSuccess: () => {
                         Utils.showToast(window.languageManager.getText('taskTagDeleted', '标签删除成功'), 'success');
@@ -549,7 +551,8 @@ class TagManager {
         }
 
         Utils.setLoading(true, '更新中...');
-        await Api.tags.update({
+        await Utils.apiCall({
+            apiMethod: 'update_tag',
             apiArgs: [tagId, { name: newName }],
             onSuccess: async () => {
                 Utils.showToast(window.languageManager.getText('tagUpdated', '标签更新成功'), 'success');

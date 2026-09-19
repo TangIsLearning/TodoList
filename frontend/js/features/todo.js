@@ -486,7 +486,8 @@ class TodoManager {
     // 读取列配置：数据库为唯一来源，localStorage 仅用于首屏兜底
     async loadColumnConfig() {
         this.applyCachedColumnConfig();
-        await Api.config.get({
+        await Utils.apiCall({
+            apiMethod: 'get_config',
             apiArgs: ['task_list_columns'],
             successCheck: (result) => !!result && !!result.data,
             onSuccess: (response) => {
@@ -603,7 +604,8 @@ class TodoManager {
         localStorage.setItem(TASK_LIST_COLUMNS_CACHE_KEY, JSON.stringify(normalized));
         Utils.ModalManager.hide('task-columns-modal');
 
-        await Api.config.set({
+        await Utils.apiCall({
+            apiMethod: 'set_config',
             apiArgs: ['task_list_columns', normalized],
             onSuccess: () => Utils.showToast(window.languageManager.getText('columnConfigSaved', '显示列配置已保存'), 'success'),
             onError: () => Utils.showToast(window.languageManager.getText('columnConfigSaveFailed', '显示列配置保存失败'), 'error')
@@ -619,7 +621,8 @@ class TodoManager {
             .map(task => task.id);
         if (ids.length === 0) return;
 
-        await Api.relations.parentsMap({
+        await Utils.apiCall({
+            apiMethod: 'get_parents_map',
             apiArgs: [ids],
             successCheck: (result) => !!result && !!result.data,
             onSuccess: (response) => {
@@ -962,7 +965,8 @@ class TodoManager {
             Utils.showToast(window.languageManager.getText(errorKey, RECURRENCE_ERROR_MESSAGES[errorKey]), 'warning');
             return;
         }
-        await Api.tasks.previewRecurring({
+        await Utils.apiCall({
+            apiMethod: 'preview_recurring_occurrences',
             apiArgs: [this.getTodayISO(), rule, 10],
             onSuccess: (response) => {
                 const occurrences = response.data || [];
@@ -1083,7 +1087,7 @@ class TodoManager {
         const onDateChange = async () => {
             updateBtn(this.datePicker, this.clearDateBtn);
             if (!localStorage.getItem('calendar_permission') && this.isMobileDevice?.()) {
-                await Api.system.calendarPermission({ successCheck: () => true });
+                await Utils.apiCall({ apiMethod: 'check_calendar_permission', successCheck: () => true });
                 localStorage.setItem('calendar_permission', 'true');
             }
             validate();
@@ -1111,6 +1115,7 @@ class TodoManager {
         const dueDateArg = this.dueDateFilter === 'all' ? null : this.dueDateFilter;
 
         return {
+            apiMethod: 'get_todos',
             apiArgs: [
                 page,
                 this.pageSize,
@@ -1132,8 +1137,9 @@ class TodoManager {
         this.listLoadToken++;
         this.autoFillCount = 0; // 重新加载后允许再次自动填充
         Utils.setLoading(true, '加载任务...');
-        const { apiArgs } = this.buildListQuery(this.currentPage);
-        await Api.tasks.list({
+        const { apiMethod, apiArgs } = this.buildListQuery(this.currentPage);
+        await Utils.apiCall({
+            apiMethod: apiMethod,
             apiArgs: apiArgs,
             onSuccess: (response) => {
                 this.tasks = response.data.tasks;
@@ -1313,14 +1319,15 @@ class TodoManager {
 
         if (window.timelineManager) window.timelineManager.renderTimeline();
         // 触发云端同步上传，保持与前端新建任务一致
-        Api.tasks.triggerUpload({ successCheck: () => true });
+        Utils.apiCall({ apiMethod: 'trigger_upload_on_change', successCheck: () => true });
         this.tagManager.loadModule(true);
     }
 
     // 查询指定任务在当前筛选条件下的页码，被筛选条件排除时返回 null
     async findTaskPage(taskId) {
         let page = null;
-        await Api.tasks.page({
+        await Utils.apiCall({
+            apiMethod: 'get_task_page',
             apiArgs: [
                 taskId,
                 this.pageSize,
@@ -1880,7 +1887,8 @@ class TodoManager {
         }
         if (this.categoryMap.size > 0) return;
 
-        await Api.categories.list({
+        await Utils.apiCall({
+            apiMethod: 'get_categories',
             onSuccess: (response) => this.cacheCategories(response.data || [])
         });
     }
@@ -1919,7 +1927,8 @@ class TodoManager {
         // 如果是要完成任务，检查是否有未完成的子任务
         if (willComplete) {
             let hasUnCompletedChildren = false;
-            await Api.relations.children({
+            await Utils.apiCall({
+                apiMethod: 'get_children',
                 apiArgs: [taskId],
                 onSuccess: (response) => {
                     const children = response.data;
@@ -1937,7 +1946,8 @@ class TodoManager {
             }
         }
 
-        await Api.tasks.toggle({
+        await Utils.apiCall({
+            apiMethod: 'toggle_todo',
             apiArgs: [taskId],
             onSuccess: async (response) => {
                 const completed = !!response.data.completed;
@@ -1955,7 +1965,7 @@ class TodoManager {
                     window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
 
                 // 触发云端同步上传
-                Api.tasks.triggerUpload({ successCheck: (response) => true });
+                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
 
                 // 先播放完成/重开动效，动画结束后再刷新列表，避免突兀的状态跳变
                 await this.playToggleAnimation(taskId, completed);
@@ -2191,7 +2201,8 @@ class TodoManager {
         const searchQuery = this.parentTaskState.searchQuery;
         const page = this.parentTaskState.currentPage;
         const pageSize = this.parentTaskState.pageSize;
-        await Api.tasks.list({
+        await Utils.apiCall({
+            apiMethod: 'get_todos',
             apiArgs: [page, pageSize, null, 'uncompleted', null, null, null, null, searchQuery || null],
             onSuccess: (response) => {
                 let tasks = response.data.tasks.filter(t => !t.isRecurring && !t.parentTaskId);
@@ -2285,7 +2296,8 @@ class TodoManager {
         this.initParentTaskCombobox();
         
         // 获取当前任务的父任务
-        await Api.relations.parent({
+        await Utils.apiCall({
+            apiMethod: 'get_parent',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 if (token !== this._parentEditToken) return;
@@ -2317,7 +2329,8 @@ class TodoManager {
         const taskIds = Array.from(elByTaskId.keys());
 
         // 并发请求，避免逐条 await 导致列表越大等待越久
-        await Promise.all(taskIds.map(taskId => Api.relations.children({
+        await Promise.all(taskIds.map(taskId => Utils.apiCall({
+            apiMethod: 'get_children',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 const children = response.data;
@@ -2364,7 +2377,8 @@ class TodoManager {
 
         // 如果当前页任务中不存在该任务，再查询数据库
         if (!task) {
-            await Api.tasks.get({
+            await Utils.apiCall({
+                apiMethod: 'get_todo',
                 apiArgs: [taskId],
                 onSuccess: (response) => task = response.data
             });
@@ -2390,7 +2404,8 @@ class TodoManager {
         let parentInfo = '';
         let childrenInfo = '';
 
-        await Api.relations.parent({
+        await Utils.apiCall({
+            apiMethod: 'get_parent',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 const parent = response.data;
@@ -2407,7 +2422,8 @@ class TodoManager {
             }
         });
 
-        await Api.relations.children({
+        await Utils.apiCall({
+            apiMethod: 'get_children',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 const children = response.data;
@@ -2616,7 +2632,8 @@ class TodoManager {
     // 加载父任务选项（编辑模式）
     async loadParentTaskOptionsForEdit(taskId) {
         let parentId = '';
-        await Api.relations.parent({
+        await Utils.apiCall({
+            apiMethod: 'get_parent',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 const parent = response.data;
@@ -2661,7 +2678,8 @@ class TodoManager {
     
     // 加载分类选项
     async loadCategoryOptions(selectedId = '') {
-        await Api.categories.list({
+        await Utils.apiCall({
+            apiMethod: 'get_categories',
             onSuccess: (response) => {
                 const categories = response.data;
                 this.taskCategorySelect.innerHTML = `<option value="">${window.languageManager.getText('uncategorized', '未分类')}</option>`;
@@ -2755,17 +2773,18 @@ class TodoManager {
             return;
         }
 
-        let saveTask;
+        let apiMethod;
         let apiArgs;
         if (isEdit) {
-            saveTask = Api.tasks.update;
+            apiMethod = 'update_todo';
             apiArgs = [editingId, taskData];
         } else {
-            saveTask = taskData.isRecurring ? Api.tasks.addRecurring : Api.tasks.add;
+            apiMethod = taskData.isRecurring ? 'add_recurring_todo' : 'add_todo';
             apiArgs = [taskData];
         }
 
-        await saveTask({
+        await Utils.apiCall({
+            apiMethod: apiMethod,
             apiArgs: apiArgs,
             onSuccess: async (response) => {
                 const message = isEdit ? window.languageManager.getText('taskUpdated', '任务更新成功') :
@@ -2788,7 +2807,8 @@ class TodoManager {
                         } else {
                             // 先读取当前父任务
                             let currentParentId = null;
-                            await Api.relations.parent({
+                            await Utils.apiCall({
+                                apiMethod: 'get_parent',
                                 apiArgs: [taskId],
                                 onSuccess: (res) => {
                                     currentParentId = res.data ? res.data.id : null;
@@ -2799,7 +2819,8 @@ class TodoManager {
                             // 拆成"先删后加"两次调用时，中途失败会让子任务彻底丢失父任务，
                             // 表现为按父任务搜索查不到该子任务
                             if (currentParentId !== parentTaskId) {
-                                await Api.relations.setParent({
+                                await Utils.apiCall({
+                                    apiMethod: 'set_task_parent',
                                     apiArgs: [taskId, parentTaskId],
                                     successCheck: () => true,
                                     onError: () => Utils.showToast(window.languageManager.getText('updateParentRelationFailed', '更新父任务关联失败'), 'warning')
@@ -2808,7 +2829,8 @@ class TodoManager {
                         }
                     } else if (parentTaskId) {
                         // 新建模式下直接添加关联
-                        await Api.relations.add({
+                        await Utils.apiCall({
+                            apiMethod: 'add_task_relation',
                             apiArgs: [taskId, parentTaskId],
                             successCheck: () => true,
                             onError: () => Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning')
@@ -2841,7 +2863,7 @@ class TodoManager {
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
 
                 // 触发云端同步上传
-                Api.tasks.triggerUpload({ successCheck: (response) => true });
+                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 if (!tagsModuleRefreshed) this.tagManager.loadModule(true);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
@@ -2939,7 +2961,8 @@ class TodoManager {
         
         // 检查是否有子任务
         let checkChildrenFailed = false;
-        await Api.relations.children({
+        await Utils.apiCall({
+            apiMethod: 'get_children',
             apiArgs: [taskId],
             onSuccess: (response) => {
                 const children = response.data;
@@ -3018,7 +3041,8 @@ class TodoManager {
         await this.animateTaskRemoval(taskId);
 
         Utils.setLoading(true, '删除中...');
-        await Api.tasks.remove({
+        await Utils.apiCall({
+            apiMethod: 'delete_todo',
             apiArgs: [taskId, deleteAll],
             onSuccess: (response) => {
                 const message = deleteAll ?
@@ -3046,7 +3070,7 @@ class TodoManager {
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
 
                 // 触发云端同步上传
-                Api.tasks.triggerUpload({ successCheck: (response) => true });
+                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 this.tagManager.loadModule(true);
             },
             onError: (error) => {
@@ -3064,7 +3088,8 @@ class TodoManager {
     async updateCategoryCounts(fromZero = false) {
         if (window.categoryManager) {
             // 获取当前筛选条件下的所有任务（不分页）
-            await Api.tasks.list({
+            await Utils.apiCall({
+                apiMethod: 'get_todos',
                 apiArgs: [
                     1,  // page
                     999999,  // page_size - 设置一个足够大的值以获取所有任务
@@ -3204,7 +3229,8 @@ class TodoManager {
             const dateRangeText = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
             this.dateRangeStats.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
 
-            Api.stats.summary({
+            Utils.apiCall({
+                apiMethod: 'get_stats',
                 onSuccess: (response) => {
                     const totalUncompleted = response.data.uncompleted;
                     const todayCompleted = response.data.today_completed;
@@ -3549,7 +3575,8 @@ class TodoManager {
             }
             // 转换：剥离 ">" 前缀并 trim，得到后端支持的关键字
             const keyword = this.searchInput.value.trim().substring(1).trim();
-            await Api.tasks.search({
+            await Utils.apiCall({
+                apiMethod: 'search_tasks_with_subtasks',
                 apiArgs: [keyword, 5],
                 onSuccess: (response) => this.renderSubtaskSuggestions(response.data || []),
                 onError: () => this.hideSubtaskSuggestions()
@@ -3827,8 +3854,9 @@ class TodoManager {
         this.showLoadingMore();
         const nextPage = this.currentPage + 1;
         const token = this.listLoadToken; // 记录当前令牌，用于判断结果是否仍然有效
-        const { apiArgs } = this.buildListQuery(nextPage);
-        await Api.tasks.list({
+        const { apiMethod, apiArgs } = this.buildListQuery(nextPage);
+        await Utils.apiCall({
+            apiMethod: apiMethod,
             apiArgs: apiArgs,
             onSuccess: (response) => {
                 // 期间发生了重新加载（搜索/筛选/删除等），丢弃本次结果，避免脏数据混入新列表
