@@ -173,8 +173,7 @@ class InfiniteScrollController {
         const temp = document.createElement('div');
         temp.innerHTML = newTasks.map(task => ctx.renderer.createTaskElement(task)).join('');
 
-        // 只给新增节点绑定事件（内部对操作按钮是同步绑定，其余异步部分失败不影响交互）
-        ctx.rowInteractions.bindEvents(temp).catch(e => logger.warn('绑定新增任务事件失败:', e));
+        ctx.rowInteractions.bindEvents(temp);
 
         // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
         const anchor = this.getLoadingMoreEl();
