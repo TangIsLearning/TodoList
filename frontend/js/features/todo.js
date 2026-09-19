@@ -96,10 +96,6 @@ class TodoManager {
         this.columns = new ColumnsController(this);
         // 搜索 chips / 结构化查询 / 子任务联想：实现见 SearchController
         this.search = new SearchController(this);
-        // 列表渲染与任务行 HTML 构造：实现见 TaskRenderController
-        this.renderer = new TaskRenderController(this);
-        // 分页（大屏幕模式）：实现见 PaginationController
-        this.paginationControl = new PaginationController(this);
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
         this.attachmentManager = new AttachmentManager(this);
         // 设置日期组件：单次任务截止日期 / 周期性任务结束日期共用同一套日历
@@ -684,18 +680,89 @@ class TodoManager {
         });
 
     }
-
-    // ===== 列表渲染：实现见 js/features/todo/task-render.js =====
-    // 以下为对外保留的门面方法
-
+    
     // 渲染任务列表
     async renderTasks() {
-        return this.renderer.renderTasks();
+        // 更新日历视图数据
+        if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
+
+        // 列表内容变化（筛选/翻页/保存等）时先淡出，数据就绪后再淡入，避免内容瞬间跳变
+        if (!Utils.prefersReducedMotion()) this.tasksList.classList.add('list-refreshing');
+
+        if (this.tasks.length === 0) {
+            this.tasksList.style.setProperty('display', 'none', 'important');
+            this.emptyState.style.display = 'block';
+            // 隐藏分页
+            this.pagination.style.display = 'none';
+            this.finishListRefresh();
+            return;
+        }
+
+        // 根据屏幕尺寸设置display样式 (大于480px使用表格布局)
+        const isLargeScreen = window.innerWidth > 480;
+        this.tasksList.style.display = isLargeScreen ? 'table' : 'flex';
+        this.emptyState.style.display = 'none';
+
+        // 生成HTML
+        let html = '';
+
+        // 大屏幕添加表头（列由用户配置决定）
+        if (isLargeScreen) {
+            // 展示"关联父项任务"列时需要父任务信息，统一批量查询避免逐条请求
+            if (this.isColumnVisible('parentTask')) await this.loadParentTaskMap();
+
+            const layout = this.getColumnLayout();
+            this.tasksList.style.minWidth = `${layout.minWidth}px`;
+
+            const configTip = Utils.escapeHtml(window.languageManager.getText('columnConfigTip', '配置列表查看列'));
+            // 操作列表头：文案与设置图标置于弹性容器中，中英文文案变长时图标也不会被挤出列外
+            const headerCells = layout.columns.map(col => `
+                <div class="tasks-header-cell" data-column="${col.key}" style="width: ${col.width};">
+                    ${col.key === 'actions' ? `
+                    <span class="tasks-header-actions">
+                        <span class="tasks-header-label" title="${Utils.escapeHtml(col.label)}">${Utils.escapeHtml(col.label)}</span>
+                        <button type="button" id="task-columns-setting-btn" class="btn btn--colorless column-config-btn"
+                                title="${configTip}">⚙️</button>
+                    </span>` : Utils.escapeHtml(col.label)}
+                </div>
+            `).join('');
+
+            html += `
+                <div class="tasks-header">
+                    <div class="tasks-header-row">
+                        ${headerCells}
+                    </div>
+                </div>
+            `;
+        } else {
+            this.tasksList.style.minWidth = '';
+        }
+
+        // 分类名称必须在拼 HTML 之前就绪：名称会被直接写进 HTML，
+        // 不再依赖"渲染占位符 + 渲染后异步回填"，也就不会出现永远停在占位状态的任务
+        await this.ensureCategoryMap();
+
+        html += this.tasks.map(task => this.createTaskElement(task)).join('');
+        this.tasksList.innerHTML = html;
+
+        // 绑定任务事件
+        await this.bindTaskEvents();
+
+        // 取消淡出并播放入场淡入
+        this.finishListRefresh();
+        // 新建/编辑保存后定位并高亮对应任务
+        this.highlightPendingTask();
     }
 
-    // 创建单个任务元素的 HTML（无限下拉追加时也需要）
-    createTaskElement(task) {
-        return this.renderer.createTaskElement(task);
+    // 列表刷新收尾：取消淡出态并重新播放淡入动画
+    finishListRefresh() {
+        if (Utils.prefersReducedMotion()) return;
+
+        this.tasksList.classList.remove('list-refreshing');
+        // 先移除再强制重排，保证每次刷新都能重新播放动画
+        this.tasksList.classList.remove('list-enter');
+        void this.tasksList.offsetWidth;
+        this.tasksList.classList.add('list-enter');
     }
 
     // 定位并高亮刚保存（新建/编辑）的任务，便于确认结果落在了哪里
@@ -795,6 +862,200 @@ class TodoManager {
 
         row.classList.add('is-removing');
         await Utils.wait(280);
+    }
+    
+    // 创建任务元素
+    createTaskElement(task) {
+        const priorityInfo = Utils.getPriorityInfo(task.priority);
+        // 只有未完成的任务才检查是否逾期
+        const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
+        const isLargeScreen = window.innerWidth > 480;
+
+        // 渲染标签
+        let tagsHtml = '';
+        if (task.tags && task.tags.length > 0) {
+            tagsHtml = task.tags.map(tag =>
+                `<span class="task-tag" style="background-color: ${tag.color};">
+                    #${Utils.escapeHtml(tag.name)}
+                </span>`
+            ).join('');
+        }
+
+        // 大屏幕表格式布局（按用户配置的列渲染）
+        if (isLargeScreen) {
+            const cellCtx = { priorityInfo, isOverdue, tagsHtml };
+            const cells = this.getVisibleColumns()
+                .map(key => this.createTaskCell(task, key, cellCtx))
+                .join('');
+
+            return `
+                <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+                    ${cells}
+                    <div class="task-actions" data-column="actions">
+                        <button class="btn view" data-task-id="${task.id}"
+                                title="查看详情">👁️</button>
+                        <button class="btn edit" data-task-id="${task.id}"
+                                title="编辑">✏️</button>
+                        <button class="btn delete" data-task-id="${task.id}"
+                                title="删除">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 小屏幕卡片式布局(保持原样)
+        return `
+            <div class="small-screen-task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+                <div class="task-header">
+                    <div class="task-checkbox ${task.completed ? 'checked' : ''}"
+                         data-task-id="${task.id}"></div>
+                    <div class="task-content">
+                        <h3 class="task-title">
+                            ${Utils.escapeHtml(task.title)}
+                            ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
+                            ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                            <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
+                        </h3>
+                        <p class="task-description">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
+                        <div class="task-meta">
+                            <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
+                                ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
+                            </span>
+                            ${task.categoryId ? `
+                                <span class="task-category" data-category-id="${task.categoryId}"
+                                      title="${Utils.escapeHtml(this.getCategoryName(task.categoryId))}">
+                                    📁 ${Utils.escapeHtml(this.getCategoryName(task.categoryId))}
+                                </span>
+                            ` : ''}
+                            ${tagsHtml ? `<div class="task-tags">${tagsHtml}</div>` : ''}
+                            ${task.dueDate ? `
+                                <span class="task-due-date ${isOverdue ? 'overdue' : ''}"
+                                      title="截止时间">
+                                    📅 ${Utils.formatDate(task.dueDate)}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="task-actions">
+                    <button class="btn view" data-task-id="${task.id}"
+                                title="查看">👁️</button>
+                    <button class="btn edit" data-task-id="${task.id}"
+                            title="编辑">✏️</button>
+                    <button class="btn delete" data-task-id="${task.id}"
+                            title="删除">🗑️</button>
+                </div>
+            </div>
+        `;
+    }
+
+    // 按列 key 生成任务行中的单元格（大屏幕表格布局）
+    createTaskCell(task, key, ctx) {
+        const { priorityInfo, isOverdue, tagsHtml } = ctx;
+        const empty = '<span class="task-cell-empty">-</span>';
+
+        switch (key) {
+            case 'name':
+                return `
+                    <div class="task-header" data-column="name">
+                        <div class="task-header-content">
+                            <div class="task-checkbox ${task.completed ? 'checked' : ''}"
+                                 data-task-id="${task.id}"></div>
+                            <div class="task-content">
+                                <h3 class="task-title" title="${task.title}">
+                                    ${Utils.escapeHtml(task.title)}
+                                    ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                                    <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
+                                </h3>
+                            </div>
+                        </div>
+                        <p class="task-description" style="display: none;">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
+                    </div>
+                `;
+            case 'priority':
+                return `
+                    <div class="task-cell is-nowrap" data-column="priority">
+                        <span class="task-priority ${task.priority}" title="优先级: ${priorityInfo.label}">
+                            ${priorityInfo.icon} ${window.languageManager.getText(task.priority, task.priority)}
+                        </span>
+                    </div>
+                `;
+            case 'dueDate':
+                return `
+                    <div class="task-cell is-nowrap" data-column="dueDate">
+                        ${task.dueDate ? `
+                            <span class="task-due-date ${isOverdue ? 'overdue' : ''}" title="截止时间">
+                                📅 ${Utils.formatDate(task.dueDate)}
+                            </span>
+                        ` : empty}
+                    </div>
+                `;
+            case 'tags':
+                return `
+                    <div class="task-cell" data-column="tags">
+                        ${tagsHtml || empty}
+                    </div>
+                `;
+            case 'category':
+                return `
+                    <div class="task-cell" data-column="category">
+                        ${task.categoryId ? `
+                            <span class="task-category" data-category-id="${task.categoryId}"
+                                  title="${Utils.escapeHtml(this.getCategoryName(task.categoryId))}">
+                                📁 ${Utils.escapeHtml(this.getCategoryName(task.categoryId))}
+                            </span>
+                        ` : empty}
+                    </div>
+                `;
+            case 'parentTask':
+                return `
+                    <div class="task-cell" data-column="parentTask">
+                        ${this.createParentTaskContent(task)}
+                    </div>
+                `;
+            case 'attachments':
+                return `
+                    <div class="task-cell is-nowrap" data-column="attachments">
+                        ${this.createAttachmentsContent(task)}
+                    </div>
+                `;
+            default:
+                return '';
+        }
+    }
+
+    // "关联父项任务"列内容
+    createParentTaskContent(task) {
+        const parent = this.parentTaskMap[task.id];
+        if (!parent) return '<span class="task-cell-empty">-</span>';
+
+        return `
+            <span class="task-parent-link" data-task-id="${parent.id}"
+                  title="${Utils.escapeHtml(parent.title)}">🔗 ${Utils.escapeHtml(parent.title)}</span>
+        `;
+    }
+
+    // "任务附件"列内容：固定只渲染一行，避免多行撑高行高导致列表变形
+    createAttachmentsContent(task) {
+        const attachments = task.attachments || [];
+        if (attachments.length === 0) return '<span class="task-cell-empty">-</span>';
+
+        const first = attachments[0];
+        const icon = this.attachmentManager
+            ? this.attachmentManager._itemIcon(first)
+            : (first.type === 'link' ? '🔗' : '📎');
+        // 多余附件以“+N”计数展示，完整名称通过 title 悬浮查看
+        const more = attachments.length > 1
+            ? `<span class="task-attachment-more" title="${Utils.escapeHtml(attachments.slice(1).map(a => a.name).join('\n'))}">+${attachments.length - 1}</span>`
+            : '';
+
+        return `
+            <div class="task-attachment-list">
+                <span class="task-attachment-chip" data-task-id="${task.id}" data-attachment-id="${first.id}"
+                      title="${Utils.escapeHtml(first.name)}">${icon} ${Utils.escapeHtml(first.name)}</span>
+                ${more}
+            </div>
+        `;
     }
     
     // 绑定任务事件（root 用于限定作用域，无限下拉追加时只处理新增节点）
@@ -2321,24 +2582,105 @@ class TodoManager {
         }
     }
 
-    // ===== 分页：实现见 js/features/todo/pagination.js =====
-    // 以下为对外保留的门面方法
-
     // 渲染分页组件
     renderPagination() {
-        this.paginationControl.render();
+        // 仅列表视图显示分页；日历/时间轴/统计等视图加载任务后隐藏，避免分页错位显示
+        if (window.calendarManager && window.calendarManager.currentView !== 'list') {
+            this.pagination.style.display = 'none';
+            return;
+        }
+
+        // 如果没有任务，隐藏分页
+        if (this.totalTasks === 0) {
+            this.pagination.style.display = 'none';
+            return;
+        }
+        
+        this.pagination.style.display = 'flex';
+        
+        // 更新显示信息
+        const start = (this.currentPage - 1) * this.pageSize + 1;
+        const end = Math.min(this.currentPage * this.pageSize, this.totalTasks);
+        this.paginationShow.textContent =
+            `${window.languageManager.getText('paginationShowing', '显示')} ${start}-${end} ${window.languageManager.getText('paginationOf', '共')} ${this.totalTasks} ${window.languageManager.getText('paginationItems', '条')}`;
+
+        // 更新每页数量选择器
+        this.pageSizeSelect.value = this.pageSize;
+        
+        // 更新按钮状态
+        this.firstBtn.disabled = this.currentPage === 1;
+        this.prevBtn.disabled = this.currentPage === 1;
+        this.nextBtn.disabled = this.currentPage === this.totalPages;
+        this.lastBtn.disabled = this.currentPage === this.totalPages;
+        
+        // 生成页码按钮
+        let pageNumbers = '';
+        const maxButtons = 5; // 最多显示5个页码按钮
+        
+        if (this.totalPages <= maxButtons) {
+            // 总页数较少，显示所有页码
+            for (let i = 1; i <= this.totalPages; i++) {
+                pageNumbers += `<button class="btn ${i === this.currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+            }
+        } else {
+            // 总页数较多，智能显示页码
+            if (this.currentPage <= 3) {
+                // 当前页在前面
+                for (let i = 1; i <= 4; i++) {
+                    pageNumbers += `<button class="btn ${i === this.currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                }
+                pageNumbers += `<span class="pagination-ellipsis">...</span>`;
+                pageNumbers += `<button class="btn" data-page="${this.totalPages}">${this.totalPages}</button>`;
+            } else if (this.currentPage >= this.totalPages - 2) {
+                // 当前页在后面
+                pageNumbers += `<button class="btn" data-page="1">1</button>`;
+                pageNumbers += `<span class="pagination-ellipsis">...</span>`;
+                for (let i = this.totalPages - 3; i <= this.totalPages; i++) {
+                    pageNumbers += `<button class="btn ${i === this.currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                }
+            } else {
+                // 当前页在中间
+                pageNumbers += `<button class="btn" data-page="1">1</button>`;
+                pageNumbers += `<span class="pagination-ellipsis">...</span>`;
+                for (let i = this.currentPage - 1; i <= this.currentPage + 1; i++) {
+                    pageNumbers += `<button class="btn ${i === this.currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                }
+                pageNumbers += `<span class="pagination-ellipsis">...</span>`;
+                pageNumbers += `<button class="btn" data-page="${this.totalPages}">${this.totalPages}</button>`;
+            }
+        }
+        
+        // 绑定页码点击事件
+        this.paginationNum.innerHTML = pageNumbers;
+        this.paginationNum.querySelectorAll('.btn').forEach(btn => {
+            btn.onclick = () => {
+                const page = parseInt(btn.dataset.page);
+                this.goToPage(page);
+            };
+        });
     }
 
     // 跳转到指定页
-    goToPage(page) {
-        return this.paginationControl.goToPage(page);
+    async goToPage(page) {
+        if (page < 1 || page > this.totalPages || page === this.currentPage) return;
+
+        this.currentPage = page;
+        await this.loadTasks();
+        
+        // 滚动到任务列表顶部
+        this.tasksContainer.scrollTop = 0;
     }
 
     // 更改每页显示数量
-    changePageSize(pageSize) {
-        return this.paginationControl.changePageSize(pageSize);
+    async changePageSize(pageSize) {
+        if (pageSize === this.pageSize) return;
+        
+        this.pageSize = parseInt(pageSize);
+        this.currentPage = 1; // 重置到第一页
+        this.resetInfiniteScroll(); // 重置无限下拉状态
+        await this.loadTasks();
     }
-
+    
     // 更新统计信息
     async updateStats(fromZero = false) {
         if (fromZero) this._pendingFromZero = true;
@@ -2457,6 +2799,7 @@ class TodoManager {
         this.search.hideSuggestions();
     }
 
+    // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
     // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
     // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
     _syncStatsFilterIfVisible() {
@@ -2466,6 +2809,7 @@ class TodoManager {
         }
     }
 
+    // 防抖触发搜索任务加载
     // 判断是否为移动端或小屏幕
     isMobileDevice() {
         return window.innerWidth <= 480;
