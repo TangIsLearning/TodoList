@@ -675,7 +675,8 @@ input:checked + .slider:before {
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
-    padding: 3px 28px 3px 6px;
+    /* 右侧按钮已在正常流中，不再需要为绝对定位的清空按钮预留 28px */
+    padding: 3px 4px 3px 6px;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
     background-color: var(--bg-primary);
@@ -707,6 +708,29 @@ input:checked + .slider:before {
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--primary-color);
+}
+
+/* 截止时间 chip：与标签 chip 同形，用警告色边框 + 浅底区分语义 */
+.search-chip--due {
+    border-color: var(--warning-color);
+    background-color: rgba(var(--warning-rgb), 0.14);
+}
+
+.search-chip--due .search-chip-label {
+    /* 黄色文字在浅底上对比度不足，这里保持正文色，靠边框/底色表达语义 */
+    color: var(--text-primary);
+}
+
+/* 搜索栏的截止时间筛选按钮（弹出日历选择日期） */
+/* 提高选择器权重以覆盖 components.css 里"按钮默认透明、hover 才显示"的规则 */
+.search-tag-wrapper .search-due-btn {
+    /* 与输入框文字拉开距离，避免误触 */
+    margin-left: var(--spacing-xs);
+    opacity: 0.8;
+}
+
+.search-due-btn:hover {
+    opacity: 1;
 }
 
 .search-chip-remove {

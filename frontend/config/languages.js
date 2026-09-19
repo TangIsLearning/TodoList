@@ -111,8 +111,10 @@ const Languages = {
         contactAuthor: "联系作者",
         
         // 搜索和筛选
-        searchTitle: "支持通过【#标签(空格)】或【>父任务全称】进行特性搜索",
+        searchTitle: "支持通过【#标签(空格)】、【>父任务全称】或【@截止日期(如 2026-09-19)】进行特性搜索",
         searchClear: "清空搜索",
+        searchDuePrefix: "截止",
+        searchDueDate: "按截止时间搜索（也可直接输入 @2026-09-19）",
         filterAll: "所有",
         filterPriority: "所有优先级",
         filterStatus: "所有状态",
@@ -547,8 +549,10 @@ const Languages = {
         contactAuthor: "Contact Author",
         
         // 搜索和筛选
-        searchTitle: "Supports #tag(space) / <Parent-Task search",
+        searchTitle: "Supports #tag(space), >parent-task or @due-date(e.g. 2026-09-19) search",
         searchClear: "Clear Search",
+        searchDuePrefix: "Due",
+        searchDueDate: "Search by due date (or type @2026-09-19)",
         filterAll: "All",
         filterPriority: "All Priority",
         filterStatus: "All Status",

@@ -61,6 +61,15 @@ Object.assign(LanguageManager.prototype, {
         const searchClearBtn = document.getElementById('search-clear-btn');
         if (searchClearBtn) searchClearBtn.title = lang.searchClear;
 
+        // 搜索栏的截止时间筛选按钮
+        const searchDueBtn = document.getElementById('search-due-btn');
+        if (searchDueBtn && lang.searchDueDate) searchDueBtn.title = lang.searchDueDate;
+
+        // 重建搜索 chips：截止时间 chip 的"截止/Due"前缀需要跟随语言
+        if (window.todoManager && window.todoManager.searchChips.length > 0) {
+            window.todoManager.renderSearchChips();
+        }
+
         // 筛选器选项
         this.updateFilterOptions(lang);
 

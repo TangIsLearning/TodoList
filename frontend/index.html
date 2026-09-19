@@ -379,6 +379,9 @@
             <div class="search-container">
                 <div class="search-input-wrapper search-tag-wrapper" id="search-tag-wrapper">
                     <input type="text" id="search-input" class="search-input" autocomplete="off">
+                    <!-- 截止时间筛选：隐藏输入框承载日历实例，📅 按钮负责弹出 -->
+                    <input type="hidden" id="search-due-input">
+                    <button type="button" id="search-due-btn" class="btn btn--colorless btn--font-size-lg search-due-btn" title="按截止时间搜索">📅</button>
                     <button type="button" id="search-clear-btn" class="btn btn--colorless btn--font-size-lg" title="清空搜索">×</button>
                 </div>
                 <button id="search-btn" class="btn">🔍</button>

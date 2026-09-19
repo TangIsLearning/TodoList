@@ -3,6 +3,32 @@
  * 依赖：todo.js（TodoManager 类），须在 todo.js 之后加载
  */
 
+// 截止时间搜索的输入前缀：'@2026-09-19'
+const DUE_DATE_PREFIX = '@';
+
+// 把日期文本归一化为 YYYY-MM-DD；不是合法日期时返回 null。
+// 兼容 "@2026-09-19"（输入框写法）与 "2026-09-19"（日历点击回传）。
+function normalizeDueDateText(text, { requirePrefix = false } = {}) {
+    let raw = (text || '').trim();
+    if (!raw) return null;
+    if (raw.startsWith(DUE_DATE_PREFIX)) {
+        raw = raw.substring(1).trim();
+    } else if (requirePrefix) {
+        return null;
+    }
+    const matched = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(raw);
+    if (!matched) return null;
+    const year = Number(matched[1]);
+    const month = Number(matched[2]);
+    const day = Number(matched[3]);
+    const date = new Date(year, month - 1, day);
+    // 排除 2026-02-30 这类会被 Date 自动进位的"假日期"
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return null;
+    }
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 Object.assign(TodoManager.prototype, {
     // ===== 标签筛选状态访问（对标签模块与统计模块的统一出口） =====
 
@@ -73,18 +99,38 @@ Object.assign(TodoManager.prototype, {
         this.searchTagWrapper.addEventListener('click', (e) => {
             if (e.target === this.searchInput) return;
             if (e.target.classList && e.target.classList.contains('search-chip-remove')) return;
+            // 点日期按钮时不抢焦点：按钮失焦会立刻收起刚弹出的日历
+            if (e.target.closest && e.target.closest('.search-due-btn')) return;
             this.searchInput.focus();
         });
 
+        this.initSearchDueDatePicker();
+
         // 初始渲染（空）
         this.renderSearchChips();
+    },
+
+    // 搜索栏的"按截止时间搜索"：点 📅 弹出日历，选中后生成截止时间 chip。
+    // 日历实例绑定在一个隐藏输入框上（不占布局），由按钮触发弹出。
+    initSearchDueDatePicker() {
+        const field = document.getElementById('search-due-input');
+        const trigger = document.getElementById('search-due-btn');
+        if (!field || !trigger) return;
+        this.searchDuePicker = this.createDatePicker(field, {
+            trigger,
+            onChange: () => {
+                const dateStr = normalizeDueDateText(field.value);
+                // 清空隐藏输入框，保证下次能重复选中同一天
+                field.value = '';
+                if (dateStr) this.setDueDateChip(dateStr);
+            }
+        });
     },
 
     // 处理搜索输入框的键盘事件
     handleSearchKeydown(e) {
         const searchInput = e.target;
         const val = searchInput.value;
-        const tagPattern = TAG_INPUT_PATTERN;
 
         // 子任务建议下拉的键盘交互（仅当处于 ">" 模式且下拉有项时）
         if (this.isSubtaskSuggestMode(val) && this._subtaskSuggestItems.length > 0) {
@@ -115,11 +161,9 @@ Object.assign(TodoManager.prototype, {
             }
         }
 
-        // 空格：若当前输入是一个完整的 #标签，则提交为 chip
-        if ((e.key === ' ' || e.code === 'Space') && tagPattern.test(val)) {
+        // 空格：若当前输入是一个完整的 #标签 / @截止日期，则提交为 chip
+        if ((e.key === ' ' || e.code === 'Space') && this.commitInputAsChip()) {
             e.preventDefault();
-            this.addSearchChip({ type: 'tag', value: val.substring(1) });
-            searchInput.value = '';
             this.syncSearchQuery(0);
             return;
         }
@@ -132,33 +176,40 @@ Object.assign(TodoManager.prototype, {
             return;
         }
 
-        // 回车：提交 #标签（若是），并触发搜索
+        // 回车：提交 #标签 / @截止日期（若是），并触发搜索
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (tagPattern.test(val)) {
-                this.addSearchChip({ type: 'tag', value: val.substring(1) });
-                searchInput.value = '';
-            }
+            this.commitInputAsChip();
             this.hideSubtaskSuggestions();
             this.syncSearchQuery(0);
             return;
         }
     },
 
-    // 若输入框内容是完整的 #标签，提交为 chip（用于搜索按钮点击）
-    commitInputAsChipIfTag() {
+    // 若输入框内容是完整的 #标签 / @截止日期，提交为 chip（空格、回车、搜索按钮共用）
+    // 返回是否真的提交了 chip
+    commitInputAsChip() {
         const val = this.searchInput.value.trim();
         if (TAG_INPUT_PATTERN.test(val)) {
             this.addSearchChip({ type: 'tag', value: val.substring(1) });
             this.searchInput.value = '';
+            return true;
         }
+        const dueDate = normalizeDueDateText(val, { requirePrefix: true });
+        if (dueDate) {
+            this.addSearchChip({ type: 'due', value: dueDate });
+            this.searchInput.value = '';
+            return true;
+        }
+        return false;
     },
 
     // 创建一个 chip DOM 元素
     createChipElement(chip) {
         const el = document.createElement('span');
         el.className = 'search-chip';
-        const label = chip.type === 'tag' ? '#' + chip.value : chip.value;
+        if (chip.type === 'due') el.classList.add('search-chip--due');
+        const label = this.getChipLabel(chip);
         el.innerHTML = `
             <span class="search-chip-label"></span>
             <span class="search-chip-remove" title="移除">×</span>
@@ -176,6 +227,18 @@ Object.assign(TodoManager.prototype, {
         return el;
     },
 
+    // chip 的展示文案：标签带 '#' 前缀，截止时间带"截止"前缀以便区分
+    getChipLabel(chip) {
+        if (chip.type === 'tag') return '#' + chip.value;
+        if (chip.type === 'due') {
+            const prefix = window.languageManager
+                ? window.languageManager.getText('searchDuePrefix', '截止')
+                : '截止';
+            return `${prefix} ${chip.value}`;
+        }
+        return chip.value;
+    },
+
     // 全量重建所有 chips（插入到输入框之前）
     // 仅用于批量替换（如保存任务后整体重建标签筛选、外部模块清空筛选）；
     // 单个 chip 的增删走 addSearchChip / removeSearchChip 的增量路径，避免整排重绘
@@ -191,6 +254,11 @@ Object.assign(TodoManager.prototype, {
     // 添加一个 chip（自动按名称匹配已有标签以补全 tagId/color，去重）
     addSearchChip(chip) {
         if (!chip || !chip.value) return false;
+        // 截止时间只保留一个：新的直接顶掉旧的，避免多个日期互相矛盾
+        if (chip.type === 'due') {
+            const oldDue = this.searchChips.find(c => c.type === 'due');
+            if (oldDue) this.removeSearchChip(this.searchChips.indexOf(oldDue));
+        }
         // 标签类型：若没有 tagId，尝试按名称匹配已加载的标签
         if (chip.type === 'tag' && !chip.tagId) {
             const match = this.tagManager.getTags().find(t => t.name.toLowerCase() === chip.value.toLowerCase());
@@ -246,10 +314,11 @@ Object.assign(TodoManager.prototype, {
     },
 
     // 将 chips + 输入框文本转换为后端 query 解析层支持的结构化查询对象。
-    // 三种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
+    // 四种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
     //   tags     - 标签 chips（有 tagId 时带精确 id，否则按名称匹配）
     //   keywords - 文本 chips + 输入框文本
     //   parent   - 输入以 ">" 开头时，查询该父任务的直接子任务
+    //   dueDate  - 截止时间 chip，按当天匹配（忽略时刻）
     buildSearchQuery() {
         const inputText = this.searchInput ? this.searchInput.value.trim() : '';
         const isParentMode = this.isSubtaskSuggestMode(inputText);
@@ -264,7 +333,7 @@ Object.assign(TodoManager.prototype, {
 
         // 父任务模式下，输入框文本已被父任务消费，不再作为普通关键词
         const keywords = this.searchChips
-            .filter(chip => chip.type !== 'tag' && chip.value)
+            .filter(chip => chip.type !== 'tag' && chip.type !== 'due' && chip.value)
             .map(chip => chip.value);
         if (!isParentMode && !isAnyTag && inputText) keywords.push(inputText);
 
@@ -276,7 +345,36 @@ Object.assign(TodoManager.prototype, {
             }
         }
 
-        return { tags, keywords, parent, anyTag: isAnyTag };
+        return { tags, keywords, parent, dueDate: this.getDueDateChip(), anyTag: isAnyTag };
+    },
+
+    // 当前筛选中的截止时间（YYYY-MM-DD），无截止时间 chip 时返回 null
+    getDueDateChip() {
+        const chip = this.searchChips.find(c => c.type === 'due' && c.value);
+        return chip ? chip.value : null;
+    },
+
+    // 清除截止时间筛选 chip（只改状态与视图，不触发重新加载，由调用方决定何时 loadTasks）。
+    // 日历视图按整月展示，带着单日条件会让日历只剩一天，进入该视图前需要清掉。
+    clearDueDateChip() {
+        const idx = this.searchChips.findIndex(c => c.type === 'due');
+        if (idx === -1) return false;
+        this.removeSearchChip(idx);
+        this.searchQuery = this.buildSearchQuery();
+        this.updateSearchClearButton();
+        return true;
+    },
+
+    // 设置（替换）截止时间筛选 chip 并立即按新条件重新加载列表。
+    // 供日历视图点击具体日期、搜索栏日期选择器回显使用；传 null / 非法值表示清除。
+    setDueDateChip(dateStr) {
+        const dueDate = normalizeDueDateText(dateStr);
+        const existing = this.searchChips.findIndex(c => c.type === 'due');
+        if (existing !== -1) this.removeSearchChip(existing);
+        if (dueDate) this.addSearchChip({ type: 'due', value: dueDate });
+        this.updateSearchClearButton();
+        this.syncSearchQuery(0);
+        return !!dueDate;
     },
 
     // 同步 searchQuery、清空按钮、标签模块选中态，并触发搜索

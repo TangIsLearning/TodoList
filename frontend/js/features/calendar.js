@@ -113,6 +113,8 @@ class CalendarManager {
                 const filterPageSize = 9999; // 假定单月任务最多9999个任务
                 // 通知TodoManager进行筛选
                 if (window.todoManager) {
+                    // 日历按整月展示，先丢掉单日条件（截止时间 chip），否则日历只剩那一天
+                    window.todoManager.clearDueDateChip();
                     window.todoManager.currentPage = 1; // 重置到第一页
                     window.todoManager.pageSize = filterPageSize; // 设置分页数量
                     window.todoManager.customDateFilter = null; // 清除自定义日期筛选
@@ -432,27 +434,16 @@ class CalendarManager {
         // 切换回列表视图
         await this.switchView('list');
 
-        // 设置截止日期筛选为指定日期
+        // 具体日期改由搜索栏的"截止时间" chip 承载，下拉框回到"所有时间"以免条件叠加为空
         const dueDateFilter = document.getElementById('due-date-filter');
-        if (dueDateFilter) {
-            // 重置为"所有时间"，因为我们要通过自定义日期筛选来实现
-            dueDateFilter.value = 'all';
-        }
+        if (dueDateFilter) dueDateFilter.value = 'all';
 
-        // 触发筛选更新，筛选出该日期的任务
         if (window.todoManager) {
-            // 如果当前有自定义日期筛选，先清除它
-            if (window.todoManager.customDateFilter) {
-                window.todoManager.customDateFilter = null;
-            }
-            // 设置自定义日期筛选
-            window.todoManager.customDateFilter = dateStr;
-            // 重置到第一页
-            window.todoManager.currentPage = 1;
-            // 重置无限下拉状态
-            window.todoManager.resetInfiniteScroll();
-            // 重新加载任务
-            await window.todoManager.loadTasks();
+            // 旧的自定义日期筛选不再使用，避免与 chip 重复表达同一条件
+            window.todoManager.customDateFilter = null;
+            window.todoManager.dueDateFilter = 'all';
+            // 回显到搜索栏：生成一个"截止 YYYY-MM-DD" chip，可单独点 × 移除
+            window.todoManager.setDueDateChip(dateStr);
 
             // 显示提示信息
             Utils.showToast(`${window.languageManager.getText('showTaskFor', '当前任务日期：')} ${dateStr}`, 'info');

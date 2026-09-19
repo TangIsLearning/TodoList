@@ -32,6 +32,8 @@ _PARENT_NAME_CLAUSE = (
 )
 # 含有任意标签
 _ANY_TAG_CLAUSE = 'id IN (SELECT task_id FROM task_tags)'
+# 截止日期：与"日历点击某天"同样的语义，按当天匹配（忽略具体时刻）
+_DUE_DATE_CLAUSE = 'date(due_date) = ?'
 
 
 class SearchClauseBuilder:
@@ -41,6 +43,7 @@ class SearchClauseBuilder:
       - 多个标签：任务必须同时带有所有标签
       - 多个关键词：任务必须同时命中所有关键词
       - 父任务：任务必须是该父任务的直接子任务
+      - 截止日期：任务的截止时间必须落在指定当天（忽略时刻）
     """
 
     def build(self, query: ParsedQuery | None) -> Tuple[List[str], List[Any]]:
@@ -65,6 +68,10 @@ class SearchClauseBuilder:
         for keyword in query.keywords:
             clauses.append(_KEYWORD_CLAUSE)
             params.extend([f'%{keyword}%', f'%{keyword}%', f'%{keyword}%'])
+
+        if query.due_date:
+            clauses.append(_DUE_DATE_CLAUSE)
+            params.append(query.due_date)
 
         parent = query.parent
         if parent is not None and not parent.is_empty():

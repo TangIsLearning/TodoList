@@ -460,6 +460,41 @@
     opacity: 1;
 }
 
+/* 搜索栏右侧并排两个按钮（📅 按截止时间搜索 / × 清空）：
+   上面的绝对定位会把它们叠在同一个位置，导致日历图标点不到，
+   这里让它们回到 flex 正常流，靠 wrapper 的 gap 拉开间距。
+   注意：回到正常流后按钮会参与高度计算，必须压缩掉 .btn 默认的内边距 /
+   行高，否则 18px 字号 + 8px 内边距会把搜索框撑得比筛选栏高。 */
+.search-tag-wrapper button {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 固定为不高于输入行（16px 字号 * 1.5 行高 + 4px*2 内边距 = 32px）的小方块 */
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+}
+
+/* 隐藏态的清空按钮不接收点击，避免想点日历图标时误清空搜索 */
+.search-tag-wrapper #search-clear-btn {
+    pointer-events: none;
+}
+
+/* 有内容可清空时（输入框有字或有 chip）常驻显示，与 hover 显示互补 */
+.search-tag-wrapper #search-clear-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.search-tag-wrapper:hover #search-clear-btn,
+.search-tag-wrapper input:focus ~ #search-clear-btn {
+    pointer-events: auto;
+}
+
 /* 清空按钮下的输入框样式调整 */
 .input-wrapper input {
     padding-right: var(--spacing-xl);

@@ -30,16 +30,18 @@ class ParsedQuery:
     tag_ids:  精确标签 ID（前端 chips 直接提供，优先于名称匹配）
     keywords: 普通文本关键词（匹配标题 / 描述 / 标签名）
     parent:   父任务引用，命中其直接子任务
+    due_date: 截止日期（YYYY-MM-DD），按当天精确匹配，忽略具体时刻
     """
 
     tags: tuple[str, ...] = ()
     tag_ids: tuple[str, ...] = ()
     keywords: tuple[str, ...] = ()
     parent: ParentRef | None = None
+    due_date: str | None = None
     # 只要"含有任意标签"即可（对应快捷筛选"含标签任务"，旧协议里用单独的 '#' 表示）
     has_any_tag: bool = False
 
     def is_empty(self) -> bool:
-        if self.tags or self.tag_ids or self.keywords or self.has_any_tag:
+        if self.tags or self.tag_ids or self.keywords or self.due_date or self.has_any_tag:
             return False
         return self.parent is None or self.parent.is_empty()

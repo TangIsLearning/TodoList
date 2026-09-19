@@ -59,7 +59,8 @@ class TodoManager {
         this.instances = [];
         this.tasks = [];
         this.currentFilter = 'all';
-        // 结构化查询对象：{ tags: [{id?, name}], keywords: [...], parent: {id?, name?} | null }
+        // 结构化查询对象：
+        // { tags: [{id?, name}], keywords: [...], parent: {id?, name?} | null, dueDate: 'YYYY-MM-DD' | null }
         this.searchQuery = null;
         this.priorityFilter = 'all';
         this.statusFilter = 'uncompleted';
@@ -150,7 +151,8 @@ class TodoManager {
     // 统一的日期选择器：返回一个绑定在指定输入框上的日历实例。
     // 输入框是只读文本框（配合自定义日历弹出），避免 `<input type="date">`
     // 在各浏览器下的原生默认外观与其它输入框不一致。
-    createDatePicker(field, { onChange } = {}) {
+    // trigger 非空时由它触发弹出（如搜索栏的 📅 按钮），输入框可以是不参与布局的隐藏框。
+    createDatePicker(field, { onChange, trigger } = {}) {
         if (!field) return null;
         const formatDate = (date) => {
             const year = date.getFullYear();
@@ -160,6 +162,7 @@ class TodoManager {
         };
         return new Pikaday({
             field,
+            trigger,
             format: 'YYYY-MM-DD',
             showDaysInNextAndPreviousMonths: true,
             firstDay: 1,
@@ -354,8 +357,8 @@ class TodoManager {
         this.initSearchTagInput();
 
         this.searchBtn?.addEventListener('click', () => {
-            // 若输入框中是完整的 #标签，先提交为 chip
-            this.commitInputAsChipIfTag();
+            // 若输入框中是完整的 #标签 / @截止日期，先提交为 chip
+            this.commitInputAsChip();
             this.syncSearchQuery(0);
         });
 
