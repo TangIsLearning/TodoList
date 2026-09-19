@@ -18,14 +18,14 @@ class ColumnsController {
 
     // 获取列定义
     getColumnDef(key) {
-        return TASK_LIST_COLUMN_DEFS.find(c => c.key === key);
+        return ColumnsController.COLUMN_DEFS.find(c => c.key === key);
     }
 
     // 规范化列配置：过滤非法列，并保证必选列始终存在
     normalizeColumns(keys) {
         const source = Array.isArray(keys) ? keys : [];
-        const valid = TASK_LIST_COLUMN_DEFS.filter(c => source.includes(c.key)).map(c => c.key);
-        TASK_LIST_COLUMN_DEFS.filter(c => c.locked).forEach(c => {
+        const valid = ColumnsController.COLUMN_DEFS.filter(c => source.includes(c.key)).map(c => c.key);
+        ColumnsController.COLUMN_DEFS.filter(c => c.locked).forEach(c => {
             if (!valid.includes(c.key)) valid.unshift(c.key);
         });
         return valid;
@@ -53,17 +53,17 @@ class ColumnsController {
         const columns = this.getVisibleColumns()
             .map(key => this.getColumnDef(key))
             .filter(Boolean)
-            .concat([TASK_LIST_ACTION_COLUMN]);
+            .concat([ColumnsController.ACTION_COLUMN]);
 
         const fixedTotal = columns.reduce((sum, c) => sum + (c.fixedWidth || 0), 0);
         const maxFixed = columns.reduce((max, c) => Math.max(max, c.fixedWidth || 0), 0);
         const flexWeight = columns.reduce(
-            (sum, c) => sum + (c.fixedWidth ? 0 : (c.minWidth || TASK_LIST_NAME_MIN_WIDTH)), 0) || 1;
+            (sum, c) => sum + (c.fixedWidth ? 0 : (c.minWidth || ColumnsController.NAME_MIN_WIDTH)), 0) || 1;
 
         // 表格最小宽度：固定列总和 + 任务名称列最小宽度
         const minWidth = Math.max(
-            TASK_LIST_MIN_WIDTH,
-            fixedTotal + Math.max(TASK_LIST_NAME_MIN_WIDTH, maxFixed * 2)
+            ColumnsController.MIN_WIDTH,
+            fixedTotal + Math.max(ColumnsController.NAME_MIN_WIDTH, maxFixed * 2)
         );
 
         return {
@@ -73,7 +73,7 @@ class ColumnsController {
                 label: window.languageManager.getText(c.i18nKey, c.fallback),
                 width: c.fixedWidth
                     ? `${c.fixedWidth}px`
-                    : `calc((100% - ${fixedTotal}px) * ${((c.minWidth || TASK_LIST_NAME_MIN_WIDTH) / flexWeight).toFixed(5)})`
+                    : `calc((100% - ${fixedTotal}px) * ${((c.minWidth || ColumnsController.NAME_MIN_WIDTH) / flexWeight).toFixed(5)})`
             }))
         };
     }
@@ -96,7 +96,7 @@ class ColumnsController {
     applyCachedConfig() {
         const ctx = this.ctx;
         try {
-            const cached = localStorage.getItem(TASK_LIST_COLUMNS_CACHE_KEY);
+            const cached = localStorage.getItem(ColumnsController.CACHE_KEY);
             if (!cached) return;
             const keys = JSON.parse(cached);
             if (Array.isArray(keys)) ctx.visibleColumns = this.normalizeColumns(keys);
@@ -174,7 +174,7 @@ class ColumnsController {
         const selected = checkedKeys || this.getVisibleColumns();
         const lockedText = Utils.escapeHtml(window.languageManager.getText('columnConfigLocked', '必选'));
 
-        ctx.columnConfigList.innerHTML = TASK_LIST_COLUMN_DEFS.map(def => {
+        ctx.columnConfigList.innerHTML = ColumnsController.COLUMN_DEFS.map(def => {
             const checked = !!def.locked || selected.includes(def.key);
             const label = Utils.escapeHtml(window.languageManager.getText(def.i18nKey, def.fallback));
             return `
@@ -190,7 +190,7 @@ class ColumnsController {
 
     // 恢复默认列配置（仅重置勾选，需点击保存生效）
     resetForm() {
-        this.renderForm(TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key));
+        this.renderForm(ColumnsController.COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key));
     }
 
     // 从表单中读取勾选结果并保存
@@ -213,7 +213,7 @@ class ColumnsController {
         }
 
         ctx.visibleColumns = normalized;
-        localStorage.setItem(TASK_LIST_COLUMNS_CACHE_KEY, JSON.stringify(normalized));
+        localStorage.setItem(ColumnsController.CACHE_KEY, JSON.stringify(normalized));
         Utils.ModalManager.hide('task-columns-modal');
 
         await Api.config.set({
@@ -225,3 +225,28 @@ class ColumnsController {
         await ctx.renderTasks();
     }
 }
+
+// ===== 列配置相关常量 =====
+// 采用类上赋值而非 static 字段，兼容较老的 WebView；todo.js 通过
+// ColumnsController.COLUMN_DEFS 取默认列（本文件须先于 todo.js 加载）。
+
+// 任务列表可配置的显示列
+// fixedWidth：固定像素宽度列（内容长度可预期，不随窗口变宽而变宽）
+// minWidth：弹性列（任务名称）的最小像素宽度，弹性列会占据表格剩余宽度
+ColumnsController.COLUMN_DEFS = [
+    { key: 'name', i18nKey: 'taskHeaderName', fallback: '任务名称', defaultVisible: true, locked: true, minWidth: 420 },
+    { key: 'priority', i18nKey: 'taskHeaderPriority', fallback: '优先级', defaultVisible: true, fixedWidth: 100 },
+    { key: 'dueDate', i18nKey: 'taskHeaderDueDate', fallback: '到期时间', defaultVisible: true, fixedWidth: 185 },
+    { key: 'tags', i18nKey: 'taskHeaderTag', fallback: '标签', defaultVisible: true, fixedWidth: 145 },
+    { key: 'category', i18nKey: 'taskHeaderCategory', fallback: '所属分类', defaultVisible: false, fixedWidth: 160 },
+    { key: 'parentTask', i18nKey: 'taskHeaderParentTask', fallback: '关联父项任务', defaultVisible: false, fixedWidth: 170 },
+    { key: 'attachments', i18nKey: 'taskHeaderAttachments', fallback: '任务附件', defaultVisible: false, fixedWidth: 130 }
+];
+// 操作列固定展示且不参与配置；内部是固定数量的按钮，使用固定像素宽度避免列变窄后换行变形
+ColumnsController.ACTION_COLUMN = { key: 'actions', i18nKey: 'taskHeaderAction', fallback: '操作', fixedWidth: 150 };
+// 任务名称列的最小像素宽度（同时保证不小于其他列中最宽一列的 2 倍）
+ColumnsController.NAME_MIN_WIDTH = 420;
+// 表格最小宽度（列较多时自动增大，保证列内容可读）
+ColumnsController.MIN_WIDTH = 1060;
+// 列配置本地缓存键（数据库为唯一来源，本地仅作首屏兜底）
+ColumnsController.CACHE_KEY = 'todolist_task_list_columns';

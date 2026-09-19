@@ -1,7 +1,8 @@
 // 任务管理模块
 //
-// 列定义与周期规则兜底文案已移至 js/features/todo/constants.js（须先加载）。
 // 列表渲染、无限下拉、周期规则、搜索 chips 等子模块见 js/features/todo/ 目录。
+// 列定义常量挂在 ColumnsController 上，周期规则提示文案挂在 RecurrenceController 上，
+// 因此 js/features/todo/columns.js 与 recurrence.js 须先于本文件加载。
 
 // 标签相关常量（TAG_INPUT_PATTERN 等）与 TagManager 均定义在 js/features/tag.js，
 // 该文件必须在本文件之前引入。
@@ -76,7 +77,7 @@ class TodoManager {
         this._parentInitPromise = null;
         this._parentPrefillDone = false;
         // 任务列表当前显示的列（列 key 数组）
-        this.visibleColumns = TASK_LIST_COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key);
+        this.visibleColumns = ColumnsController.COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.key);
         // 列表任务对应的父任务缓存：{ 子任务ID: { id, title } | null }
         this.parentTaskMap = {};
         // 日期范围缓存
