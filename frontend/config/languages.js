@@ -113,6 +113,9 @@ const Languages = {
         // 搜索和筛选
         searchTitle: "支持通过【#标签(空格)】、【>父任务全称】或【@截止日期(如 2026-09-19)】进行特性搜索",
         searchClear: "清空搜索",
+        searchClearKeyword: "清除搜索文本",
+        searchClearDueDate: "清除截止时间筛选",
+        searchClearTags: "清除标签筛选",
         searchDuePrefix: "截止",
         searchDueDate: "按截止时间搜索（也可直接输入 @2026-09-19）",
         filterAll: "所有",
@@ -551,6 +554,9 @@ const Languages = {
         // 搜索和筛选
         searchTitle: "Supports #tag(space), >parent-task or @due-date(e.g. 2026-09-19) search",
         searchClear: "Clear Search",
+        searchClearKeyword: "Clear search text",
+        searchClearDueDate: "Clear due date filter",
+        searchClearTags: "Clear tag filter",
         searchDuePrefix: "Due",
         searchDueDate: "Search by due date (or type @2026-09-19)",
         filterAll: "All",

@@ -59,7 +59,13 @@ Object.assign(LanguageManager.prototype, {
 
         // 搜索清空按钮
         const searchClearBtn = document.getElementById('search-clear-btn');
-        if (searchClearBtn) searchClearBtn.title = lang.searchClear;
+        if (searchClearBtn) {
+            searchClearBtn.title = lang.searchClear;
+            // 清空按钮提示会随当前可分层的搜索条件变化，交回搜索模块按当前语言重算
+            if (window.todoManager && window.todoManager.updateSearchClearButton) {
+                window.todoManager.updateSearchClearButton();
+            }
+        }
 
         // 搜索栏的截止时间筛选按钮
         const searchDueBtn = document.getElementById('search-due-btn');

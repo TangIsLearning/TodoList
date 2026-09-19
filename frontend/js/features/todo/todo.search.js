@@ -558,34 +558,89 @@ Object.assign(TodoManager.prototype, {
     },
 
 
-    // 清空搜索
+    // ===== 搜索条件的分层清空 =====
+
+    // 当前可被清空按钮清除的搜索条件层级，按「文本 → 截止时间 → 标签」的顺序取第一个非空层级。
+    // 全部条件都清空后返回 null，此时再点按钮即为空删除。
+    getSearchClearLayer() {
+        if (this.searchInput.value.trim()) return 'text';
+        if (this.searchChips.some(chip => chip.type === 'due' && chip.value)) return 'due';
+        if (this.searchChips.some(chip => chip.type === 'tag' && chip.value)) return 'tag';
+        // 兜底：既非标签也非截止时间的 chips（如自由关键词 chip）
+        if (this.searchChips.length > 0) return 'other';
+        return null;
+    },
+
+    // 移除某一层级的全部搜索条件（只改状态与视图，不触发重新加载）
+    removeSearchLayer(layer) {
+        if (layer === 'text') {
+            this.searchInput.value = '';
+            // 文本被父任务查询占用时，连同记录的父任务一起清掉
+            this.setSubtaskParent(null, null);
+            return true;
+        }
+        let removed = false;
+        // 倒序遍历，保证 removeSearchChip 的索引在删除过程中始终有效
+        for (let i = this.searchChips.length - 1; i >= 0; i--) {
+            const chip = this.searchChips[i];
+            const hit = layer === 'other'
+                ? chip.type !== 'tag' && chip.type !== 'due'
+                : chip.type === layer;
+            if (hit) {
+                this.removeSearchChip(i);
+                removed = true;
+            }
+        }
+        return removed;
+    },
+
+    // 清空按钮的提示文案：随下一个会被清除的层级变化
+    getSearchClearButtonTitle(layer) {
+        const keyMap = {
+            text: ['searchClearKeyword', '清除搜索文本'],
+            due: ['searchClearDueDate', '清除截止时间筛选'],
+            tag: ['searchClearTags', '清除标签筛选'],
+            other: ['searchClear', '清空搜索']
+        };
+        const [key, fallback] = keyMap[layer] || keyMap.other;
+        return window.languageManager
+            ? window.languageManager.getText(key, fallback)
+            : fallback;
+    },
+
+    // 分层清空搜索：每次点击只清除一层（文本 → 截止时间 → 标签），
+    // 每一层都会即时重查列表；全部清除后再继续点击，等于空删除。
     async clearSearch() {
+        const layer = this.getSearchClearLayer();
+        if (!layer) return false;
+
         if (this._searchDebounceTimer) {
             clearTimeout(this._searchDebounceTimer);
             this._searchDebounceTimer = null;
         }
         this.hideSubtaskSuggestions();
-        this.setSubtaskParent(null, null);
-        this.searchChips = [];
-        this.renderSearchChips();
-        this.searchInput.value = '';
-        this.searchQuery = null;
+        this.removeSearchLayer(layer);
+
+        const remains = this.searchChips.length > 0 || this.searchInput.value.trim().length > 0;
+        this.searchQuery = remains ? this.buildSearchQuery() : null;
         this.currentPage = 1;
         this.customDateFilter = null;
         this.resetInfiniteScroll(); // 重置无限下拉状态
+        this.updateSearchClearButton();
         this.tagManager.refreshSelection();
         await this.loadTasks();
-        this.updateSearchClearButton();
+        return true;
     },
 
-    // 更新搜索清空按钮状态
+    // 更新搜索清空按钮状态（显隐 + 下一步将清除的内容）
     updateSearchClearButton() {
-        const hasText = this.searchInput.value.trim().length > 0;
-        const hasChips = this.searchChips.length > 0;
-        if (hasText || hasChips) {
+        const layer = this.getSearchClearLayer();
+        if (layer) {
             this.searchClearBtn.classList.add('visible');
+            this.searchClearBtn.title = this.getSearchClearButtonTitle(layer);
         } else {
             this.searchClearBtn.classList.remove('visible');
+            this.searchClearBtn.title = this.getSearchClearButtonTitle('other');
         }
     },
 });
