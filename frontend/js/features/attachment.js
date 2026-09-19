@@ -71,6 +71,26 @@ class AttachmentManager {
         this.renderFormList();
     }
 
+    // 复制任务：把源任务的附件带进新建表单，但不复用源附件的 id。
+    // 保存时后端按 copyFrom 生成新记录，并复制一份实体文件，避免两个任务共用同一份附件
+    // （共用会导致删除其中一个任务时，另一个任务的附件被一并删掉）。
+    loadCopyFromTask(task) {
+        this._tempSeq = 0;
+        this.items = (task && task.attachments ? task.attachments : []).map(att => ({
+            copyFrom: att.id,
+            tempId: `copy_${Date.now()}_${this._tempSeq++}`,
+            type: att.type,
+            name: att.name,
+            url: att.url || '',
+            filePath: att.filePath || '',
+            // 文件夹存的是绝对路径，复制时需要按 path 原样提交
+            path: att.filePath || '',
+            size: att.size,
+            isImage: !!att.isImage
+        }));
+        this.renderFormList();
+    }
+
     removeItem(key) {
         this.items = this.items.filter(item => this._itemKey(item) !== key);
         this.renderFormList();
@@ -219,6 +239,13 @@ class AttachmentManager {
                     name: item.name,
                     url: item.url || null
                 };
+            }
+            // 复制任务带来的附件：后端按 copyFrom 生成新记录，并自行复制实体文件
+            if (item.copyFrom) {
+                const payload = { copyFrom: item.copyFrom, type: item.type, name: item.name };
+                if (item.type === 'link') payload.url = item.url || '';
+                if (item.type === 'folder') payload.path = item.path || item.filePath || '';
+                return payload;
             }
             if (item.type === 'link') {
                 return { type: 'link', name: item.name, url: item.url };

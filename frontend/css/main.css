@@ -1131,6 +1131,65 @@ input:checked + .slider:before {
     word-break: break-word;
 }
 
+/* 任务行标题改用弹性布局：标题过长时只在文字部分省略，
+   右侧复制图标始终不会被挤出可视区（父任务下拉里的 .task-title 不受影响） */
+.task-item .task-title,
+.small-screen-task-item .task-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-title-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* 标题行已改为弹性容器，显式继承完成态的删除线 */
+    text-decoration: inherit;
+}
+
+/* 复制任务图标：紧邻任务名称右侧 */
+.task-copy-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2px;
+    border: none;
+    background: transparent;
+    font-size: 0.85rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    /* 默认隐藏，鼠标移到任务行上才显现 */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.task-item:hover .task-copy-btn,
+.small-screen-task-item:hover .task-copy-btn,
+.task-copy-btn:focus-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.task-copy-btn:hover {
+    color: var(--primary-color);
+}
+
+/* 纯触屏设备没有 hover，常驻显示以免入口不可达 */
+@media (hover: none) {
+    .task-copy-btn {
+        opacity: 0.55;
+        visibility: visible;
+        pointer-events: auto;
+    }
+}
+
 /* 小屏卡片布局中的元信息行（优先级/分类/截止时间/标签）
    大屏表格布局不使用本类，统一走 .task-cell */
 .task-meta {

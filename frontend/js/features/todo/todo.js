@@ -757,6 +757,15 @@ class TodoManager {
         await Utils.wait(280);
     }
     
+    // 任务名称右侧的"复制任务"图标：点击后带全部信息打开新建弹窗，用于快捷创建同类任务。
+    // 周期性任务（含周期实例）不支持复制，因为周期信息无法在新任务上重建
+    createTaskCopyButton(task) {
+        if (task.isRecurring || task.parentTaskId) return '';
+
+        const tip = Utils.escapeHtml(window.languageManager.getText('taskCopyTip', '复制任务'));
+        return `<button type="button" class="task-copy-btn" data-task-id="${task.id}" title="${tip}">📄</button>`;
+    }
+
     // 创建任务元素
     createTaskElement(task) {
         const priorityInfo = Utils.getPriorityInfo(task.priority);
@@ -808,9 +817,10 @@ class TodoManager {
                          data-task-id="${task.id}"></div>
                     <div class="task-content">
                         <h3 class="task-title">
-                            ${Utils.escapeHtml(task.title)}
+                            <span class="task-title-text">${Utils.escapeHtml(task.title)}</span>
                             ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                            ${this.createTaskCopyButton(task)}
                             <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                         </h3>
                         <p class="task-description">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
@@ -870,8 +880,9 @@ class TodoManager {
                                  data-task-id="${task.id}"></div>
                             <div class="task-content">
                                 <h3 class="task-title" title="${task.title}">
-                                    ${Utils.escapeHtml(task.title)}
+                                    <span class="task-title-text">${Utils.escapeHtml(task.title)}</span>
                                     ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                                    ${this.createTaskCopyButton(task)}
                                     <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                                 </h3>
                             </div>
@@ -1156,7 +1167,9 @@ class TodoManager {
 
     // 量取标题首段纯文字的渲染宽度（标题节点内还包含周期/子任务等徽标）
     measureTitleTextWidth(titleEl) {
-        const textNode = Array.from(titleEl.childNodes)
+        // 标题文字包在 .task-title-text 内（右侧紧跟复制图标），取该节点的文本子节点
+        const host = titleEl.querySelector('.task-title-text') || titleEl;
+        const textNode = Array.from(host.childNodes)
             .find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
         if (!textNode) return 0;
 

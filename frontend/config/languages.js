@@ -26,6 +26,7 @@ const Languages = {
         tasks: "任务",
         newTask: "新建任务",
         editTask: "编辑任务",
+        copyTask: "复制任务",
         taskTitle: "任务标题",
         taskDescription: "任务描述",
         taskPriority: "优先级",
@@ -169,6 +170,7 @@ const Languages = {
         normalTaskEditTip: "编辑",
         taskViewTip: "查看",
         taskDeleteTip: "删除",
+        taskCopyTip: "复制任务",
 
         // 分页
         paginationShowing: "显示",
@@ -195,6 +197,8 @@ const Languages = {
         LightModeSwitched: "已切换到浅色主题",
         loadingTaskFailed: "加载任务失败",
         periodicTaskEditFailed: "周期性任务不支持编辑，请删除后重新创建",
+        periodicTaskCopyFailed: "周期性任务不支持复制",
+        taskCopied: "已复制任务信息，确认后即可保存为新任务",
         periodicTaskDeleted: "整个周期任务删除成功",
         operationFailed: "操作失败",
         taskTagDeleted: "标签删除成功",
@@ -467,6 +471,7 @@ const Languages = {
         tasks: "Tasks",
         newTask: "New Task",
         editTask: "Edit Task",
+        copyTask: "Copy Task",
         taskTitle: "Task Title",
         taskDescription: "Task Description",
         taskPriority: "Priority",
@@ -610,6 +615,7 @@ const Languages = {
         normalTaskEditTip: "Edit",
         taskViewTip: "View",
         taskDeleteTip: "Delete",
+        taskCopyTip: "Copy task",
 
         // 分页
         paginationShowing: "Showing",
@@ -636,6 +642,8 @@ const Languages = {
         LightModeSwitched: "Switched to Light mode",
         loadingTaskFailed: "Failed to load tasks",
         periodicTaskEditFailed: "Periodic tasks cannot be edited, please delete and recreate them",
+        periodicTaskCopyFailed: "Periodic tasks cannot be copied",
+        taskCopied: "Task info copied. Confirm to save it as a new task",
         periodicTaskDeleted: "The periodic task has been deleted successfully",
         operationFailed: "Operation failed",
         taskTagDeleted: "The tag has been deleted successfully",

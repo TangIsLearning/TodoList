@@ -35,6 +35,13 @@ class AttachmentApiMixin:
     def _create_attachment_from_payload(self, task_id: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """根据前端提交的附件信息创建附件（实体文件会复制到存储目录）"""
         service = get_attachment_service()
+
+        # 复制任务：按已有附件再建一条记录，实体文件同样复制一份，
+        # 避免两个任务共用同一份文件（删除其中一个任务会连带删掉另一个任务的附件）
+        copy_from_id = payload.get('copyFrom')
+        if copy_from_id:
+            return self._duplicate_attachment(task_id, copy_from_id, payload)
+
         att_type = payload.get('type', TYPE_FILE)
 
         if att_type == TYPE_LINK:
@@ -70,6 +77,55 @@ class AttachmentApiMixin:
             'name': payload.get('name') or saved['name'],
             # save_file 返回的键是 relativePath，而数据库模型读取的是 filePath，这里必须显式映射，
             # 否则 file_path 会写入 NULL，后续打开/定位附件都会失败
+            'filePath': saved['relativePath'],
+            'size': saved['size'],
+            'mimeType': saved['mimeType'],
+            'isImage': saved['isImage'],
+        })
+
+    def _duplicate_attachment(self, task_id: str, source_id: str,
+                              payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """把已有附件复制一份到指定任务（记录与实体文件都独立于源附件）"""
+        service = get_attachment_service()
+        source = self.db.get_attachment(source_id)
+        if not source:
+            return None
+
+        name = payload.get('name') or source.get('name')
+        att_type = source.get('type', TYPE_FILE)
+
+        if att_type == TYPE_LINK:
+            return self.db.add_attachment(task_id, {
+                'type': TYPE_LINK,
+                'name': name,
+                'url': source.get('url') or '',
+            })
+
+        if att_type == TYPE_FOLDER:
+            # 文件夹只记录路径，多个任务指向同一目录是安全的
+            folder_path = str(payload.get('path') or source.get('filePath') or '').strip()
+            if not folder_path:
+                return None
+            return self.db.add_attachment(task_id, {
+                'type': TYPE_FOLDER,
+                'name': Path(folder_path).name or folder_path,
+                'filePath': folder_path,
+            })
+
+        # 实体文件：先复制出新的实体文件，再落一条新记录。
+        # 源文件缺失（已被外部清理）时跳过该附件，不影响任务本身的保存
+        relative_path = source.get('filePath') or ''
+        source_path = service.resolve_path(relative_path) if relative_path else None
+        if not source_path or not source_path.is_file():
+            return None
+        try:
+            saved = service.save_file(str(source_path), source.get('size'))
+        except (AttachmentError, OSError) as e:
+            self.get_logger.warning(f"复制附件失败，已跳过: {relative_path}, 错误: {e}")
+            return None
+        return self.db.add_attachment(task_id, {
+            'type': TYPE_FILE,
+            'name': name,
             'filePath': saved['relativePath'],
             'size': saved['size'],
             'mimeType': saved['mimeType'],

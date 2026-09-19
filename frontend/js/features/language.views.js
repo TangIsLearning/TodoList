@@ -142,6 +142,9 @@ Object.assign(LanguageManager.prototype, {
         document.querySelectorAll('.btn.delete').forEach(btn => {
             btn.title = lang.taskDeleteTip;
         });
+        document.querySelectorAll('.task-copy-btn').forEach(btn => {
+            btn.title = lang.taskCopyTip;
+        });
 
         // 分页文本
         this.updatePagination(lang);

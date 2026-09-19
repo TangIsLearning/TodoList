@@ -15,6 +15,7 @@ Object.assign(TodoManager.prototype, {
         const subtaskCountEls = Array.from(scope.querySelectorAll('.subtask-count'));
         const editButtons = Array.from(scope.querySelectorAll('.btn.edit'));
         const deleteButtons = Array.from(scope.querySelectorAll('.btn.delete'));
+        const copyButtons = Array.from(scope.querySelectorAll('.task-copy-btn'));
 
         // 复选框点击
         scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
@@ -30,6 +31,19 @@ Object.assign(TodoManager.prototype, {
                 const taskId = e.target.dataset.taskId;
                 this.viewTaskDetails(taskId);
             };
+        });
+
+        // 复制按钮：位于任务名称右侧，默认隐藏、鼠标悬浮任务行时显现
+        copyButtons.forEach(btn => {
+            btn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                await this.copyTask(btn.dataset.taskId);
+            };
+            // 小屏卡片的侧滑手势从按下开始，点击图标时不应触发拖拽
+            ['mousedown', 'touchstart'].forEach(type => {
+                btn.addEventListener(type, (e) => e.stopPropagation());
+            });
         });
 
         // 全量绑定时先重置所有小屏幕任务项的样式，并解绑旧事件

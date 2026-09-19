@@ -54,8 +54,11 @@ Object.assign(TodoManager.prototype, {
     },
 
     // 显示添加任务模态框
-    showAddTaskModal() {
-        this.modalTitle.textContent = '新建任务';
+    // sourceTask 非空时进入"复制任务"模式：表单预填源任务的全部信息，保存后生成一条新的独立任务
+    async showAddTaskModal({ sourceTask = null } = {}) {
+        this.modalTitle.textContent = sourceTask
+            ? window.languageManager.getText('copyTask', '复制任务')
+            : window.languageManager.getText('newTask', '新建任务');
         this.taskForm.reset();
         this.taskForm.dataset.editingId = '';
         
@@ -71,19 +74,26 @@ Object.assign(TodoManager.prototype, {
         // 截止日期默认为空，不设置默认值
         this.timeInput.value = '';
 
-        // 搜索框正处于"按父任务查子任务"时，新建任务默认挂到该父任务下
-        const subtaskParentFilter = this.getSubtaskParentFilter();
+        // 复制任务：沿用源任务的父任务；普通新建：搜索框正处于"按父任务查子任务"时挂到该父任务下
+        const sourceParent = sourceTask ? await this.getParentOfTask(sourceTask.id) : null;
+        const subtaskParentFilter = sourceTask ? null : this.getSubtaskParentFilter();
+        const parentPrefill = sourceTask ? sourceParent : subtaskParentFilter;
 
         // 记录打开弹窗时的列表筛选快照（分类 + 标签 + 父任务），提交后据此决定是否同步或清除筛选
-        const currentCategory = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
-        const currentTagIds = this.getTagFilterIds();
+        const currentCategory = sourceTask
+            ? (sourceTask.categoryId || '')
+            : (this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '');
+        const currentTagIds = sourceTask
+            ? (sourceTask.tags || []).map(tag => tag.id)
+            : this.getTagFilterIds();
         // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
         this.taskFilterSnapshot = {
             categoryId: currentCategory,
             tagIds: currentTagIds,
-            parentTaskId: subtaskParentFilter ? subtaskParentFilter.id : null,
+            parentTaskId: parentPrefill ? parentPrefill.id : null,
             hasCategoryFilter: !!currentCategory,
             hasTagFilter: currentTagIds.length > 0,
+            // 搜索框是否正处于"按父任务查子任务"，与任务自身有没有父任务无关
             hasParentFilter: !!subtaskParentFilter
         };
         // 新建模式没有异步回显：父任务在下面同步预填，清理编辑模式遗留的回显状态
@@ -94,20 +104,23 @@ Object.assign(TodoManager.prototype, {
         // 已选标签继承当前标签筛选（弹窗新建的临时标签在打开时统一丢弃）
         this.tagManager.beginForm(currentTagIds);
 
+        // 复制任务：用源任务的信息预填表单（放在日期/时间监听绑定之前，清空按钮状态才与初始值一致）
+        if (sourceTask) this.fillFormFromSourceTask(sourceTask);
+
         // 添加输入值变化监听
         this.addInputValueListeners();
 
-        // 加载分类选项并设置默认选中
-        this.loadCategoryOptions(currentCategory);
+        // 加载分类选项并设置默认选中（await：等分类下拉重建完成，避免后续取到旧选项）
+        await this.loadCategoryOptions(currentCategory);
 
         // 重置并初始化父任务选择器
         this.parentTaskState.editingTaskId = '';
         this.resetParentTaskCombobox();
         this.initParentTaskCombobox();
 
-        // 搜索框存在父任务查询时，把该父任务预填到表单，新建的任务直接成为其子任务
-        if (subtaskParentFilter) {
-            this.selectParentTask({ id: subtaskParentFilter.id, title: subtaskParentFilter.title });
+        // 把父任务预填到表单，新建的任务直接成为其子任务
+        if (parentPrefill) {
+            this.selectParentTask({ id: parentPrefill.id, title: parentPrefill.title });
             // 展开更多选项，让自动填充的父任务对用户可见
             this.expandMoreOptions();
         }
@@ -115,10 +128,38 @@ Object.assign(TodoManager.prototype, {
         // 加载标签选择器
         this.tagManager.loadSelector();
 
-        // 重置附件
-        this.attachmentManager?.reset();
+        // 附件：复制任务时按源任务重建（后端各自生成副本），普通新建则清空
+        if (sourceTask) this.attachmentManager?.loadCopyFromTask(sourceTask);
+        else this.attachmentManager?.reset();
 
         Utils.ModalManager.show('task-modal');
+    },
+
+    // 复制任务：把源任务的信息填进表单，用户确认后保存即为一条新任务
+    fillFormFromSourceTask(task) {
+        this.taskTitle.value = task.title || '';
+        this.taskDescription.value = task.description || '';
+        if (task.priority) this.taskPrioritySelect.value = task.priority;
+
+        if (task.dueDate) {
+            const [datePart, timePart] = task.dueDate.split('T');
+            this.datePicker.value = datePart || '';
+            // 时间输入框只认 HH:MM，历史数据可能带秒，这里截断到分钟
+            this.timeInput.value = (timePart || '').slice(0, 5);
+            // 展开更多选项，让复制过来的截止时间对用户可见
+            this.expandMoreOptions();
+        }
+    },
+
+    // 查询任务的父任务（复制任务时用于沿用同一父任务）
+    async getParentOfTask(taskId) {
+        let parent = null;
+        await Utils.apiCall({
+            apiMethod: 'get_parent',
+            apiArgs: [taskId],
+            onSuccess: (response) => { parent = response.data || null; }
+        });
+        return parent;
     },
 
     // 初始化父任务选择器（编辑模式）
@@ -328,6 +369,36 @@ Object.assign(TodoManager.prototype, {
 
         // 绑定附件点击事件（图片预览 / 文件打开 / 链接跳转）
         this.attachmentManager?.bindDetailEvents(task);
+    },
+
+    // 复制任务：读取源任务的完整信息后打开新建弹窗，用户确认即可保存为一条新任务
+    async copyTask(taskId) {
+        let task = this.tasks.find(t => t.id === taskId);
+
+        // 列表里没有该任务时回源到数据库取一次
+        if (!task) {
+            await Utils.apiCall({
+                apiMethod: 'get_todo',
+                apiArgs: [taskId],
+                onSuccess: (response) => { task = response.data; }
+            });
+        }
+        if (!task) return;
+
+        // 周期性任务（含周期实例）无法在新任务上重建周期，禁止复制
+        if (task.isRecurring || task.parentTaskId) {
+            Utils.showToast(
+                window.languageManager.getText('periodicTaskCopyFailed', '周期性任务不支持复制'),
+                'warning'
+            );
+            return;
+        }
+
+        await this.showAddTaskModal({ sourceTask: task });
+        Utils.showToast(
+            window.languageManager.getText('taskCopied', '已复制任务信息，确认后即可保存为新任务'),
+            'success'
+        );
     },
 
     // 编辑任务
