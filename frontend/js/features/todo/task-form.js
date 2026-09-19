@@ -1,8 +1,13 @@
 /**
- * 任务表单控制器：新建/编辑弹窗的填充与提交、父任务选择器、周期选项启停、
- * 分类下拉、子任务计数徽章，以及保存后的筛选同步。
+ * 任务表单控制器
+ *
+ * 从 TodoManager 中抽出：新建/编辑弹窗的填充与提交、父任务选择器、
+ * 周期选项启停、分类下拉、子任务计数徽章，以及保存后的筛选同步。
+ *
  * 编辑态字段（_parentEditToken / _parentInitPromise / _parentPrefillDone /
- * taskFilterSnapshot）仍由 TodoManager 持有，本控制器通过 ctx 读写同一对象引用。
+ * taskFilterSnapshot）跨越 showAddTaskModal、editTask、initParentTaskForEdit、
+ * handleTaskSubmit 四方读写。这些字段仍由 TodoManager 持有，本控制器通过
+ * ctx 读写——访问的是同一个对象引用，语义与拆分前完全一致。
  *
  * 依赖的 TodoManager 成员：
  *   状态：tasks / currentFilter / currentPage / taskFilterSnapshot /
@@ -26,15 +31,23 @@ class TaskFormController {
         this.ctx = ctx;
     }
 
+    // 显示添加任务模态框
     showAddModal() {
         const ctx = this.ctx;
         ctx.modalTitle.textContent = '新建任务';
         ctx.taskForm.reset();
         ctx.taskForm.dataset.editingId = '';
 
+        // 重置更多选项状态
         ctx.resetMoreOptions();
+
+        // 启用周期性任务选项（新建任务模式下允许）
         this.enableRecurringOptions();
+
+        // 移除编辑模式提示（如果存在）
         ctx.recurrence.removeEditNotice();
+
+        // 截止日期默认为空，不设置默认值
         ctx.timeInput.value = '';
 
         // 搜索框正处于"按父任务查子任务"时，新建任务默认挂到该父任务下
@@ -60,9 +73,13 @@ class TaskFormController {
         // 已选标签继承当前标签筛选（弹窗新建的临时标签在打开时统一丢弃）
         ctx.tagManager.beginForm(currentTagIds);
 
+        // 添加输入值变化监听
         ctx.addInputValueListeners();
+
+        // 加载分类选项并设置默认选中
         this.loadCategoryOptions(currentCategory);
 
+        // 重置并初始化父任务选择器
         ctx.parentTaskState.editingTaskId = '';
         this.resetCombobox();
         this.initCombobox();
@@ -74,32 +91,38 @@ class TaskFormController {
             ctx.expandMoreOptions();
         }
 
+        // 加载标签选择器
         ctx.tagManager.loadSelector();
+
+        // 重置附件
         if (ctx.attachmentManager) ctx.attachmentManager.reset();
 
         Utils.ModalManager.show('task-modal');
     }
 
-    // 只在首次打开时绑定，避免每次打开弹窗重复叠加监听器
+    // 初始化父任务选择器（只在首次打开时绑定，避免每次打开弹窗重复叠加监听器）
     initCombobox() {
         const ctx = this.ctx;
         if (ctx._parentComboboxBound) return;
         ctx._parentComboboxBound = true;
 
+        // 点击输入框打开下拉
         ctx.taskParentInput.addEventListener('focus', async () => {
             ctx.parentTaskState.isOpen = true;
             ctx.taskParentDropdown.style.display = 'block';
 
-            // 没有内容时才加载初始数据
+            // 如果没有内容，加载初始数据
             const results = ctx.taskParentDropdown.querySelector('.combobox-results');
             if (results.children.length === 0 && !ctx.parentTaskState.isLoading) await this.loadParentTasks(false);
         });
 
+        // 输入搜索
         let searchTimeout;
         ctx.taskParentInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const query = e.target.value.trim();
 
+            // 如果输入框为空，清空父任务选择
             if (query === '') {
                 ctx.taskParent.value = '';
                 ctx.parentTaskState.selectedId = '';
@@ -130,12 +153,14 @@ class TaskFormController {
             }
         });
 
+        // 加载更多
         ctx.loadMoreParentTask.addEventListener('click', async (e) => {
             e.stopPropagation();
             await this.loadParentTasks(false);
         });
     }
 
+    // 加载父任务列表
     async loadParentTasks(isNewSearch = false) {
         const ctx = this.ctx;
         const results = ctx.taskParentDropdown.querySelector('.combobox-results');
@@ -157,18 +182,21 @@ class TaskFormController {
             onSuccess: (response) => {
                 let tasks = response.data.tasks.filter(t => !t.isRecurring && !t.parentTaskId);
 
+                // 排除当前编辑的任务
                 if (ctx.parentTaskState.editingTaskId) {
                     tasks = tasks.filter(t => t.id !== ctx.parentTaskState.editingTaskId);
                 }
 
                 if (isNewSearch) results.innerHTML = '';
 
+                // 渲染任务列表
                 if (tasks.length > 0) {
                     tasks.forEach(task => {
                         const item = this.createParentTaskItem(task);
                         results.appendChild(item);
                     });
 
+                    // 使用后端返回的分页信息判断是否有更多
                     const total = response.data.total || 0;
                     const loadedCount = page * pageSize;
                     ctx.parentTaskState.hasMore = loadedCount < total;
@@ -188,12 +216,14 @@ class TaskFormController {
         });
     }
 
+    // 创建父任务列表项
     createParentTaskItem(task) {
         const item = document.createElement('div');
         item.className = 'combobox-item';
         item.dataset.taskId = task.id;
         item.dataset.taskTitle = task.title;
 
+        // 显示任务标题和状态
         item.innerHTML = `
             <span class="task-title ${task.completed ? 'completed' : ''}">${Utils.escapeHtml(task.title)}</span>
         `;
@@ -203,6 +233,7 @@ class TaskFormController {
         return item;
     }
 
+    // 选择父任务
     selectParentTask(task) {
         const ctx = this.ctx;
         ctx.taskParentInput.value = task.title;
@@ -213,6 +244,7 @@ class TaskFormController {
         ctx.parentTaskState.isOpen = false;
     }
 
+    // 重置父任务选择器
     resetCombobox() {
         const ctx = this.ctx;
         const results = document.querySelector('.combobox-results');
@@ -228,6 +260,7 @@ class TaskFormController {
         if (results) results.innerHTML = '';
     }
 
+    // 初始化父任务选择器（编辑模式）
     async initParentForEdit(taskId) {
         const ctx = this.ctx;
         // 每次打开编辑弹窗都递增令牌：上一次编辑的回显若晚于本次到达会被直接丢弃，
@@ -235,10 +268,12 @@ class TaskFormController {
         const token = ++ctx._parentEditToken;
         ctx._parentPrefillDone = false;
 
+        // 重置并初始化选择器
         ctx.parentTaskState.editingTaskId = taskId;
         this.resetCombobox();
         this.initCombobox();
 
+        // 获取当前任务的父任务
         await Api.relations.parent({
             apiArgs: [taskId],
             onSuccess: (response) => {
@@ -259,10 +294,11 @@ class TaskFormController {
         });
     }
 
-    // 加载子任务数量（scope 用于限定作用域，默认全文档）
+    // 加载子任务数量并更新显示（scope 用于限定作用域，默认全文档）
     async loadSubtaskCounts(scope = document) {
         const root = scope || document;
-        // 先取快照：scope 可能是游离容器，节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到
+        // 同样先取快照：scope 可能是游离容器，
+        // 节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到
         const subtaskCountEls = Array.from(root.querySelectorAll('.subtask-count'));
         if (subtaskCountEls.length === 0) return;
 
@@ -286,6 +322,7 @@ class TaskFormController {
         })));
     }
 
+    // 绑定子任务数量徽章点击事件
     bindSubtaskCountEvents(scope = document) {
         const ctx = this.ctx;
         const root = scope || document;
@@ -311,6 +348,7 @@ class TaskFormController {
         });
     }
 
+    // 编辑任务
     editTask(taskId) {
         const ctx = this.ctx;
         const task = ctx.tasks.find(t => t.id === taskId);
@@ -325,10 +363,16 @@ class TaskFormController {
         ctx.modalTitle.textContent = '编辑任务';
         ctx.taskForm.dataset.editingId = taskId;
 
+        // 重置更多选项状态
         ctx.resetMoreOptions();
+
+        // 启用周期性任务选项（新建任务模式下允许）
         this.enableRecurringOptions();
+
+        // 移除编辑模式提示（如果存在）
         ctx.recurrence.removeEditNotice();
 
+        // 填充表单
         ctx.taskTitle.value = task.title;
         ctx.taskDescription.value = task.description || '';
         ctx.taskPrioritySelect.value = task.priority;
@@ -357,6 +401,7 @@ class TaskFormController {
             ctx.datePicker.value = datePart;
             ctx.timeInput.value = timePart;
 
+            // 自动展开更多选项
             ctx.moreOptionsContent.style.display = 'block';
             ctx.moreOptionsToggle.classList.add('expanded');
             const toggleIcon = ctx.moreOptionsToggle.querySelector('.toggle-icon');
@@ -366,14 +411,23 @@ class TaskFormController {
         // 禁用周期性任务选项（编辑模式下不允许转换为周期性任务）
         this.disableRecurringOptions();
 
+        // 添加编辑模式提示
         ctx.recurrence.addEditNotice();
+
+        // 加载分类选项
         this.loadCategoryOptions(task.categoryId);
 
+        // 初始化父任务选择器（编辑模式需要先获取已选的父任务）
         // 保存 Promise：提交前需等待父任务回显完成，避免误判为"用户移除了父任务"
         ctx._parentInitPromise = this.initParentForEdit(task.id);
 
+        // 添加输入值变化监听
         ctx.addInputValueListeners();
+
+        // 加载标签选择器
         ctx.tagManager.loadSelector();
+
+        // 加载已有附件
         if (ctx.attachmentManager) ctx.attachmentManager.loadFromTask(task);
 
         Utils.ModalManager.show('task-modal');
@@ -382,6 +436,7 @@ class TaskFormController {
     // 禁用周期模式切换（编辑模式下不允许把任务改成周期性任务）
     disableRecurringOptions() {
         const ctx = this.ctx;
+        // 固定为「单次任务」
         if (ctx.scheduleModeOnce) ctx.scheduleModeOnce.checked = true;
         document.querySelectorAll('input[name="schedule-mode"]').forEach((radio) => {
             radio.disabled = true;
@@ -389,6 +444,7 @@ class TaskFormController {
         const switchEl = document.getElementById('schedule-mode-switch');
         if (switchEl) switchEl.classList.add('is-disabled');
 
+        // 隐藏周期性选项区域
         ctx.recurringOptions.style.display = 'none';
         ctx.datePicker.required = false;
         ctx.timeInput.required = false;
@@ -406,11 +462,13 @@ class TaskFormController {
         if (switchEl) switchEl.classList.remove('is-disabled');
         if (ctx.scheduleModeOnce) ctx.scheduleModeOnce.checked = true;
 
+        // 确保周期性选项区域是隐藏的（默认状态）
         ctx.recurringOptions.style.display = 'none';
         ctx.recurrence.reset();
         ctx.recurrence.updateScheduleMode();
     }
 
+    // 加载分类选项
     async loadCategoryOptions(selectedId = '') {
         const ctx = this.ctx;
         await Api.categories.list({
@@ -428,6 +486,7 @@ class TaskFormController {
         });
     }
 
+    // 处理任务表单提交
     async submit(e) {
         const ctx = this.ctx;
         e.preventDefault();
@@ -474,8 +533,9 @@ class TaskFormController {
             attachments: ctx.attachmentManager ? ctx.attachmentManager.getAttachments() : []
         };
 
+        // 编辑模式下强制清除周期性任务相关数据
         if (!isEdit) {
-            // 只有新建模式允许设置周期性任务
+            // 只有在新建模式下才允许设置周期性任务
             taskData.isRecurring = isRecurringTask;
             if (isRecurringTask) {
                 const rule = ctx.recurrence.collectRule();
@@ -490,6 +550,7 @@ class TaskFormController {
                 taskData.recurrenceCount = null;
             }
         } else {
+            // 编辑模式下确保不会提交周期性任务数据
             taskData.isRecurring = false;
             taskData.recurrenceType = null;
             taskData.recurrenceCount = null;
@@ -532,6 +593,7 @@ class TaskFormController {
                             // 避免把"没取到原父任务"当成"用户移除了父任务"而误删关联
                             logger.warn('父任务回显未完成，跳过本次父子关联变更');
                         } else {
+                            // 先读取当前父任务
                             let currentParentId = null;
                             await Api.relations.parent({
                                 apiArgs: [taskId],
@@ -552,6 +614,7 @@ class TaskFormController {
                             }
                         }
                     } else if (parentTaskId) {
+                        // 新建模式下直接添加关联
                         await Api.relations.add({
                             apiArgs: [taskId, parentTaskId],
                             successCheck: () => true,
@@ -565,7 +628,8 @@ class TaskFormController {
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
 
-                if (ctx.isMobileDevice()) ctx.infiniteScroll.reset();
+                // 移动端调整：如果当前页不是第一页，重置到第一页
+                if (ctx.isMobileDevice()) ctx.infiniteScroll.reset(); // 重置无限下拉状态
 
                 // 按表单中最终选择的分类/标签同步列表筛选
                 const tagsModuleRefreshed = await this.syncFiltersAfterSave(
@@ -583,6 +647,7 @@ class TaskFormController {
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
 
+                // 触发云端同步上传
                 Api.tasks.triggerUpload({ successCheck: (response) => true });
                 if (!tagsModuleRefreshed) ctx.tagManager.loadModule(true);
             },
@@ -592,10 +657,14 @@ class TaskFormController {
     }
 
     // 任务保存（新建/更新）完成后，按表单中用户最终选择的分类/标签同步列表筛选：
-    // - 分类：分类被修改时，原本有分类筛选则跟随新分类，改为"未分类"则清除筛选；原本无筛选则不调整
-    // - 标签：标签被修改时，原本有标签筛选则改为筛选新标签，未选标签则清除标签筛选；原本无筛选则不调整。
-    //         savedTags 为后端返回的标签（含真实 id）；传 null 表示拿不到返回结构，此时不调整。
-    // - 父任务：父任务被修改时，若搜索框处于"按父任务查子任务"则改为查询新父任务，移除父任务则清空查询。
+    // - 分类：分类被修改时，若原本存在分类筛选则跟随新分类，改为"未分类"则重置为全部（清除分类筛选）；
+    //         原本不存在分类筛选时不做任何筛选调整
+    // - 标签：标签被修改时，若原本存在标签筛选则改为筛选用户新选的标签，未选任何标签则清除标签筛选；
+    //         原本不存在标签筛选时不做任何筛选调整。
+    //         savedTags 为后端保存后返回的标签（含真实 id，新建标签也能直接拿到 id），
+    //         传 null 表示调用方拿不到返回结构，此时不调整标签筛选项（保持现状，避免误清）。
+    // - 父任务：父任务被修改时，若搜索框本身处于"按父任务查子任务"，则改为查询新的父任务；
+    //         移除父任务则清空搜索框的父任务查询；搜索框没有父任务查询时不联动。
     // 返回值：是否已刷新过左侧标签模块
     async syncFiltersAfterSave(snapshot, categoryId, savedTags) {
         const ctx = this.ctx;
@@ -606,7 +675,7 @@ class TaskFormController {
         // ===== 分类筛选 =====
         const chosenCategoryId = categoryId || '';
         if (chosenCategoryId !== snapshot.categoryId && snapshot.hasCategoryFilter) {
-            // 选择"未分类"时回落到全部
+            // 选择"未分类"时清除分类筛选
             const nextFilter = chosenCategoryId || 'all';
             ctx.currentFilter = nextFilter;
             if (window.categoryManager) {
@@ -641,7 +710,7 @@ class TaskFormController {
         }
 
         // ===== 父任务（子任务搜索）筛选 =====
-        // 搜索框本身没有父任务查询时不联动
+        // chosenParentId 为表单中最终选择的父任务；搜索框本身没有父任务查询时不联动
         const chosenParentId = ctx.taskParent.value || null;
         if (snapshot.hasParentFilter && chosenParentId !== snapshot.parentTaskId) {
             ctx.search.hideSuggestions();
@@ -660,6 +729,7 @@ class TaskFormController {
         }
 
         if (filterChanged) {
+            // 重新计算提交给后端的查询对象
             ctx.searchQuery = ctx.search.buildQuery();
             ctx.search.updateClearButton();
             // 筛选条件已变化，回到第一页重新加载

@@ -1,12 +1,15 @@
 /**
- * 任务定位控制器：保存后定位高亮、外部创建后自动定位、按筛选反查页码、
- * 列表刷新、删除离场动画。
+ * 任务定位控制器
+ *
+ * 从 TodoManager 中抽出：保存后定位高亮、外部创建后的自动定位、
+ * 按筛选条件反查页码、列表刷新、删除离场动画。
  *
  * 依赖的 TodoManager 成员：
- *   状态：_pendingHighlightTaskId / tasks / currentPage / pageSize / currentFilter /
- *        statusFilter / priorityFilter / dueDateFilter / searchQuery /
- *        customDateFilter / tagManager
- *   DOM：tasksList；方法：loadTasks
+ *   状态：_pendingHighlightTaskId / tasks / currentPage / pageSize /
+ *        currentFilter / statusFilter / priorityFilter / dueDateFilter /
+ *        searchQuery / customDateFilter / tagManager
+ *   DOM：tasksList
+ *   方法：loadTasks
  *   其它控制器：ctx.actions.getTaskToggleTarget
  */
 class TaskLocateController {

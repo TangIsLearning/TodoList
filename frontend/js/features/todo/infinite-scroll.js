@@ -1,7 +1,11 @@
 /**
- * 无限下拉控制器（小屏幕分页模式）。
- * 状态仍由 TodoManager 持有（tasks / currentPage / hasMoreTasks / listLoadToken …），
- * 本控制器只负责实现，通过 ctx 读写状态。
+ * 无限下拉控制器（小屏幕分页模式）
+ *
+ * 从 TodoManager 中抽出。之所以是"控制器 + ctx"而非独立模块：
+ * 这些方法读写的是同一个列表状态（tasks / currentPage / totalPages /
+ * listLoadToken / isLoadingMore ...），若改成独立模块 + 消息通信，
+ * 需要一次性把状态所有权也搬走，风险过高。
+ * 因此保留 TodoManager 持有状态，本控制器只负责实现，通过 ctx 访问状态。
  *
  * 依赖的 TodoManager 成员：
  *   状态：tasksContainer / tasksList / tasks / currentPage / totalPages /
@@ -16,14 +20,18 @@ class InfiniteScrollController {
         this.ctx = ctx;
     }
 
+    // 初始化无限下拉功能
     init() {
         const ctx = this.ctx;
+
+        // 移除已存在的监听器
         this.removeScrollListener();
         this.clearAutoFillTimer();
 
+        // 只在移动端启用无限下拉
         if (!ctx.isMobileDevice() || !ctx.tasksContainer) return;
 
-        // 滚动监听用 rAF 节流，避免每个滚动事件都做布局计算
+        // 添加滚动监听器（rAF 节流，避免每个滚动事件都做布局计算）
         ctx.scrollListener = () => {
             // 用户主动滚动：重置连续自动填充计数
             ctx.autoFillCount = 0;
@@ -41,6 +49,7 @@ class InfiniteScrollController {
                 const scrollPosition = container.scrollTop + container.clientHeight;
                 const scrollHeight = container.scrollHeight;
 
+                // 当滚动位置距离底部小于阈值时，加载更多
                 if (scrollPosition >= scrollHeight - ctx.scrollThreshold) this.loadMoreTasks();
             });
         };
@@ -48,10 +57,11 @@ class InfiniteScrollController {
         ctx.tasksContainer.addEventListener('scroll', ctx.scrollListener, { passive: true });
         logger.info('Infinite scroll listener attached');
 
-        // 内容不足以滚动时也需要补加载
+        // 检查是否需要自动加载更多（内容不足以滚动时）
         this.scheduleAutoFillCheck();
     }
 
+    // 移除滚动监听器
     removeScrollListener() {
         const ctx = this.ctx;
         if (ctx.scrollListener && ctx.tasksContainer) {
@@ -65,6 +75,7 @@ class InfiniteScrollController {
         }
     }
 
+    // 清除自动填充定时器
     clearAutoFillTimer() {
         const ctx = this.ctx;
         if (ctx.autoFillTimer) {
@@ -73,6 +84,7 @@ class InfiniteScrollController {
         }
     }
 
+    // 延迟检查是否需要自动加载更多
     scheduleAutoFillCheck() {
         const ctx = this.ctx;
         this.clearAutoFillTimer();
@@ -82,6 +94,7 @@ class InfiniteScrollController {
         }, 100);
     }
 
+    // 检查是否需要自动加载更多任务
     checkAndLoadMoreIfNeeded() {
         const ctx = this.ctx;
         if (!ctx.isMobileDevice() || ctx.isLoadingMore || !ctx.hasMoreTasks) return;
@@ -101,21 +114,24 @@ class InfiniteScrollController {
         logger.info('Checking if need to load more - scrollHeight:', scrollHeight,
             'clientHeight:', clientHeight, 'currentPage:', ctx.currentPage, 'totalPages:', ctx.totalPages);
 
-        // 内容高度不超过容器高度（所有任务都在可视区内）且还有下一页时继续加载
+        // 如果内容高度小于等于容器高度，说明所有任务都在可视范围内，需要加载更多
+        // 同时确保还有更多页面可加载
         if (scrollHeight <= clientHeight && ctx.currentPage < ctx.totalPages) {
             logger.info('Content fits in viewport, auto-loading more tasks');
             ctx.autoFillCount++;
             this.loadMoreTasks().then(() => {
-                // 递归补加载，直到内容超过容器高度
+                // 加载完成后再次检查,直到内容超过容器高度
                 if (ctx.isMobileDevice()) this.scheduleAutoFillCheck();
             });
         }
     }
 
+    // 加载更多任务（无限下拉）
     async loadMoreTasks() {
         const ctx = this.ctx;
         if (ctx.isLoadingMore || !ctx.hasMoreTasks) return;
 
+        // 如果已经是最后一页，不再加载
         if (ctx.currentPage >= ctx.totalPages) {
             ctx.hasMoreTasks = false;
             this.showNoMoreTasks();
@@ -125,7 +141,7 @@ class InfiniteScrollController {
         ctx.isLoadingMore = true;
         this.showLoadingMore();
         const nextPage = ctx.currentPage + 1;
-        const token = ctx.listLoadToken; // 用于判断本次结果返回时是否仍然有效
+        const token = ctx.listLoadToken; // 记录当前令牌，用于判断结果是否仍然有效
         const { apiArgs } = ctx.buildListQuery(nextPage);
         await Api.tasks.list({
             apiArgs: apiArgs,
@@ -142,10 +158,14 @@ class InfiniteScrollController {
 
                 const newTasks = response.data.tasks || [];
                 if (newTasks.length > 0) {
+                    // 将新任务追加到现有任务列表
                     ctx.tasks = [...ctx.tasks, ...newTasks];
                     ctx.currentPage = nextPage;
+                    // 渲染新增的任务
                     this.appendTasks(newTasks);
+                    // 检查是否还有更多任务
                     ctx.hasMoreTasks = ctx.currentPage < ctx.totalPages;
+                    // 如果是最后一页，显示到底提示
                     if (!ctx.hasMoreTasks) this.showNoMoreTasks();
                 } else {
                     ctx.hasMoreTasks = false;
@@ -162,6 +182,7 @@ class InfiniteScrollController {
         });
     }
 
+    // 追加任务到列表
     appendTasks(newTasks) {
         const ctx = this.ctx;
         if (!ctx.tasksList || !Array.isArray(newTasks) || newTasks.length === 0) return;
@@ -169,10 +190,11 @@ class InfiniteScrollController {
         // 同步刷新分类缓存后拼 HTML，名称随节点一起生成，无需再回填空转的占位符
         ctx.syncCategoryMap();
 
-        // 先在游离容器中构建，便于只给新增节点绑定事件
+        // 生成新任务的HTML（先在游离容器中构建，便于只给新增节点绑定事件）
         const temp = document.createElement('div');
         temp.innerHTML = newTasks.map(task => ctx.renderer.createTaskElement(task)).join('');
 
+        // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
         ctx.rowInteractions.bindEvents(temp);
 
         // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
@@ -183,17 +205,19 @@ class InfiniteScrollController {
         }
     }
 
-    // 指示器是动态创建的，需要实时查询
+    // 获取"加载更多"指示器（动态创建，需要实时查询）
     getLoadingMoreEl() {
         if (!this.ctx.tasksList) return null;
         return this.ctx.tasksList.querySelector('#loading-more');
     }
 
+    // 获取"已经到底了"提示（动态创建，需要实时查询）
     getNoMoreTasksEl() {
         if (!this.ctx.tasksList) return null;
         return this.ctx.tasksList.querySelector('#no-more-tasks');
     }
 
+    // 显示"加载更多"指示器
     showLoadingMore() {
         const ctx = this.ctx;
         if (!ctx.tasksList) return;
@@ -209,15 +233,19 @@ class InfiniteScrollController {
         ctx.tasksList.appendChild(loadingMoreDiv);
     }
 
+    // 隐藏"加载更多"指示器
     hideLoadingMore() {
         const el = this.getLoadingMoreEl();
         if (el) el.remove();
     }
 
+    // 显示"已经到底了"提示
     showNoMoreTasks() {
         const ctx = this.ctx;
         if (!ctx.tasksList) return;
+        // 已存在则不重复添加
         if (this.getNoMoreTasksEl()) return;
+        // 到底时应移除加载指示器
         this.hideLoadingMore();
 
         const noMoreDiv = document.createElement('div');
@@ -229,15 +257,17 @@ class InfiniteScrollController {
         ctx.tasksList.appendChild(noMoreDiv);
     }
 
+    // 隐藏"已经到底了"提示
     hideNoMoreTasks() {
         const el = this.getNoMoreTasksEl();
         if (el) el.remove();
     }
 
-    // 只重置状态，加载由调用方负责，避免重复请求
+    // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
     reset() {
         const ctx = this.ctx;
-        ctx.listLoadToken++; // 使飞行中的"加载更多"结果失效
+        // 使飞行中的"加载更多"结果失效
+        ctx.listLoadToken++;
         ctx.isLoadingMore = false;
         ctx.hasMoreTasks = true;
         ctx.currentPage = 1;

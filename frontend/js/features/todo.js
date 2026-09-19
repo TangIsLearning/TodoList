@@ -1,8 +1,11 @@
 // 任务管理模块
 //
 // 列表渲染、无限下拉、周期规则、搜索 chips 等子模块见 js/features/todo/ 目录。
-// columns.js（列定义常量）与 recurrence.js（周期提示文案）在构造期就会被用到，
-// 须先于本文件加载；tag.js（TagManager）同理。
+// 列定义常量挂在 ColumnsController 上，周期规则提示文案挂在 RecurrenceController 上，
+// 因此 js/features/todo/columns.js 与 recurrence.js 须先于本文件加载。
+
+// 标签相关常量（TAG_INPUT_PATTERN 等）与 TagManager 均定义在 js/features/tag.js，
+// 该文件必须在本文件之前引入。
 
 class TodoManager {
     constructor() {
@@ -14,7 +17,7 @@ class TodoManager {
         this.priorityFilter = 'all';
         this.statusFilter = 'uncompleted';
         this.dueDateFilter = 'all';
-        this.sortBy = 'created_at';
+        this.sortBy = 'created_at'; // 使用默认排序逻辑
         this.sortOrder = 'desc';
         this.customDateFilter = null; // 自定义日期筛选（用于日历视图）
         // 父任务选择器状态
@@ -37,7 +40,7 @@ class TodoManager {
         // 无限下拉相关
         this.isLoadingMore = false;
         this.hasMoreTasks = true;
-        this.scrollThreshold = 300;
+        this.scrollThreshold = 300; // 距离底部300px时开始加载
         this.scrollListener = null;
         this.listLoadToken = 0; // 列表加载令牌：loadTasks 时自增，用于丢弃过期的下拉加载结果
         this.autoFillTimer = null; // 自动填充定时器（内容不足一屏时补加载）
@@ -84,6 +87,7 @@ class TodoManager {
         this._pendingFromZero = false;
         this._statsTagDebounceTimer = null;
         this._tagPendingFromZero = false;
+        // DOM 元素缓存与统一管理
         this.cacheDomRefs();
         // 无限下拉（小屏幕模式）：状态仍由本实例持有，实现见 InfiniteScrollController
         this.infiniteScroll = new InfiniteScrollController(this);
@@ -181,21 +185,30 @@ class TodoManager {
             }
         });
     }
-
+    
+    // 初始化
     async init() {
         this.bindEvents();
 
         // 读取任务列表显示列配置（本地缓存先兜底，随后以数据库为准）
         await this.loadColumnConfig();
 
+        // 设置默认筛选为"全部"
         this.currentFilter = 'all';
+        
+        // 初始化搜索清空按钮状态
         this.updateSearchClearButton();
-
+        
         await this.loadTasks();
+        
+        // 初始化无限下拉功能
         this.infiniteScroll.init();
+
+        // 初始化标签管理模块
         await this.tagManager.loadModule(true);
     }
 
+    // 统一缓存所有 DOM 节点
     cacheDomRefs() {
         const dom = {
             tasksList: 'tasks-list',
@@ -301,6 +314,7 @@ class TodoManager {
         });
     }
 
+    // 绑定事件
     bindEvents() {
         // 监听窗口大小变化，切换分页/无限下拉模式
         let resizeTimeout;
@@ -320,6 +334,7 @@ class TodoManager {
             this.search.syncQuery(0);
         });
 
+        // 清空搜索按钮
         this.searchClearBtn?.addEventListener('click', () => this.search.clear());
 
         // 筛选器
@@ -327,14 +342,18 @@ class TodoManager {
         this.statusFilterSelect?.addEventListener('change', (e) => this.onFilterChange('statusFilter', e.target.value));
         this.dueDateFilterSelect?.addEventListener('change', (e) => this.onFilterChange('dueDateFilter', e.target.value));
 
+        // 添加任务按钮
         this.addTaskBtn?.addEventListener('click', () => this.form.showAddModal());
         this.addTaskFab?.addEventListener('click', () => this.form.showAddModal());
 
+        // 任务表单
         this.taskForm?.addEventListener('submit', (e) => this.form.submit(e));
 
+        // 模态框关闭按钮
         this.taskModalClose?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
         this.taskCancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('task-modal'));
 
+        // 更多选项展开/收起按钮
         this.moreOptionsToggle?.addEventListener('click', () => this.toggleMoreOptions());
 
         // 时间设置：单次任务 / 周期性任务切换
@@ -371,6 +390,7 @@ class TodoManager {
             this.recurrence.clearPreview();
         });
 
+        // 绑定分页相关的监听事件
         this.firstBtn?.addEventListener('click', () => this.paginationControl.goToPage(1));
         this.prevBtn?.addEventListener('click', () => this.paginationControl.goToPage(this.currentPage - 1));
         this.nextBtn?.addEventListener('click', () => this.paginationControl.goToPage(this.currentPage + 1));
@@ -390,7 +410,8 @@ class TodoManager {
         });
     }
 
-    // ===== 列表显示列配置：见 columns.js（this.columns）=====
+    // ============ 任务列表显示列配置 ============
+    // 实现见 js/features/todo/columns.js，统一通过 this.columns 调用。
     // 仅 loadColumnConfig 保留为对外入口（main.js 数据热重载时调用）。
 
     // 读取列配置：数据库为唯一来源，localStorage 仅用于首屏兜底
@@ -417,6 +438,7 @@ class TodoManager {
         });
     }
 
+    // 通用筛选器处理
     async onFilterChange(filterType, value) {
         this[filterType] = value;
         this.currentPage = 1;
@@ -424,7 +446,8 @@ class TodoManager {
         this.infiniteScroll.reset();
         await this.loadTasks();
     }
-
+    
+    // 展开/收起更多选项
     toggleMoreOptions() {
         if (this.moreOptionsContent.style.display === 'none' || this.moreOptionsContent.style.display === '') {
             this.moreOptionsContent.style.display = 'block';
@@ -436,12 +459,14 @@ class TodoManager {
             this.moreOptionsToggle.querySelector('.toggle-icon').textContent = '+';
         }
     }
-
+    
+    // 重置更多选项状态
     resetMoreOptions() {
         this.moreOptionsContent.style.display = 'none';
         this.moreOptionsToggle.classList.remove('expanded');
         this.moreOptionsToggle.querySelector('.toggle-icon').textContent = '+';
 
+        // 默认回到「单次任务」
         if (this.scheduleModeOnce) this.scheduleModeOnce.checked = true;
         this.recurringOptions.style.display = 'none';
         this.datePicker.required = false;
@@ -451,7 +476,8 @@ class TodoManager {
         this.recurrence.reset();
     }
 
-    // ===== 周期性任务规则：见 recurrence.js（this.recurrence）=====
+    // ============ 周期性任务规则配置 ============
+    // 实现见 js/features/todo/recurrence.js，统一通过 this.recurrence 调用，不再设门面。
 
     // 展开"更多选项"（用于让自动填充的父任务等字段对用户可见）
     expandMoreOptions() {
@@ -461,6 +487,8 @@ class TodoManager {
         if (toggleIcon) toggleIcon.textContent = '-';
     }
 
+    // 为编辑模式添加周期性任务提示
+    // 添加输入值变化监听
     addInputValueListeners() {
         const setError = (valid, msg) => {
             Object.assign(this.datetimeError.style, { display: valid ? 'none' : 'block' });
@@ -495,6 +523,7 @@ class TodoManager {
             validate();
         };
 
+        // 时间变化处理
         const onTimeChange = () => {
             updateBtn(this.timeInput, this.clearTimeBtn);
             validate();
@@ -508,6 +537,7 @@ class TodoManager {
         this.timeInput.addEventListener('change', onTimeChange);
     }
 
+    // 构建任务列表查询参数。
     buildListQuery(page) {
         const categoryIdArg = this.currentFilter === 'all' ? null : this.currentFilter;
         const statusArg = this.statusFilter === 'all' ? null : this.statusFilter;
@@ -530,6 +560,7 @@ class TodoManager {
         };
     }
 
+    // 加载任务
     async loadTasks(fromZero = false) {
         // 递增令牌：使仍在飞行中的"加载更多"请求结果失效，避免旧数据追加到新列表
         this.listLoadToken++;
@@ -545,9 +576,10 @@ class TodoManager {
                 // 任务数据已更新，父任务缓存需重新拉取，避免展示过期的关联关系
                 this.parentTaskMap = {};
                 if (window.innerWidth > 480) {
-                    // 大屏幕（>480px）：表格 + 分页模式
+                    // 大屏幕(大于480px)：使用表格分页模式，每页10条
                     this.renderer.renderTasks();
                     this.paginationControl.render();
+                    // 隐藏无限下拉相关
                     this.infiniteScroll.hideLoadingMore();
                     this.infiniteScroll.hideNoMoreTasks();
                 } else {
@@ -559,10 +591,13 @@ class TodoManager {
                 this.updateStats(fromZero);
                 this.actions.updateCategoryCounts(fromZero);
 
+                // 更新日历视图数据
                 if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
 
+                // 同步分类筛选状态
                 if (window.categoryManager) window.categoryManager.setActiveCategory(this.currentFilter);
 
+                // 若统计视图正处于前台，按当前 分类+标签 chips 同步刷新统计
                 this._syncStatsFilterIfVisible();
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error'),
@@ -571,8 +606,10 @@ class TodoManager {
 
     }
 
-    // ===== 列表渲染 / 定位 / 行内交互：见 task-render.js、task-locate.js、row-interactions.js =====
-    // 通过 this.renderer / this.locator / this.rowInteractions 调用；revealTask、refresh 保留为对外入口。
+    // ===== 列表渲染 / 任务定位 / 行内交互 =====
+    // 实现见 js/features/todo/task-render.js、task-locate.js、row-interactions.js，
+    // 统一通过 this.renderer / this.locator / this.rowInteractions 调用。
+    // 仅保留两个对外入口：revealTask（后端智能输入回调）、refresh（App.refreshData 通用刷新契约）。
 
     // 外部入口（快捷键 / 智能输入窗口）新建任务后由后端回调：刷新并定位新任务
     revealTask(taskId) {
@@ -619,94 +656,25 @@ class TodoManager {
         return this.categoryMap.get(String(categoryId)) ||
             window.languageManager.getText('unknownCategory', '未知分类');
     }
+    
+    // ===== 任务操作：实现见 js/features/todo/task-actions.js =====
+    // 统一通过 this.actions 调用；仅 deleteTask 保留为对外入口（timeline.js 调用）。
 
-    // ===== 任务操作：见 task-actions.js（this.actions；deleteTask 保留给 timeline.js）=====
-
+    // 删除任务
     deleteTask(taskId) {
         return this.actions.deleteTask(taskId);
     }
 
-    // ===== 任务表单：见 task-form.js（this.form）=====
+    // ===== 任务表单：实现见 js/features/todo/task-form.js =====
+    // 统一通过 this.form 调用，不再设门面。
 
-    // ===== 任务详情：见 task-detail.js（this.detail）=====
+    // ===== 任务详情：实现见 js/features/todo/task-detail.js =====
+    // 统一通过 this.detail 调用，不再设门面。
 
-    // ===== 分页：见 pagination.js（this.paginationControl）=====
+    // ===== 分页：实现见 js/features/todo/pagination.js =====
+    // 统一通过 this.paginationControl 调用，不再设门面。
 
-    // ===== 标签筛选状态访问（标签模块与统计模块的统一出口）：见 search.js（this.search）=====
-    // 仅保留三个对外入口：getTagFilterNames（stats.js）、clearSearchChips / updateSearchClearButton（main.js）。
-
-    // 列表筛选中的标签名称（供统计等模块展示当前标签筛选）
-    getTagFilterNames() {
-        return this.search.getTagFilterNames();
-    }
-
-    // 清空全部搜索 chips（不触发重新加载，由调用方决定何时 loadTasks）
-    clearSearchChips() {
-        return this.search.clearChips();
-    }
-
-    updateSearchClearButton() {
-        return this.search.updateClearButton();
-    }
-
-    isMobileDevice() {
-        return window.innerWidth <= 480;
-    }
-
-    // ===== 无限下拉：见 infinite-scroll.js（this.infiniteScroll）=====
-    // 仅 resetInfiniteScroll 保留为对外入口（main.js / category.js / calendar.js 筛选变化后重置）。
-
-    // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
-    resetInfiniteScroll() {
-        this.infiniteScroll.reset();
-    }
-
-    handleResize() {
-        const isLargeScreen = window.innerWidth > 480;
-
-        if (isLargeScreen) {
-            // 切换到大屏幕：表格 + 分页模式
-            logger.info('Switching to large screen mode');
-
-            this.tasksList.style.display = 'table';
-
-            // 移除无限下拉监听与残留提示
-            this.infiniteScroll.removeScrollListener();
-            this.infiniteScroll.clearAutoFillTimer();
-            this.infiniteScroll.hideLoadingMore();
-            this.infiniteScroll.hideNoMoreTasks();
-
-            this.pagination.style.display = 'flex';
-
-            if (this.currentPage > 1) {
-                this.currentPage = 1;
-                this.loadTasks();
-            } else {
-                this.renderer.renderTasks();
-                this.paginationControl.render();
-            }
-        } else {
-            // 切换到小屏幕：使用无限下拉模式
-            logger.info('Switching to small screen mode');
-
-            this.tasksList.style.display = 'flex';
-
-            if (this.currentPage > 1) {
-                this.currentPage = 1;
-                this.loadTasks();
-            } else {
-                this.renderer.renderTasks();
-            }
-
-            this.pagination.style.display = 'none';
-            this.infiniteScroll.init();
-        }
-    }
-
-    // ===== 顶部统计条：updateStats 与统计视图联动留在协调器 =====
-    // 这两个方法直接操作列表页顶部的统计条 DOM（totalUncompletedTasksStats 等），
-    // 与 stats.js 里按视图渲染的图表统计是两套东西，故不随统计逻辑拆分。
-
+    // 更新统计信息
     async updateStats(fromZero = false) {
         if (fromZero) this._pendingFromZero = true;
 
@@ -741,6 +709,26 @@ class TodoManager {
         }, 200);
     }
 
+    // ===== 标签筛选状态访问（对标签模块与统计模块的统一出口） =====
+    // 实现见 js/features/todo/search.js，统一通过 this.search 调用。
+    // 仅保留三个对外入口：getTagFilterNames（stats.js 读取当前标签筛选）、
+    // clearSearchChips / updateSearchClearButton（main.js 数据热重载）。
+
+    // 列表筛选中的标签名称（供统计等模块展示当前标签筛选）
+    getTagFilterNames() {
+        return this.search.getTagFilterNames();
+    }
+
+    // 清空全部搜索 chips（不触发重新加载，由调用方决定何时 loadTasks）
+    clearSearchChips() {
+        return this.search.clearChips();
+    }
+
+    // 更新搜索清空按钮状态
+    updateSearchClearButton() {
+        return this.search.updateClearButton();
+    }
+
     // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
     // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
     _syncStatsFilterIfVisible() {
@@ -750,6 +738,71 @@ class TodoManager {
         }
     }
 
+    // 判断是否为移动端或小屏幕
+    isMobileDevice() {
+        return window.innerWidth <= 480;
+    }
+
+    // ===== 无限下拉：实现见 js/features/todo/infinite-scroll.js =====
+    // 统一通过 this.infiniteScroll 调用；仅 resetInfiniteScroll 保留为对外入口
+    // （main.js / category.js / calendar.js 在筛选变化后重置下拉状态）。
+
+    // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
+    resetInfiniteScroll() {
+        this.infiniteScroll.reset();
+    }
+
+    // 处理窗口大小变化
+    handleResize() {
+        const isLargeScreen = window.innerWidth > 480;
+
+        if (isLargeScreen) {
+            // 切换到大屏幕：使用分页模式，每页10条
+            logger.info('Switching to large screen mode');
+
+            // 设置列表为表格布局
+            this.tasksList.style.display = 'table';
+
+            // 移除无限下拉（同时清理加载提示与待执行的自动填充）
+            this.infiniteScroll.removeScrollListener();
+            this.infiniteScroll.clearAutoFillTimer();
+            this.infiniteScroll.hideLoadingMore();
+            this.infiniteScroll.hideNoMoreTasks();
+
+            // 显示分页
+            this.pagination.style.display = 'flex';
+
+            // 如果当前页不是第一页，重置到第一页
+            if (this.currentPage > 1) {
+                this.currentPage = 1;
+                this.loadTasks();
+            } else {
+                this.renderer.renderTasks();
+                this.paginationControl.render();
+            }
+        } else {
+            // 切换到小屏幕：使用无限下拉模式
+            logger.info('Switching to small screen mode');
+
+            // 设置列表为flex布局
+            this.tasksList.style.display = 'flex';
+
+            if (this.currentPage > 1) {
+                this.currentPage = 1;
+                this.loadTasks();
+            } else {
+                this.renderer.renderTasks();
+            }
+
+            // 隐藏分页
+            this.pagination.style.display = 'none';
+
+            // 初始化无限下拉
+            this.infiniteScroll.init();
+        }
+    }
+
 }
 
+// 创建全局实例
 window.todoManager = new TodoManager();

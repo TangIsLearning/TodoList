@@ -1,9 +1,13 @@
 /**
- * 任务渲染控制器：列表整体渲染与任务行 HTML 构造。
- * 只读操作（不修改任务数据），仅通过 ctx 读取状态与其它控制器的结果。
+ * 任务渲染控制器
+ *
+ * 从 TodoManager 中抽出：列表整体渲染与任务行 HTML 构造。
+ * 渲染是只读操作（不修改任务数据），仅通过 ctx 读取状态与其它控制器的结果，
+ * 因此是拆分风险最低的一簇。
  *
  * 依赖的 TodoManager 成员：
- *   状态：tasks / tasksList / emptyState / pagination / parentTaskMap / attachmentManager
+ *   状态：tasks / tasksList / emptyState / pagination / parentTaskMap /
+ *        attachmentManager
  *   方法：loadParentTaskMap / ensureCategoryMap / getCategoryName
  *   其它控制器：ctx.columns.getVisibleColumns / getColumnLayout / isColumnVisible /
  *        ctx.rowInteractions.bindEvents / ctx.locator.highlightPending
@@ -13,8 +17,10 @@ class TaskRenderController {
         this.ctx = ctx;
     }
 
+    // 渲染任务列表
     async renderTasks() {
         const ctx = this.ctx;
+        // 更新日历视图数据
         if (window.calendarManager) window.calendarManager.updateTasks(ctx.tasks);
 
         // 列表内容变化（筛选/翻页/保存等）时先淡出，数据就绪后再淡入，避免内容瞬间跳变
@@ -23,6 +29,7 @@ class TaskRenderController {
         if (ctx.tasks.length === 0) {
             ctx.tasksList.style.setProperty('display', 'none', 'important');
             ctx.emptyState.style.display = 'block';
+            // 隐藏分页
             ctx.pagination.style.display = 'none';
             this.finishListRefresh();
             return;
@@ -33,6 +40,7 @@ class TaskRenderController {
         ctx.tasksList.style.display = isLargeScreen ? 'table' : 'flex';
         ctx.emptyState.style.display = 'none';
 
+        // 生成HTML
         let html = '';
 
         // 大屏幕添加表头（列由用户配置决定）
@@ -74,12 +82,16 @@ class TaskRenderController {
         html += ctx.tasks.map(task => this.createTaskElement(task)).join('');
         ctx.tasksList.innerHTML = html;
 
+        // 绑定任务事件
         await ctx.rowInteractions.bindEvents();
+
+        // 取消淡出并播放入场淡入
         this.finishListRefresh();
         // 新建/编辑保存后定位并高亮对应任务
         ctx.locator.highlightPending();
     }
 
+    // 列表刷新收尾：取消淡出态并重新播放淡入动画
     finishListRefresh() {
         const ctx = this.ctx;
         if (Utils.prefersReducedMotion()) return;
@@ -91,6 +103,7 @@ class TaskRenderController {
         ctx.tasksList.classList.add('list-enter');
     }
 
+    // 创建任务元素
     createTaskElement(task) {
         const ctx = this.ctx;
         const priorityInfo = Utils.getPriorityInfo(task.priority);
@@ -98,6 +111,7 @@ class TaskRenderController {
         const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
         const isLargeScreen = window.innerWidth > 480;
 
+        // 渲染标签
         let tagsHtml = '';
         if (task.tags && task.tags.length > 0) {
             tagsHtml = task.tags.map(tag =>
