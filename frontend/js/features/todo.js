@@ -1561,6 +1561,13 @@ class TodoManager {
         const scope = root || document;
         const isFullBind = scope === document;
 
+        // 先同步取快照：无限下拉追加时 scope 是游离容器，
+        // 节点会在本次绑定的 await 期间就被搬进文档，届时再用 scope 查询会得到空集合，
+        // 导致编辑/删除/子任务徽章等"await 之后绑定的元素"漏绑。
+        const subtaskCountEls = Array.from(scope.querySelectorAll('.subtask-count'));
+        const editButtons = Array.from(scope.querySelectorAll('.btn.edit'));
+        const deleteButtons = Array.from(scope.querySelectorAll('.btn.delete'));
+
         // 复选框点击
         scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
@@ -1810,10 +1817,12 @@ class TodoManager {
             this._globalCloseHandlerBound = true;
         }
 
-        await this.loadSubtaskCounts(scope);
+        // 绑定子任务数量徽章点击事件（同步绑定，使用快照）
+        this.bindSubtaskCountEvents(subtaskCountEls);
 
-        // 绑定子任务数量徽章点击事件
-        this.bindSubtaskCountEvents(scope);
+        // 子任务数量需要请求接口，放在所有同步绑定之后：
+        // await 之后的绑定一律使用快照，不能再依赖 scope 查询
+        await this.loadSubtaskCounts(subtaskCountEls);
 
         // 添加CSS样式防止移动端默认行为（只注入一次）
         if (!document.getElementById('small-screen-task-style')) {
@@ -1834,7 +1843,7 @@ class TodoManager {
         }
 
         // 编辑按钮
-        scope.querySelectorAll('.btn.edit').forEach(btn => {
+        editButtons.forEach(btn => {
             const taskId = btn.dataset.taskId;
             const task = this.tasks.find(t => t.id === taskId);
 
@@ -1866,7 +1875,7 @@ class TodoManager {
         });
 
         // 删除按钮
-        scope.querySelectorAll('.btn.delete').forEach(btn => {
+        deleteButtons.forEach(btn => {
             btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;
                 await this.deleteTask(taskId);
@@ -2321,8 +2330,11 @@ class TodoManager {
     async loadSubtaskCounts(scope = document) {
         const root = scope || document;
         // 同样先取快照：scope 可能是游离容器，
-        // 节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到
-        const subtaskCountEls = Array.from(root.querySelectorAll('.subtask-count'));
+        // 节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到。
+        // 允许直接传入快照数组（bindTaskEvents 在绑定前已取好）
+        const subtaskCountEls = Array.isArray(root)
+            ? root
+            : Array.from(root.querySelectorAll('.subtask-count'));
         if (subtaskCountEls.length === 0) return;
 
         const elByTaskId = new Map(subtaskCountEls.map(el => [el.dataset.taskId, el]));
@@ -2349,13 +2361,18 @@ class TodoManager {
     // 绑定子任务数量徽章点击事件
     bindSubtaskCountEvents(scope = document) {
         const root = scope || document;
-        root.querySelectorAll('.subtask-count').forEach(el => {
+        // 支持直接传入快照数组，避免游离容器被搬空后查不到节点
+        const subtaskCountEls = Array.isArray(root)
+            ? root
+            : Array.from(root.querySelectorAll('.subtask-count'));
+
+        subtaskCountEls.forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
-                
+
                 const count = el.querySelector('.count');
                 const countValue = parseInt(count?.textContent || '0');
-                
+
                 if (countValue > 0) {
                     const taskTitle = el.dataset.taskTitle;
                     const taskId = el.dataset.taskId;
@@ -3907,6 +3924,8 @@ class TodoManager {
         temp.innerHTML = newTasks.map(task => this.createTaskElement(task)).join('');
 
         // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
+        // 注意：不 await —— 下面的搬移必须在同步流程内完成，
+        // 否则 bindTaskEvents 内部 await 之后再用 temp 查询会查不到节点（它只做同步快照，故不受影响）
         this.bindTaskEvents(temp);
 
         // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
