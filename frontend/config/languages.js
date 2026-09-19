@@ -146,6 +146,8 @@ const Languages = {
         taskHeaderCategory: "所属分类",
         taskHeaderParentTask: "关联父项任务",
         taskHeaderAttachments: "任务附件",
+        taskHeaderCreatedAt: "创建时间",
+        taskHeaderUpdatedAt: "更新时间",
 
         // 任务列表显示列配置
         columnConfigTitle: "配置显示列",
@@ -580,6 +582,8 @@ const Languages = {
         taskHeaderCategory: "Category",
         taskHeaderParentTask: "Parent Task",
         taskHeaderAttachments: "Attachments",
+        taskHeaderCreatedAt: "Created",
+        taskHeaderUpdatedAt: "Updated",
 
         // 任务列表显示列配置
         columnConfigTitle: "Configure Columns",

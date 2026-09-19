@@ -773,6 +773,16 @@
     font-weight: 500;
 }
 
+/* 创建时间 / 更新时间（表格列与小屏卡片共用） */
+.task-datetime {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    white-space: nowrap;
+}
+
 /* 已完成任务中的截止日期不显示逾期样式 */
 .task-item.completed .task-due-date {
     color: var(--text-secondary);

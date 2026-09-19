@@ -653,7 +653,8 @@
         line-height: 13px !important;
     }
 
-    .task-due-date {
+    .task-due-date,
+    .task-datetime {
         height: 15px;
         font-size: 10px !important;
         line-height: 15px !important;

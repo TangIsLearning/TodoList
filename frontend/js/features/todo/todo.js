@@ -21,7 +21,9 @@ const TASK_LIST_COLUMN_DEFS = [
     { key: 'tags', i18nKey: 'taskHeaderTag', fallback: '标签', defaultVisible: true, fixedWidth: 145 },
     { key: 'category', i18nKey: 'taskHeaderCategory', fallback: '所属分类', defaultVisible: false, fixedWidth: 160 },
     { key: 'parentTask', i18nKey: 'taskHeaderParentTask', fallback: '关联父项任务', defaultVisible: false, fixedWidth: 170 },
-    { key: 'attachments', i18nKey: 'taskHeaderAttachments', fallback: '任务附件', defaultVisible: false, fixedWidth: 130 }
+    { key: 'attachments', i18nKey: 'taskHeaderAttachments', fallback: '任务附件', defaultVisible: false, fixedWidth: 130 },
+    { key: 'createdAt', i18nKey: 'taskHeaderCreatedAt', fallback: '创建时间', defaultVisible: false, fixedWidth: 170 },
+    { key: 'updatedAt', i18nKey: 'taskHeaderUpdatedAt', fallback: '更新时间', defaultVisible: false, fixedWidth: 170 }
 ];
 // 操作列固定展示且不参与配置；内部是固定数量的按钮，使用固定像素宽度避免列变窄后换行变形
 const TASK_LIST_ACTION_COLUMN = { key: 'actions', i18nKey: 'taskHeaderAction', fallback: '操作', fixedWidth: 150 };
@@ -759,6 +761,10 @@ class TodoManager {
         const isOverdue = !task.completed && task.dueDate && Utils.isOverdue(task.dueDate);
         const isLargeScreen = window.innerWidth > 480;
 
+        // 小屏卡片中时间徽标的悬浮文案（大屏表格列由 createTimestampCell 处理）
+        const createdTimeLabel = Utils.escapeHtml(window.languageManager.getText('taskCreateTime', '创建时间'));
+        const updatedTimeLabel = Utils.escapeHtml(window.languageManager.getText('taskUpdateTime', '更新时间'));
+
         // 渲染标签
         let tagsHtml = '';
         if (task.tags && task.tags.length > 0) {
@@ -820,6 +826,16 @@ class TodoManager {
                                 <span class="task-due-date ${isOverdue ? 'overdue' : ''}"
                                       title="截止时间">
                                     📅 ${Utils.formatDate(task.dueDate)}
+                                </span>
+                            ` : ''}
+                            ${this.isColumnVisible('createdAt') && task.createdAt ? `
+                                <span class="task-datetime" title="${createdTimeLabel}">
+                                    🕒 ${Utils.formatDate(task.createdAt)}
+                                </span>
+                            ` : ''}
+                            ${this.isColumnVisible('updatedAt') && task.updatedAt ? `
+                                <span class="task-datetime" title="${updatedTimeLabel}">
+                                    🕒 ${Utils.formatDate(task.updatedAt)}
                                 </span>
                             ` : ''}
                         </div>
@@ -907,9 +923,29 @@ class TodoManager {
                         ${this.createAttachmentsContent(task)}
                     </div>
                 `;
+            case 'createdAt':
+                return this.createTimestampCell('createdAt', task.createdAt);
+            case 'updatedAt':
+                return this.createTimestampCell('updatedAt', task.updatedAt);
             default:
                 return '';
         }
+    }
+
+    // "创建时间" / "更新时间"列内容：精确到分钟，悬浮提示说明该列含义
+    createTimestampCell(columnKey, value) {
+        const isCreated = columnKey === 'createdAt';
+        const label = Utils.escapeHtml(window.languageManager.getText(
+            isCreated ? 'taskCreateTime' : 'taskUpdateTime',
+            isCreated ? '创建时间' : '更新时间'
+        ));
+        return `
+            <div class="task-cell is-nowrap" data-column="${columnKey}">
+                ${value ? `
+                    <span class="task-datetime" title="${label}">🕒 ${Utils.formatDate(value)}</span>
+                ` : '<span class="task-cell-empty">-</span>'}
+            </div>
+        `;
     }
 
     // "关联父项任务"列内容
