@@ -1,24 +1,17 @@
 /**
- * 任务详情控制器
- *
- * 负责"任务详情"弹窗：取数（任务本体 / 父任务 / 子任务）、详情 HTML 拼装、
- * 以及弹窗内关联任务跳转与附件点击的事件绑定；同时承载列表中附件 chip 的打开。
- *
- * 从 todo.js 的 viewTaskDetails（约 170 行的单体方法）拆出：原方法把取数、
- * 拼装、事件绑定混在一起，且详情 HTML 与列表渲染逻辑共用 todo.js，
- * 职责边界模糊。现在详情只依赖 ctx 的任务数据与分类缓存，不反向修改列表状态。
+ * 任务详情控制器：详情弹窗取数（本体 / 父任务 / 子任务）、HTML 拼装、
+ * 弹窗内关联任务跳转与附件点击绑定；同时承载列表中附件 chip 的打开。
+ * 详情只依赖 ctx 的任务数据与分类缓存，不反向修改列表状态。
  *
  * 依赖的 TodoManager 成员：
  *   状态：tasks / attachmentManager
  *   方法：ensureCategoryMap / getCategoryName
  */
-
 class TaskDetailController {
     constructor(ctx) {
         this.ctx = ctx;
     }
 
-    // 打开列表中点击的附件
     openListAttachment(taskId, attachmentId) {
         const ctx = this.ctx;
         const task = ctx.tasks.find(t => t.id === taskId);
@@ -118,7 +111,6 @@ class TaskDetailController {
         return html;
     }
 
-    // 拼装详情弹窗的完整 HTML
     buildDetailContent(task, { parentInfo, childrenInfo, tagsHtml, attachmentsInfo }) {
         const ctx = this.ctx;
         const priorityInfo = Utils.getPriorityInfo(task.priority);
