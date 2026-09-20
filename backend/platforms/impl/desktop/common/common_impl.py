@@ -46,45 +46,11 @@ class DesktopCommonService(PlatformService):
         from openpyxl.utils import get_column_letter
         from datetime import datetime
 
-        # 获取所有任务
-        tasks = db.get_all_tasks()
-
-        # 应用过滤器
-        filtered_tasks = tasks
-        if priority and priority != 'all':
-            filtered_tasks = [t for t in filtered_tasks if t.get('priority') == priority]
-
-        if status:
-            if status == 'completed':
-                filtered_tasks = [t for t in filtered_tasks if t.get('completed')]
-            elif status == 'uncompleted':
-                filtered_tasks = [t for t in filtered_tasks if not t.get('completed')]
-
-        if year:
-            filtered_tasks = [t for t in filtered_tasks if t.get('dueDate') and
-                            datetime.fromisoformat(t['dueDate']).year == year]
-
-        if month:
-            filtered_tasks = [t for t in filtered_tasks if t.get('dueDate') and
-                            datetime.fromisoformat(t['dueDate']).month == month]
-
-        if category_id and category_id != 'all':
-            filtered_tasks = [t for t in filtered_tasks if t.get('categoryId') == category_id]
-
-        if tag_ids:
-            # 获取每个任务的标签
-            task_ids_with_tags = set()
-            for tag_id in tag_ids:
-                # 查找具有特定标签的任务
-                for task in tasks:
-                    task_tag_ids = [tag['id'] for tag in db.get_task_tags(task['id'])]
-                    if tag_id in task_tag_ids:
-                        task_ids_with_tags.add(task['id'])
-            filtered_tasks = [t for t in filtered_tasks if t['id'] in task_ids_with_tags]
-
-        # 获取分类映射
-        categories = db.get_all_categories()
-        category_map = {c['id']: c['name'] for c in categories}
+        # 筛选下推到 SQL，并一次性补齐标签 / 附件 / 父任务（避免全量加载与逐条查询）
+        export_rows = db.get_export_rows(
+            priority=priority, status=status, year=year, month=month,
+            category_id=category_id, tag_ids=tag_ids
+        )
 
         # 创建工作簿
         wb = Workbook()
@@ -116,24 +82,9 @@ class DesktopCommonService(PlatformService):
         status_map = {True: '已完成', False: '未完成'}
 
         # 写入数据
-        for row_idx, task in enumerate(filtered_tasks, 2):
-            # 获取任务标签
-            task_tags = db.get_task_tags(task['id'])
-            tag_names = ', '.join([t['name'] for t in task_tags])
-
-            # 获取任务附件（仅导出名称，实体文件路径不导出）
-            task_attachments = db.get_task_attachments(task['id']) if hasattr(db, 'get_task_attachments') else []
-            attachment_names = ', '.join([a.get('name', '') for a in task_attachments if a.get('name')])
-
-            # 获取分类名称
-            category_name = category_map.get(task.get('categoryId'), '无分类')
-
-            # 获取父任务名称
-            parent_task = db.get_parent(task['id'])
-            parent_name = parent_task.get('title', '') if parent_task else '无'
-
+        for row_idx, row in enumerate(export_rows, 2):
             # 格式化截止时间
-            due_date = task.get('dueDate')
+            due_date = row.get('dueDate')
             if due_date:
                 try:
                     dt = datetime.fromisoformat(due_date)
@@ -144,14 +95,14 @@ class DesktopCommonService(PlatformService):
                 due_date_str = '无'
 
             row_data = [
-                task.get('title', ''),
-                parent_name,
-                status_map.get(task.get('completed'), '未完成'),
-                priority_map.get(task.get('priority'), '无'),
+                row.get('title', ''),
+                row.get('parentTitle', '无'),
+                status_map.get(row.get('completed'), '未完成'),
+                priority_map.get(row.get('priority'), '无'),
                 due_date_str,
-                category_name,
-                tag_names,
-                attachment_names
+                row.get('categoryName', '无分类'),
+                row.get('tagNames', ''),
+                row.get('attachmentNames', '')
             ]
 
             for col, value in enumerate(row_data, 1):
