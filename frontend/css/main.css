@@ -846,6 +846,30 @@ input:checked + .slider:before {
     flex-wrap: wrap;
 }
 
+/* 头部控件不参与压缩：空间不足时整排换行，避免英文长文案把控件挤变形 */
+.action-buttons > * {
+    flex-shrink: 0;
+}
+
+/* 头部控件统一高度。
+   高度写在这两个选择器上而不是 .btn / select 上，是为了避开特异性冲突：
+   .btn 自带 height: var(--height)，与 .action-buttons > * 同为 (0,1,0)，
+   谁生效取决于 CSS 加载顺序，因此统一用更高特异性的后代选择器锁定。
+   固定高度后，文案长度（中英文）、emoji(📥) 与字体度量差异都不再影响盒高。 */
+.action-buttons .btn,
+.action-buttons select {
+    height: var(--control-height);
+}
+
+/* 按钮内容居中且不折行：高度已固定，内容如何渲染都不会撑高按钮 */
+.action-buttons .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    line-height: 1;
+}
+
 .edit-notice {
     background-color: rgba(var(--warning-rgb), 0.16);
     border: 1px solid rgba(var(--warning-rgb), 0.5);

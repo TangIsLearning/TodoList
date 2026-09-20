@@ -326,14 +326,6 @@
         border-bottom: 1px solid var(--border-color);
     }
 
-    .action-buttons {
-        display: flex;
-        gap: var(--spacing-xs);
-        width: 100%;
-        align-items: stretch;
-        flex-wrap: nowrap;
-    }
-
     /* 优先级筛选器占满第一行 */
     .priority-filter {
         grid-column: 1 / -1;
