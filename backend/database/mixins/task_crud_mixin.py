@@ -30,6 +30,8 @@ _TASK_COLUMNS = (
 _COLUMN_COUNT = len(_TASK_COLUMNS.split(','))
 
 _TASK_SELECT = f'SELECT {_TASK_COLUMNS} FROM tasks'
+# 时间轴卡片只需要这几个字段，无需带上描述 / 周期规则 / 时间戳
+_TIMELINE_COLUMNS = 'id, title, due_date, completed, is_recurring, parent_task_id'
 _INSERT_TASK_SQL = (
     f"INSERT INTO tasks ({_TASK_COLUMNS}) "
     f"VALUES ({', '.join(['?'] * _COLUMN_COUNT)})"
@@ -514,6 +516,37 @@ class TaskCrudMixin:
             'page': page,
             'page_size': page_size,
             'total_pages': total_pages,
+        }
+
+    def get_timeline_tasks(self, task_filter: Any = None) -> List[Dict[str, Any]]:
+        """时间轴视图取数：只取渲染卡片所需字段，且不带分页。
+
+        与 get_tasks_paginated 共用同一套筛选语义（_build_list_where_clauses），
+        保证时间轴与列表在分类 / 优先级 / 状态 / 搜索 chips 上的结果一致。
+
+        时间轴按「截止时间落在可视区间内」取数，区间本身就是天然上限（最多 4 周），
+        所以这里不需要分页。
+        """
+        where_sql, params = self._build_list_where_clauses(task_filter)
+
+        with self.query() as conn:
+            rows = conn.execute(
+                f'SELECT {_TIMELINE_COLUMNS} FROM tasks WHERE {where_sql} {_TASK_ORDER_BY}',
+                params
+            ).fetchall()
+
+        return [self._row_to_timeline_task(row) for row in rows]
+
+    @staticmethod
+    def _row_to_timeline_task(row: Any) -> Dict[str, Any]:
+        """任务行 → 时间轴卡片（字段与前端 convertTasks 的取值一一对应）。"""
+        return {
+            'id': row['id'],
+            'title': row['title'],
+            'dueDate': row['due_date'],
+            'completed': bool(row['completed']),
+            'isRecurring': bool(row['is_recurring']) if row['is_recurring'] is not None else False,
+            'parentTaskId': row['parent_task_id'],
         }
 
     def get_tasks_by_ids(self, task_ids: List[str]) -> List[Dict[str, Any]]:

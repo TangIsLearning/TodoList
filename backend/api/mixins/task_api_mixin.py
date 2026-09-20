@@ -99,6 +99,16 @@ class TaskApiMixin:
         return self.db.get_tasks_paginated(task_filter, page=page, page_size=page_size)
 
     @api_handler
+    def get_timeline_tasks(self, task_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """时间轴视图取数（不分页，只回传卡片所需字段）。
+
+        task_filter 与 get_todos 完全同一套（键名与语义见 get_todos 说明），
+        区别仅在于：不做分页（时间轴按截止时间区间取数，区间本身就是上限），
+        且返回体只有 id / title / dueDate / completed / isRecurring / parentTaskId。
+        """
+        return self.db.get_timeline_tasks(task_filter)
+
+    @api_handler
     def get_task_page(self, task_id: str, task_filter: Optional[Dict[str, Any]] = None,
                       page_size: int = 10) -> Optional[int]:
         """定位任务在当前筛选条件下的页码（从1开始）。

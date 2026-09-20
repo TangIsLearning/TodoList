@@ -25,7 +25,7 @@ class TimelineManager {
 
     // 模块初始化：与统计模块一致，只准备状态与事件，不做重量级取数。
     // 时间轴数据改为按需加载：首次进入时间轴视图时由 calendarManager.switchView 触发渲染，
-    // 避免启动时在列表视图里就拉一次全量任务（page_size 999999）。
+    // 避免启动时在列表视图里就拉一次时间轴任务。
     async init() {
         this.bindEvents();
         this.startDate = this.getStartOfWeek(new Date());
@@ -54,8 +54,7 @@ class TimelineManager {
     async getTasks(startDate, endDate) {
         let tasks = [];
         await Utils.apiCall({
-            apiMethod: 'get_todos',
-            // 时间轴只关心「截止时间落在可视区间内」的任务
+            apiMethod: 'get_timeline_tasks',
             apiArgs: [{
                 categoryId: (!this.categoryId || this.categoryId === 'all') ? null : this.categoryId,
                 status: this.statusFilter === 'all' ? null : this.statusFilter,
@@ -64,9 +63,9 @@ class TimelineManager {
                 searchQuery: this.getCurrentSearchQuery(),
                 dueDateFrom: this.formatDate(startDate),
                 dueDateTo: this.formatDate(endDate)
-            }, 1, 999999],
+            }],
             onSuccess: (response) => {
-                tasks = this.convertTasks(response.data.tasks);
+                tasks = this.convertTasks(response.data);
             }
         });
         return tasks;
