@@ -270,11 +270,13 @@ def sync_reminder_to_calendar(sync_start_time: Union[int, float],
 
     db = TodoDatabase()
     result = db.get_tasks_paginated(
+        {
+            'status': 'uncompleted',
+            'dueDateFilter': 'sync',
+            'syncFrom': datetime.fromtimestamp(sync_start_time).date(),
+            'syncTo': datetime.fromtimestamp(sync_end_time).date(),
+        },
         page_size=999,
-        status='uncompleted',
-        due_date_filter='sync',
-        sync_start_time= datetime.fromtimestamp(sync_start_time).date(),
-        sync_end_time= datetime.fromtimestamp(sync_end_time).date()
     )
     if result['tasks']:
         platform_service.backend_logger().error(f"添加提醒成功！事件ID: {result['tasks']}")

@@ -500,27 +500,25 @@ class TodoManager {
         this.resetRecurrenceConfig();
     }
 
-    // 构建任务列表查询参数。
-    buildListQuery(page) {
-        const categoryIdArg = this.currentFilter === 'all' ? null : this.currentFilter;
-        const statusArg = this.statusFilter === 'all' ? null : this.statusFilter;
-        const priorityArg = this.priorityFilter === 'all' ? null : this.priorityFilter;
-        const dueDateArg = this.dueDateFilter === 'all' ? null : this.dueDateFilter;
+    // 构建列表筛选条件对象（键名与后端 TaskFilter 一致）。
+    // 分页查询（get_todos）与定位查询（get_task_page）共用这一份条件，
+    // 避免两处各自维护一串位置参数、新增筛选维度时改漏其中一处。
+    buildListFilter() {
+        return {
+            categoryId: this.currentFilter === 'all' ? null : this.currentFilter,
+            status: this.statusFilter === 'all' ? null : this.statusFilter,
+            priority: this.priorityFilter === 'all' ? null : this.priorityFilter,
+            dueDateFilter: this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+            searchQuery: this.searchQuery || null,
+            dueDate: this.customDateFilter || null
+        };
+    }
 
+    // 构建任务列表查询参数：[筛选条件, 页码, 每页数量]
+    buildListQuery(page) {
         return {
             apiMethod: 'get_todos',
-            apiArgs: [
-                page,
-                this.pageSize,
-                categoryIdArg,
-                statusArg,
-                priorityArg,
-                dueDateArg,
-                null,  // year
-                null,  // month
-                this.searchQuery || null,
-                this.customDateFilter || null
-            ]
+            apiArgs: [this.buildListFilter(), page, this.pageSize]
         };
     }
 
@@ -721,18 +719,7 @@ class TodoManager {
         let page = null;
         await Utils.apiCall({
             apiMethod: 'get_task_page',
-            apiArgs: [
-                taskId,
-                this.pageSize,
-                this.currentFilter === 'all' ? null : this.currentFilter,
-                this.statusFilter === 'all' ? null : this.statusFilter,
-                this.priorityFilter === 'all' ? null : this.priorityFilter,
-                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-                null,  // year
-                null,  // month
-                this.searchQuery || null,
-                this.customDateFilter || null
-            ],
+            apiArgs: [taskId, this.buildListFilter(), this.pageSize],
             successCheck: (result) => !!result && result.success !== false,
             onSuccess: (response) => { page = response?.data ?? null; }
         });
@@ -1253,18 +1240,8 @@ class TodoManager {
             // 获取当前筛选条件下的所有任务（不分页）
             await Utils.apiCall({
                 apiMethod: 'get_todos',
-                apiArgs: [
-                    1,  // page
-                    999999,  // page_size - 设置一个足够大的值以获取所有任务
-                    null,  // 分类
-                    'uncompleted',  // 状态
-                    null,  // 优先级
-                    null,  // 逾期
-                    null,  // year
-                    null,  // month
-                    null,  // search-input
-                    null   // custom-date
-                ],
+                // 只要"未完成"这一个筛选维度，其余交给后端默认值
+                apiArgs: [{ status: 'uncompleted' }, 1, 999999],
                 onSuccess: (response) => {
                     window.categoryManager.updateCategoryCounts(response.data.tasks, fromZero);
                 },

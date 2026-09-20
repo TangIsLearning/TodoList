@@ -48,7 +48,7 @@ Object.assign(SettingsUIManager.prototype, {
             // 获取所有任务以提取年份
             await Utils.apiCall({
                 apiMethod: 'get_todos',
-                apiArgs: [1, 10000, null, null, null, null, null, null, null, null],
+                apiArgs: [null, 1, 10000],
                 onSuccess: (response) => this.updateExportYears(response.data.tasks)
             });
 

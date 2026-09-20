@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from backend.database.mixins._helpers import chunks, placeholders
 from backend.database.models import Task
 from backend.database.query.builder import SearchClauseBuilder
+from backend.database.query.filter import TaskFilter
 from backend.database.query.parser import parse_search_query
 from backend.features.recurrence import (
     END_HABIT,
@@ -409,81 +410,61 @@ class TaskCrudMixin:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _build_list_where_clauses(
-        category_id: Optional[str] = None, status: Optional[str] = None,
-        priority: Optional[str] = None, due_date_filter: Optional[str] = None,
-        year: Optional[int] = None, month: Optional[int] = None,
-        search_query: Optional[Union[str, Dict[str, Any]]] = None,
-        custom_date: Optional[str] = None,
-        sync_start_time: Optional[Union[str, date]] = None,
-        sync_end_time: Optional[Union[str, date]] = None,
-        custom_start_date: Optional[str] = None,
-        custom_end_date: Optional[str] = None
-    ) -> Tuple[str, List[Any]]:
-        """构建任务列表的 WHERE 子句（分页查询与定位查询共用同一套筛选语义）"""
+    def _build_list_where_clauses(task_filter: Any = None) -> Tuple[str, List[Any]]:
+        """构建任务列表的 WHERE 子句（分页查询与定位查询共用同一套筛选语义）
+
+        入参统一为 TaskFilter（兼容 dict / None，见 TaskFilter.from_any），
+        新增筛选维度只需在 TaskFilter 上加字段，调用方签名无需改动。
+        """
+        f = TaskFilter.from_any(task_filter)
+
         where_clauses: List[str] = []
         params: List[Any] = []
 
         # 自定义日期筛选（优先级最高，用于日历视图点击）
-        if custom_date:
+        if f.due_date:
             where_clauses.append('date(due_date) = ?')
-            params.append(custom_date)
-        if custom_start_date and custom_end_date:
+            params.append(f.due_date)
+        if f.due_date_from and f.due_date_to:
             where_clauses.append('date(due_date) BETWEEN ? AND ?')
-            params.append(custom_start_date)
-            params.append(custom_end_date)
+            params.append(f.due_date_from)
+            params.append(f.due_date_to)
 
         # 基础筛选（分类 / 优先级 / 状态 / 日期 / 年月）
         base_clauses, base_params = _build_base_filter_clauses(
-            category_id=category_id,
-            status=status,
-            priority=priority,
-            due_date_filter=due_date_filter,
-            year=year,
-            month=month,
-            custom_date=custom_date,
-            sync_start_time=sync_start_time,
-            sync_end_time=sync_end_time,
+            category_id=f.category_id,
+            status=f.status,
+            priority=f.priority,
+            due_date_filter=f.due_date_filter,
+            year=f.year,
+            month=f.month,
+            custom_date=f.due_date,
+            sync_start_time=f.sync_from,
+            sync_end_time=f.sync_to,
         )
         where_clauses.extend(base_clauses)
         params.extend(base_params)
 
         # 搜索筛选（标签 / 父任务 / 普通文本），语义由 query 解析层统一处理
         search_clauses, search_params = SearchClauseBuilder().build(
-            parse_search_query(search_query))
+            parse_search_query(f.search_query))
         where_clauses.extend(search_clauses)
         params.extend(search_params)
 
         return (' AND '.join(where_clauses) if where_clauses else '1=1'), params
 
-    def get_task_page(self, task_id: str, page_size: int = 10,
-                      category_id: Optional[str] = None, status: Optional[str] = None,
-                      priority: Optional[str] = None, due_date_filter: Optional[str] = None,
-                      year: Optional[int] = None, month: Optional[int] = None,
-                      search_query: Optional[Union[str, Dict[str, Any]]] = None,
-                      custom_date: Optional[str] = None,
-                      custom_start_date: Optional[str] = None,
-                      custom_end_date: Optional[str] = None) -> Optional[int]:
+    def get_task_page(self, task_id: str, task_filter: Any = None,
+                      page_size: int = 10) -> Optional[int]:
         """查询指定任务在当前筛选条件下的页码（从1开始）。
 
-        与 get_tasks_paginated 共用筛选条件与排序规则，用于外部（如快捷键）
-        新建任务后把主窗口列表定位到该任务所在页；任务被筛选条件排除时返回 None。
+        与 get_tasks_paginated 共用筛选条件与排序规则（同一个 TaskFilter），
+        用于外部（如快捷键）新建任务后把主窗口列表定位到该任务所在页；
+        任务被筛选条件排除时返回 None。
         """
         if not task_id or page_size <= 0:
             return None
 
-        where_sql, params = self._build_list_where_clauses(
-            category_id=category_id,
-            status=status,
-            priority=priority,
-            due_date_filter=due_date_filter,
-            year=year,
-            month=month,
-            search_query=search_query,
-            custom_date=custom_date,
-            custom_start_date=custom_start_date,
-            custom_end_date=custom_end_date,
-        )
+        where_sql, params = self._build_list_where_clauses(task_filter)
 
         with self.query() as conn:
             rows = conn.execute(
@@ -496,57 +477,27 @@ class TaskCrudMixin:
                 return index // page_size + 1
         return None
 
-    def get_tasks_paginated(self, page: int = 1, page_size: int = 10,
-                            category_id: Optional[str] = None, status: Optional[str] = None,
-                            priority: Optional[str] = None, due_date_filter: Optional[str] = None,
-                            year: Optional[int] = None, month: Optional[int] = None,
-                            search_query: Optional[Union[str, Dict[str, Any]]] = None,
-                            custom_date: Optional[str] = None,
-                            sync_start_time: Optional[Union[str, date]] = None,
-                            sync_end_time: Optional[Union[str, date]] = None,
-                            custom_start_date: Optional[str] = None,
-                            custom_end_date: Optional[str] = None) -> Dict[str, Any]:
+    def get_tasks_paginated(self, task_filter: Any = None, page: int = 1,
+                            page_size: int = 10) -> Dict[str, Any]:
         """分页查询任务，支持多种筛选条件
 
         参数:
+            task_filter: 筛选条件，TaskFilter 或等价 dict（键名见 TaskFilter）。
+                传 None 表示不筛选。search_query 维度多条件之间为 AND 语义，
+                支持两种形式：
+                    结构化 dict（推荐，由前端 chips 序列化而来）:
+                        {'tags': [{'id': 't1', 'name': '工作'}, '紧急'],
+                         'keywords': ['报表'],
+                         'parent': {'id': 'p1', 'name': '项目A'}}
+                    旧字符串协议（兼容）: '#标签;关键词' 或 '>父任务名'
             page: 页码，从1开始
             page_size: 每页数量
-            category_id: 分类ID筛选
-            status: 状态筛选
-            priority: 优先级筛选
-            due_date_filter: 日期筛选
-            year: 年份筛选
-            month: 月份筛选
-            search_query: 搜索条件，多条件之间为 AND 语义。支持两种形式：
-                结构化 dict（推荐，由前端 chips 序列化而来）:
-                    {'tags': [{'id': 't1', 'name': '工作'}, '紧急'],
-                     'keywords': ['报表'],
-                     'parent': {'id': 'p1', 'name': '项目A'}}
-                旧字符串协议（兼容）: '#标签;关键词' 或 '>父任务名'
-            custom_date: 自定义日期筛选（用于日历点击）
-            sync_start_time: 自定义日期筛选（数据同步开始时间）
-            sync_end_time: 自定义日期筛选（数据同步结束时间）
-            custom_start_date: 自定义日期筛选（数据同步开始时间）
-            custom_end_date: 自定义日期筛选（数据同步结束时间）
 
         返回:
             包含 tasks, total, page, page_size, total_pages 的字典
         """
         # 与定位查询共用同一套筛选语义，保证两者结果一致
-        where_sql, params = self._build_list_where_clauses(
-            category_id=category_id,
-            status=status,
-            priority=priority,
-            due_date_filter=due_date_filter,
-            year=year,
-            month=month,
-            search_query=search_query,
-            custom_date=custom_date,
-            sync_start_time=sync_start_time,
-            sync_end_time=sync_end_time,
-            custom_start_date=custom_start_date,
-            custom_end_date=custom_end_date,
-        )
+        where_sql, params = self._build_list_where_clauses(task_filter)
 
         with self.query() as conn:
             total = conn.execute(

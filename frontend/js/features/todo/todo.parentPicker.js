@@ -81,7 +81,7 @@ Object.assign(TodoManager.prototype, {
         const pageSize = this.parentTaskState.pageSize;
         await Utils.apiCall({
             apiMethod: 'get_todos',
-            apiArgs: [page, pageSize, null, 'uncompleted', null, null, null, null, searchQuery || null],
+            apiArgs: [{ status: 'uncompleted', searchQuery: searchQuery || null }, page, pageSize],
             onSuccess: (response) => {
                 let tasks = response.data.tasks.filter(t => !t.isRecurring && !t.parentTaskId);
 

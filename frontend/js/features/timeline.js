@@ -54,20 +54,16 @@ class TimelineManager {
         let tasks = [];
         await Utils.apiCall({
             apiMethod: 'get_todos',
-            apiArgs: [
-                1,  // page
-                999999,  // page_size - 设置一个足够大的值以获取所有任务
-                (!this.categoryId || this.categoryId === 'all') ? null : this.categoryId,
-                this.statusFilter === 'all' ? null : this.statusFilter,
-                this.priorityFilter === 'all' ? null : this.priorityFilter,
-                this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-                null,  // year
-                null,  // month
-                this.getCurrentSearchQuery(),  // search-input
-                null,  // custom-date
-                this.formatDate(startDate),
-                this.formatDate(endDate)
-            ],
+            // 时间轴只关心「截止时间落在可视区间内」的任务
+            apiArgs: [{
+                categoryId: (!this.categoryId || this.categoryId === 'all') ? null : this.categoryId,
+                status: this.statusFilter === 'all' ? null : this.statusFilter,
+                priority: this.priorityFilter === 'all' ? null : this.priorityFilter,
+                dueDateFilter: this.dueDateFilter === 'all' ? null : this.dueDateFilter,
+                searchQuery: this.getCurrentSearchQuery(),
+                dueDateFrom: this.formatDate(startDate),
+                dueDateTo: this.formatDate(endDate)
+            }, 1, 999999],
             onSuccess: (response) => {
                 tasks = this.convertTasks(response.data.tasks);
             }

@@ -45,19 +45,6 @@ class DatafileApiMixin:
         self.db = TodoDatabase()
         self.get_logger.info("存储目录未变更，已重新加载数据")
 
-    def _set_storage_dir(self, dir_path: str) -> Dict[str, Any]:
-        """同步切换存储目录（调用方需自己承担耗时）。"""
-        if storage.is_same_storage_dir(dir_path):
-            # 目录没变：不搬运、不留备份副本，只刷新一次数据
-            self._refresh_storage_data()
-            return {'unchanged': True}
-
-        if not storage.switch_storage_dir(dir_path):
-            raise Exception("设置存储目录失败")
-
-        backup_path = self._apply_storage_dir_change(dir_path)
-        return {'backupPath': backup_path} if backup_path else {}
-
     def _start_storage_dir_migration(self, dir_path: str) -> Dict[str, Any]:
         """在后台线程执行切换：数据量可能很大（附件全量复制），不能阻塞调用线程。
 
@@ -187,35 +174,8 @@ class DatafileApiMixin:
         return self._get_storage_dir_value()
 
     @api_handler
-    def set_storage_dir_config(self, dir_path: str) -> Dict[str, Any]:
-        """设置存储目录配置
-
-        用户选择目录后，会在该目录下生成 todolist 子目录，
-        其中包含 todo.db 以及 attachment 附件目录。
-        返回旧数据备份所在目录（backupPath），供前端提示与清理。
-        """
-        return self._set_storage_dir(dir_path)
-
-    @api_handler
     def validate_storage_dir(self, dir_path: str) -> None:
         """验证存储目录的有效性"""
-        self._validate_storage_dir(dir_path)
-
-    # ==================== 兼容旧接口 ====================
-
-    @api_handler
-    def get_data_file_config(self) -> str:
-        """【兼容旧接口】获取存储目录配置"""
-        return self._get_storage_dir_value()
-
-    @api_handler
-    def set_data_file_config(self, dir_path: str) -> Dict[str, Any]:
-        """【兼容旧接口】设置存储目录配置"""
-        return self._set_storage_dir(dir_path)
-
-    @api_handler
-    def validate_data_file(self, dir_path: str) -> None:
-        """【兼容旧接口】验证存储目录"""
         self._validate_storage_dir(dir_path)
 
     # ==================== 文件/目录选择 ====================

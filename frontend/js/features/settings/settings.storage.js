@@ -20,7 +20,7 @@ Object.assign(SettingsUIManager.prototype, {
     async updateDataFileConfig() {
         // 更新数据文件配置显示
         await Utils.apiCall({
-            apiMethod: 'get_data_file_config',
+            apiMethod: 'get_storage_dir_config',
             onSuccess: (response) => {
                 if (this.dataDirBtn) {
                     this.dataDirBtn.textContent = response.data;
@@ -76,7 +76,7 @@ Object.assign(SettingsUIManager.prototype, {
         // 验证文件路径
         let isValidateFailed = false;
         await Utils.apiCall({
-            apiMethod: 'validate_data_file',
+            apiMethod: 'validate_storage_dir',
             successCheck: (response) => !response.success,
             apiArgs: [newFile],
             onSuccess: (response) => {

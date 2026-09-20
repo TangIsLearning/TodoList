@@ -199,7 +199,7 @@ class CategoryManager {
             // 根据 defaultFiltered 决定 API 参数（保持原有逻辑）
             const apiArgs = defaultFiltered
                 ? []
-                : [1, 999999, null, 'uncompleted', null, null, null, null, null, null];
+                : [{ status: 'uncompleted' }, 1, 999999];
 
             // 调用公共方法，自动处理加载检查、错误日志和成功/失败回调
             await Utils.apiCall({

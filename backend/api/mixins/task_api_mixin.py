@@ -75,65 +75,35 @@ class TaskApiMixin:
         return task
 
     @api_handler
-    def get_todos(self, page: int = 1, page_size: int = 10,
-                  category_id: Optional[str] = None, status: Optional[str] = None,
-                  priority: Optional[str] = None, due_date_filter: Optional[str] = None,
-                  year: Optional[int] = None, month: Optional[int] = None,
-                  search_query: Optional[Union[str, Dict[str, Any]]] = None,
-                  custom_date: Optional[str] = None,
-                  custom_start_date: Optional[str] = None,
-                  custom_end_date: Optional[str] = None) -> Dict[str, Any]:
+    def get_todos(self, task_filter: Optional[Dict[str, Any]] = None,
+                  page: int = 1, page_size: int = 10) -> Dict[str, Any]:
         """分页获取任务，支持多种筛选条件。
 
-        search_query 为搜索条件，标签 / 父任务 / 普通文本三种语义由
+        task_filter 为筛选条件对象（见 backend.database.query.TaskFilter），
+        可用键（camelCase，未列出的键会被忽略）：
+            categoryId / status / priority / dueDateFilter / year / month
+            searchQuery / dueDate / dueDateFrom / dueDateTo
+
+        其中 searchQuery 的标签 / 父任务 / 普通文本三种语义由
         backend.database.query 解析层统一处理，多条件之间为 AND：
             结构化（推荐）: {'tags': [{'id','name'}], 'keywords': [...],
                             'parent': {'id','name'}, 'anyTag': True}
             字符串（兼容）: '#标签;关键词' / '>父任务名' / '#'
         """
-        return self.db.get_tasks_paginated(
-            page=page,
-            page_size=page_size,
-            category_id=category_id,
-            status=status,
-            priority=priority,
-            due_date_filter=due_date_filter,
-            year=year,
-            month=month,
-            search_query=search_query,
-            custom_date=custom_date,
-            custom_start_date=custom_start_date,
-            custom_end_date=custom_end_date
-        )
+        return self.db.get_tasks_paginated(task_filter, page=page, page_size=page_size)
 
     @api_handler
-    def get_task_page(self, task_id: str, page_size: int = 10,
-                      category_id: Optional[str] = None, status: Optional[str] = None,
-                      priority: Optional[str] = None, due_date_filter: Optional[str] = None,
-                      year: Optional[int] = None, month: Optional[int] = None,
-                      search_query: Optional[Union[str, Dict[str, Any]]] = None,
-                      custom_date: Optional[str] = None,
-                      custom_start_date: Optional[str] = None,
-                      custom_end_date: Optional[str] = None) -> Optional[int]:
+    def get_task_page(self, task_id: str, task_filter: Optional[Dict[str, Any]] = None,
+                      page_size: int = 10) -> Optional[int]:
         """定位任务在当前筛选条件下的页码（从1开始）。
+
+        task_filter 与 get_todos 完全同一套（键名与语义见 get_todos 说明），
+        保证「列表看到的分页」与「定位到的分页」永远一致。
 
         用于快捷键等外部入口新建任务后，把主窗口列表自动翻到新任务所在页；
         任务被当前筛选条件排除时返回 None。
         """
-        return self.db.get_task_page(
-            task_id=task_id,
-            page_size=page_size,
-            category_id=category_id,
-            status=status,
-            priority=priority,
-            due_date_filter=due_date_filter,
-            year=year,
-            month=month,
-            search_query=search_query,
-            custom_date=custom_date,
-            custom_start_date=custom_start_date,
-            custom_end_date=custom_end_date
-        )
+        return self.db.get_task_page(task_id, task_filter, page_size=page_size)
 
     @api_handler
     def get_todo(self, task_id: str) -> Optional[Dict[str, Any]]:
