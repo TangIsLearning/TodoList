@@ -1,8 +1,15 @@
+// 启动完成后这段时间内，忽略"窗口可见"触发的全量刷新：
+// 窗口首次显示时 document.hidden 会由 true 变 false 并触发可见性回调，
+// 但此刻数据刚由初始化流程取完，再刷一遍只会让列表重播入场动画（表现为启动闪一下）
+const VISIBILITY_REFRESH_GRACE_MS = 2000;
+
 // 主应用程序入口
 
 class App {
     constructor() {
         this.isInitialized = false;
+        // 初始化完成时刻，用于在可见性回调里识别"刚启动就触发"的那一次
+        this._initializedAt = 0;
         this.modules = [];
     }
     
@@ -26,6 +33,7 @@ class App {
             if (searchInput) setTimeout(() => searchInput.focus(), 100);
 
             this.isInitialized = true;
+            this._initializedAt = Date.now();
             logger.info('TodoList App initialized successfully');
         } catch (error) {
             logger.error(`Failed to initialize app: ${error}`);
@@ -197,7 +205,15 @@ class App {
     
     // 处理页面可见性变化
     handleVisibilityChange() {
-        if (!document.hidden && this.isInitialized) this.refreshData(); // 页面显示时刷新数据
+        if (document.hidden || !this.isInitialized) return;
+        // 窗口首次显示时 document.hidden 会由 true 变 false 并触发本回调，但此刻数据
+        // 刚由初始化流程取完，再全量刷新一次只会让列表重播一遍入场动画（表现为启动闪一下）。
+        // 只忽略启动瞬间这一次，之后用户切换窗口回来仍照常刷新。
+        if (Date.now() - this._initializedAt < VISIBILITY_REFRESH_GRACE_MS) {
+            logger.debug('忽略启动瞬间的可见性刷新：数据已是最新');
+            return;
+        }
+        this.refreshData(); // 页面显示时刷新数据
     }
     
     // 初始化模块
@@ -292,22 +308,34 @@ class App {
         if (todo) await todo.refresh();
 
         // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
-        await window.timelineManager?.renderTimelineIfVisible();
+        await window.timelineManager?.refreshIfVisible();
 
         // 6. 常驻数据：数据整体被替换，分类计数与顶部统计条从 0 重新计数更直观
         this.notifyDataChanged({ fromZero: true });
     }
-    
-    // 数据发生变更（增删改、完成状态切换、分类变更、切库/导入、页面重新可见）后，
-    // 刷新不随视图切换重建的常驻数据：左侧分类计数 + 顶部统计条 + 日历（仅当前台时）。
-    // 前两者口径都是全局的（未完成任务数 / 全局 overview），与列表筛选无关，
-    // 因此只在数据真正变更时刷新，不再跟着任务列表的每次加载走。
+
+    // 数据发生变更（增删改、完成状态切换、分类变更、切库/导入、页面重新可见）后统一通知。
+    // 左侧分类计数与顶部统计条的口径都是全局的（未完成任务数 / 全局 overview），
+    // 与列表筛选无关，因此只在数据真正变更时刷新，不再跟着任务列表的每次加载走；
+    // 日历与时间轴则只在各自处于前台时重建，不在前台时由进入视图的 switchView 负责取数。
+    // 调用方只声明"数据变了"，不必知道有哪些视图、谁在前台。
     notifyDataChanged({ fromZero = false, skipCategoryCounts = false } = {}) {
         // 调用方（如分类模块）若已经自己重算过左侧计数，跳过以免重复拉一次全量任务
         if (!skipCategoryCounts) window.categoryManager?.refreshCounts(fromZero);
-        // 日历视图的数据来自专用接口（不再跟着列表的分页结果走），数据变更后单独刷新
-        if (window.viewManager?.currentView === 'calendar') window.calendarManager.loadCalendarTasks();
+        // 以下视图各自判断是否在前台，不在前台时直接跳过
+        window.calendarManager?.refreshIfVisible();
         window.statsManager?.refreshOverviewBar(fromZero);
+        window.timelineManager?.refreshIfVisible();
+    }
+
+    // 筛选条件（分类 / 优先级 / 状态 / 搜索 chips / 标签）发生变化后统一通知。
+    // 与 notifyDataChanged 的区别：数据本身没变，变的是查询条件，
+    // 因此不重算左侧分类计数、也不重播顶部统计条动画（两者口径与筛选无关）。
+    // 同样由各视图自行判断是否前台，调用方不点名任何具体视图。
+    notifyFilterChanged() {
+        window.calendarManager?.refreshIfVisible();
+        window.timelineManager?.refreshIfVisible();
+        window.statsManager?.refreshIfVisible();
     }
 
     // 获取应用状态

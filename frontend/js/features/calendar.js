@@ -41,16 +41,10 @@ class CalendarManager {
         this.renderCalendar();
     }
 
-    // 更新任务数据
-    updateTasks(tasks) {
-        // 日历视图的数据源是 get_calendar_tasks（只回月历格所需字段），
-        // 列表的分页结果不能覆盖它，否则月历会退化成列表当前页的那十几条。
-        // 数据变更后的日历刷新由 App.notifyDataChanged 触发 loadCalendarTasks。
-        if (window.viewManager.currentView === 'calendar') {
-            this.renderCalendar();
-            return;
-        }
-        this.tasks = tasks;
+    // 分类视图下统一刷新任务入口
+    refreshIfVisible() {
+        if (window.viewManager?.currentView !== 'calendar') return;
+        return this.loadCalendarTasks();
     }
 
     // 日历视图专用取数：沿用列表当前生效的筛选（分类 / 优先级 / 状态 / 搜索 chips），

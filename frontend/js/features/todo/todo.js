@@ -111,6 +111,8 @@ class TodoManager {
         this.taskFilterSnapshot = null;
         // 分类 id → 名称缓存：渲染任务 HTML 时同步取用，避免"先渲染占位再异步回填"
         this.categoryMap = new Map();
+        // 任务列表是否已完成首帧渲染：首帧没有旧内容可言，不播淡出/淡入动画避免启动闪动
+        this._listRenderedOnce = false;
         // 子任务搜索建议下拉（输入 ">" 触发）
         this._subtaskSuggestTimer = null;
         this._subtaskSuggestItems = [];
@@ -509,6 +511,23 @@ class TodoManager {
         };
     }
 
+    // 筛选条件签名：用于区分"这一轮取数是因为筛选变了"还是"只是数据变了/翻页了"。
+    // 直接复用 buildListFilter 的归一化结果（'all' 已折算成 null）；
+    // 分页位置不属于筛选，不计入，因此翻页不会触发广播。
+    _filterSignature() {
+        return JSON.stringify(this.buildListFilter());
+    }
+
+    // 仅在筛选条件真的发生变化时才广播筛选变化。
+    // 增删改这类数据变更同样会走 loadTasks，但它们属于 notifyDataChanged 的范畴；
+    // 若不加以区分地再广播一次，处于前台的视图会在同一次操作里被要求取数两遍。
+    _notifyFilterChangedIfChanged() {
+        const signature = this._filterSignature();
+        if (signature === this._lastFilterSignature) return;
+        this._lastFilterSignature = signature;
+        window.App?.notifyFilterChanged();
+    }
+
     // 构建任务列表查询参数：[筛选条件, 页码, 每页数量]
     buildListQuery(page) {
         return {
@@ -549,14 +568,12 @@ class TodoManager {
                 // 分类计数与顶部统计条口径均为全局，与列表筛选无关，
                 // 已各自收敛到 category / stats 模块，由 App.notifyDataChanged 在数据变更时刷新
 
-                // 更新日历视图数据
-                if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
-
                 // 同步分类筛选状态
                 if (window.categoryManager) window.categoryManager.setActiveCategory(this.currentFilter);
 
-                // 若统计视图正处于前台，按当前 分类+标签 chips 同步刷新统计
-                this._syncStatsFilterIfVisible();
+                // 筛选条件若发生变化，交由通知中心广播；由各视图自行判断是否处于前台
+                // 并决定是否取数，这里不点名任何具体视图（翻页与纯数据变更不会触发）
+                this._notifyFilterChangedIfChanged();
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
@@ -566,18 +583,20 @@ class TodoManager {
     
     // 渲染任务列表
     async renderTasks() {
-        // 更新日历视图数据
-        if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
+        // 首帧没有"旧内容"可以淡出，也不该再淡入：否则会看到列表由半透明亮起（表现为启动闪一下）。
+        // 之后的刷新（筛选 / 翻页 / 保存）才走淡出→淡入，避免内容瞬间跳变。
+        const isFirstPaint = !this._listRenderedOnce;
+        this._listRenderedOnce = true;
 
         // 列表内容变化（筛选/翻页/保存等）时先淡出，数据就绪后再淡入，避免内容瞬间跳变
-        if (!Utils.prefersReducedMotion()) this.tasksList.classList.add('list-refreshing');
+        if (!isFirstPaint && !Utils.prefersReducedMotion()) this.tasksList.classList.add('list-refreshing');
 
         if (this.tasks.length === 0) {
             this.tasksList.style.setProperty('display', 'none', 'important');
             this.emptyState.style.display = 'block';
             // 隐藏分页
             this.pagination.style.display = 'none';
-            this.finishListRefresh();
+            this.finishListRefresh(isFirstPaint);
             return;
         }
 
@@ -631,15 +650,16 @@ class TodoManager {
         // 绑定任务事件
         await this.bindTaskEvents();
 
-        // 取消淡出并播放入场淡入
-        this.finishListRefresh();
+        // 取消淡出并播放入场淡入（首帧不播放，列表直接就位）
+        this.finishListRefresh(isFirstPaint);
         // 新建/编辑保存后定位并高亮对应任务
         this.highlightPendingTask();
     }
 
     // 列表刷新收尾：取消淡出态并重新播放淡入动画
-    finishListRefresh() {
-        if (Utils.prefersReducedMotion()) return;
+    // skipAnimation：首帧没有旧内容可言，跳过动画直接就位，避免启动时列表由半透明亮起
+    finishListRefresh(skipAnimation = false) {
+        if (skipAnimation || Utils.prefersReducedMotion()) return;
 
         this.tasksList.classList.remove('list-refreshing');
         // 先移除再强制重排，保证每次刷新都能重新播放动画
@@ -703,8 +723,10 @@ class TodoManager {
             );
         }
 
-        // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
-        window.timelineManager?.renderTimelineIfVisible();
+        // 新建/编辑任务属于数据变更，交由通知中心广播：
+        // 时间轴等视图会在各自前台时自行重建（此前这里只点名了时间轴，
+        // 漏掉了左侧分类计数与顶部统计条）
+        window.App?.notifyDataChanged();
         this.tagManager.loadModule(true);
     }
 

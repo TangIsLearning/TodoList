@@ -741,9 +741,8 @@ Object.assign(TodoManager.prototype, {
                 // 列表刷新后定位并高亮这条任务
                 this._pendingHighlightTaskId = taskId;
                 this.loadTasks(true);
-                // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
-                window.timelineManager.renderTimelineIfVisible();
-                // 数据变更：刷新左侧分类计数与顶部统计条
+                // 数据变更：左侧分类计数 / 顶部统计条，以及处于前台的时间轴等视图，
+                // 全部由通知中心统一广播，这里不再逐个点名
                 window.App?.notifyDataChanged({ fromZero: true });
 
                 if (!tagsModuleRefreshed) this.tagManager.loadModule(true);
@@ -947,9 +946,6 @@ Object.assign(TodoManager.prototype, {
                         this.tasks = [];
                     }
                 }
-                // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
-                window.timelineManager.renderTimelineIfVisible();
-
                 this.tagManager.loadModule(true);
             },
             onError: (error) => {

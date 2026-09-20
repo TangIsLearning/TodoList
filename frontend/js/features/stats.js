@@ -169,8 +169,7 @@ class StatsManager {
     }
 
     refresh() {
-        const view = document.getElementById('stats-view');
-        if (!view || view.style.display === 'none') return;
+        if (window.viewManager?.currentView !== 'stats') return;
         this.ensureReady();
     }
 
@@ -285,11 +284,9 @@ class StatsManager {
         return tm.getTagFilterNames();
     }
 
-    // 当前筛选（分类/标签）发生变化、且统计视图处于前台时调用：
-    // 按最新筛选重新加载统计，保持已选的时间范围与周期不变
-    reloadStatsIfVisible() {
-        const view = document.getElementById('stats-view');
-        if (!view || view.style.display === 'none') return;
+    // 统计视图下统一刷新数据入口
+    refreshIfVisible() {
+        if (window.viewManager?.currentView !== 'stats') return;
         return this.loadStats();
     }
 
