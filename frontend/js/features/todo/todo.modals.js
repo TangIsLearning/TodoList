@@ -746,8 +746,6 @@ Object.assign(TodoManager.prototype, {
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
 
-                // 触发云端同步上传
-                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 if (!tagsModuleRefreshed) this.tagManager.loadModule(true);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
@@ -953,8 +951,6 @@ Object.assign(TodoManager.prototype, {
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
 
-                // 触发云端同步上传
-                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
                 this.tagManager.loadModule(true);
             },
             onError: (error) => {

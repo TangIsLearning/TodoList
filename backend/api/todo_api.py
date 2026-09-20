@@ -36,4 +36,4 @@ class TodoApi(AllApiMixins, LogManager):
             self.service.add_new_desktop_task_reminder()
             self.get_logger.info("任务提醒器已重置")
         except Exception as e:
-            self.get_logger.warning(f"重置任务提醒器失败: {e}")
+            self.get_logger.warning(f"重置任务提醒器失败: {e}", exc_info=True)

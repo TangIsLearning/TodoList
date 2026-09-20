@@ -709,8 +709,6 @@ class TodoManager {
         }
 
         if (window.timelineManager) window.timelineManager.renderTimeline();
-        // 触发云端同步上传，保持与前端新建任务一致
-        Utils.apiCall({ apiMethod: 'trigger_upload_on_change', successCheck: () => true });
         this.tagManager.loadModule(true);
     }
 
@@ -1075,9 +1073,6 @@ class TodoManager {
                 Utils.showToast(completed ?
                     window.languageManager.getText('taskCompleted', '任务已完成') :
                     window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
-
-                // 触发云端同步上传
-                Utils.apiCall({apiMethod: 'trigger_upload_on_change', successCheck: (response) => true});
 
                 // 先播放完成/重开动效，动画结束后再刷新列表，避免突兀的状态跳变
                 await this.playToggleAnimation(taskId, completed);

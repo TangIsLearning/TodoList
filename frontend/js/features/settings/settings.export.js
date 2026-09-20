@@ -155,6 +155,7 @@ Object.assign(SettingsUIManager.prototype, {
                 Utils.showToast(response.message, 'success');
             },
             onError: (error) => {
+                if (error?.code === 'CANCELLED') return; // 用户取消保存，不提示
                 Utils.showToast('导出任务失败: ' + error.message, 'error');
             },
             onFinally: () => this.closeExportModal()

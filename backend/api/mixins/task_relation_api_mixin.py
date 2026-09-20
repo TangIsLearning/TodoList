@@ -2,6 +2,7 @@
 from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
 from backend.utils.api_errors import NotFoundError, ValidationError
+from backend.utils.auto_sync import auto_sync
 
 class TaskRelationApiMixin:
     """任务关联核心操作 Mixin"""
@@ -45,6 +46,7 @@ class TaskRelationApiMixin:
             raise ValidationError('周期性任务不允许添加父任务关联')
 
     @api_handler
+    @auto_sync
     def set_task_parent(self, sub_task_id: str, main_task_id: Optional[str] = None) -> None:
         """设置 / 解除子任务的父任务（main_task_id 为空表示解除），在同一事务内完成。
 

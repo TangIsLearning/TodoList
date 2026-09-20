@@ -11,6 +11,7 @@ from backend.features.recurrence import (
 )
 from backend.utils.response_wrapper import api_handler
 from backend.utils.api_errors import NotFoundError, ValidationError
+from backend.utils.auto_sync import auto_sync
 
 
 def _parse_start_date(value: Any) -> Optional[date]:
@@ -61,6 +62,7 @@ class TaskApiMixin:
     """任务核心操作 Mixin"""
 
     @api_handler
+    @auto_sync
     def add_todo(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """添加新任务"""
         validation_result = validate_due_date(task_data)
@@ -131,6 +133,7 @@ class TaskApiMixin:
             self.get_logger.error(f"刷新任务到期提醒失败: {e}")
 
     @api_handler
+    @auto_sync
     def update_todo(self, task_id: str, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """更新任务"""
         validation_result = validate_due_date(task_data)
@@ -145,6 +148,7 @@ class TaskApiMixin:
         return result
 
     @api_handler
+    @auto_sync
     def delete_todo(self, task_id: str, delete_all: bool = False) -> None:
         """删除任务"""
         # 用户确认删除后，先清理附件记录与实体文件
@@ -160,6 +164,7 @@ class TaskApiMixin:
         self.db.delete_task(task_id, delete_all)
 
     @api_handler
+    @auto_sync
     def add_recurring_todo(self, task_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """添加周期性任务
 
@@ -213,6 +218,7 @@ class TaskApiMixin:
         return preview_occurrences(parsed_start, rule, limit=limit)
 
     @api_handler
+    @auto_sync
     def toggle_todo(self, task_id: str) -> Dict[str, Any]:
         """切换任务完成状态
 
