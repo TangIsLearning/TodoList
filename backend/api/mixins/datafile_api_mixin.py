@@ -8,6 +8,9 @@ from backend.storage import service as storage
 from backend.storage.service import StorageMigrationCancelled
 from backend.database.todo_database import TodoDatabase
 from backend.utils.response_wrapper import api_handler
+from backend.utils.api_errors import (
+    CancelledError, ConflictError, NotFoundError, PermissionDeniedError,
+    StorageError, ValidationError)
 
 class DatafileApiMixin:
     """数据存储目录配置操作 Mixin"""
@@ -59,7 +62,7 @@ class DatafileApiMixin:
             return {'started': False, 'unchanged': True}
 
         if storage.is_migration_running():
-            raise Exception("已有切换任务在进行中，请等待其完成后再试")
+            raise ConflictError("已有切换任务在进行中，请等待其完成后再试")
 
         path_obj = Path(dir_path)
         # 先跑一次预估（只 stat、不读内容），把总量作为进度分母，进度条才能立即有刻度
@@ -69,7 +72,7 @@ class DatafileApiMixin:
         def _runner() -> None:
             try:
                 if not storage.switch_storage_dir(dir_path, progress=storage.report_migration):
-                    raise Exception("设置存储目录失败")
+                    raise StorageError("设置存储目录失败")
                 backup_path = self._apply_storage_dir_change(dir_path)
                 storage.finish_migration(True, backupPath=backup_path)
             except StorageMigrationCancelled:
@@ -90,21 +93,21 @@ class DatafileApiMixin:
     @staticmethod
     def _validate_storage_dir(dir_path: str) -> None:
         if not dir_path or not isinstance(dir_path, str):
-            raise Exception("目录路径不能为空")
+            raise ValidationError("目录路径不能为空")
 
         path = Path(dir_path)
         if path.exists() and not path.is_dir():
-            raise Exception("请选择一个目录，而不是文件")
+            raise ValidationError("请选择一个目录，而不是文件")
 
         if path.exists():
             if not os.access(str(path), os.R_OK | os.W_OK):
-                raise Exception("没有对该目录的读写权限")
+                raise PermissionDeniedError("没有对该目录的读写权限")
         else:
             parent = path.parent
             if not parent.exists():
-                raise Exception(f"父目录不存在: {parent}")
+                raise NotFoundError(f"父目录不存在: {parent}")
             if not os.access(str(parent), os.W_OK):
-                raise Exception(f"没有在目录 {parent} 创建文件夹的权限")
+                raise PermissionDeniedError(f"没有在目录 {parent} 创建文件夹的权限")
 
     # ==================== 公开 API ====================
 
@@ -117,7 +120,7 @@ class DatafileApiMixin:
         """
         success, message = storage.cleanup_previous_backup()
         if not success:
-            raise Exception(message)
+            raise StorageError(message)
         return message
 
     @api_handler
@@ -192,7 +195,7 @@ class DatafileApiMixin:
                 selected_dir = selected_dir[0] if selected_dir else None
             if selected_dir:
                 return selected_dir, '目录选择成功'
-        raise Exception("用户取消了目录选择")
+        raise CancelledError("用户取消了目录选择")
 
     @api_handler
     def select_attachment_files(self) -> List[dict]:
@@ -209,7 +212,7 @@ class DatafileApiMixin:
             file_types=('All files (*.*)',)
         )
         if not selected:
-            raise Exception("用户取消了文件选择")
+            raise CancelledError("用户取消了文件选择")
 
         if isinstance(selected, str):
             selected = [selected]
@@ -244,11 +247,11 @@ class DatafileApiMixin:
         active_window = webview.active_window()
         selected_dir = active_window.create_file_dialog(webview.FileDialog.FOLDER)
         if not selected_dir:
-            raise Exception("用户取消了文件夹选择")
+            raise CancelledError("用户取消了文件夹选择")
         if isinstance(selected_dir, (list, tuple)):
             selected_dir = selected_dir[0] if selected_dir else None
         if not selected_dir:
-            raise Exception("用户取消了文件夹选择")
+            raise CancelledError("用户取消了文件夹选择")
 
         folder_path = str(selected_dir)
         return {

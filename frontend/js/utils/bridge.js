@@ -48,10 +48,19 @@ async function apiCall({
         if (successCheck(result)) {
             if (typeof onSuccess === 'function') onSuccess(result);
         } else {
-            throw new Error(`${JSON.stringify(result?.error)}`);
+            // 透传后端错误码（VALIDATION_ERROR / NOT_FOUND / CANCELLED ...），
+            // 让上层可以按类型分支，而不是去匹配错误文案
+            const apiError = new Error(`${JSON.stringify(result?.error)}`);
+            apiError.code = result?.code;
+            throw apiError;
         }
     } catch (error) {
-        logger.error(`API '${apiMethod}' error: '${error}'`);
+        if (error?.code === 'CANCELLED') {
+            // 用户取消不是故障：降级为 info，免得排障时被这些噪声淹没
+            logger.info(`API '${apiMethod}' 已由用户取消`);
+        } else {
+            logger.error(`API '${apiMethod}' error: '${error}'`);
+        }
         if (typeof onError === 'function') onError(error);
         if (throwOnError) throw error; // 允许上层继续处理
     } finally {

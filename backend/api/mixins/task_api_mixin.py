@@ -10,6 +10,7 @@ from backend.features.recurrence import (
     validate_rule,
 )
 from backend.utils.response_wrapper import api_handler
+from backend.utils.api_errors import NotFoundError, ValidationError
 
 
 def _parse_start_date(value: Any) -> Optional[date]:
@@ -64,11 +65,14 @@ class TaskApiMixin:
         """添加新任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
-            raise Exception(f'{validation_result["message"]}')
+            raise ValidationError(f'{validation_result["message"]}')
 
-        if task_data['dueDate'] and self.is_android:
-            target_time = datetime.fromisoformat(task_data['dueDate']).timestamp() * 1000
-            self.service.add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
+        # 用 .get 取值：payload 缺字段时不该在添加任务时抛 KeyError
+        due_date_value = task_data.get('dueDate')
+        if due_date_value and self.is_android:
+            target_time = datetime.fromisoformat(due_date_value).timestamp() * 1000
+            self.service.add_task_reminder_to_calendar(
+                task_data.get('title'), task_data.get('description'), target_time)
         task = self.db.add_task(task_data)
         # 处理附件（实体文件会被复制到存储目录）
         self._sync_task_attachments(task.get('id'), task_data.get('attachments'))
@@ -131,7 +135,7 @@ class TaskApiMixin:
         """更新任务"""
         validation_result = validate_due_date(task_data)
         if not validation_result['valid']:
-            raise Exception(f'{validation_result["message"]}')
+            raise ValidationError(f'{validation_result["message"]}')
         old_task = self.db.get_task(task_id)
         result = self.db.update_task(task_id, task_data)
         # 同步附件（新增/修改/删除）
@@ -167,13 +171,13 @@ class TaskApiMixin:
         # 周期起始日期：只需校验日期不早于今天（时间点由规则决定，可能已早于当前时刻）
         start_date = _parse_start_date(task_data.get('dueDate'))
         if start_date is None:
-            raise Exception('周期性任务必须设置起始日期')
+            raise ValidationError('周期性任务必须设置起始日期')
         if start_date < datetime.now().date():
-            raise Exception('周期起始日期不能早于今天')
+            raise ValidationError('周期起始日期不能早于今天')
 
         ok, message = validate_rule(rule)
         if not ok:
-            raise Exception(message)
+            raise ValidationError(message)
 
         # recurrence_type / count 为兼容旧数据与列表展示保留的摘要字段
         task_data['recurrenceType'] = MODE_CRON if rule.get('mode') == MODE_CRON else rule.get('freq')
@@ -199,12 +203,12 @@ class TaskApiMixin:
         """
         parsed_start = _parse_start_date(start_date)
         if parsed_start is None:
-            raise Exception('请先选择周期起始日期')
+            raise ValidationError('请先选择周期起始日期')
 
         rule = normalize_rule(recurrence_rule)
         ok, message = validate_rule(rule)
         if not ok:
-            raise Exception(message)
+            raise ValidationError(message)
 
         return preview_occurrences(parsed_start, rule, limit=limit)
 
@@ -217,7 +221,7 @@ class TaskApiMixin:
         """
         task = self.db.get_task(task_id)
         if not task:
-            raise Exception(f'Task not found')
+            raise NotFoundError('Task not found')
         # 只提交变更字段：避免回灌整份任务（含 tags）触发无必要的标签重写
         result = self.db.update_task(task_id, {'completed': not task['completed']})
         # 由未完成 -> 完成时才续建；重新开启不产生新任务

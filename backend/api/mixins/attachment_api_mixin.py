@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
+from backend.utils.api_errors import (
+    DatabaseError, NotFoundError, PermissionDeniedError, ValidationError)
 from backend.features.attachment.attachment_service import (
     AttachmentError,
     MAX_ATTACHMENT_COUNT,
@@ -30,7 +32,7 @@ class AttachmentApiMixin:
 
     def _validate_attachment_count(self, attachments: List[Dict[str, Any]]) -> None:
         if attachments and len(attachments) > MAX_ATTACHMENT_COUNT:
-            raise Exception(f"最多只能添加 {MAX_ATTACHMENT_COUNT} 个附件")
+            raise ValidationError(f"最多只能添加 {MAX_ATTACHMENT_COUNT} 个附件")
 
     def _create_attachment_from_payload(self, task_id: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """根据前端提交的附件信息创建附件（实体文件会复制到存储目录）"""
@@ -187,37 +189,37 @@ class AttachmentApiMixin:
         """为任务新增单个附件"""
         task = self.db.get_task(task_id)
         if not task:
-            raise Exception("任务不存在")
+            raise NotFoundError("任务不存在")
 
         current = self.db.get_task_attachments(task_id)
         if len(current) >= MAX_ATTACHMENT_COUNT:
-            raise Exception(f"最多只能添加 {MAX_ATTACHMENT_COUNT} 个附件")
+            raise ValidationError(f"最多只能添加 {MAX_ATTACHMENT_COUNT} 个附件")
 
         created = self._create_attachment_from_payload(task_id, payload or {})
         if not created:
-            raise Exception("附件信息不完整")
+            raise ValidationError("附件信息不完整")
         return created
 
     def _update_task_attachment(self, attachment_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """更新附件信息（名称 / 链接地址）"""
         att = self.db.get_attachment(attachment_id)
         if not att:
-            raise Exception("附件不存在")
+            raise NotFoundError("附件不存在")
 
         payload = payload or {}
         if att.get('type') == TYPE_LINK and not (payload.get('url') or att.get('url')):
-            raise Exception("在线链接不能为空")
+            raise ValidationError("在线链接不能为空")
 
         updated = self.db.update_attachment(attachment_id, payload)
         if not updated:
-            raise Exception("更新附件失败")
+            raise DatabaseError("更新附件失败")
         return updated
 
     def _delete_task_attachment(self, attachment_id: str) -> None:
         """删除附件（若为实体文件则同时删除本地文件）"""
         att = self.db.get_attachment(attachment_id)
         if not att:
-            raise Exception("附件不存在")
+            raise NotFoundError("附件不存在")
 
         self.db.delete_attachment(attachment_id)
         if att.get('type') == TYPE_FILE:
@@ -253,12 +255,12 @@ class AttachmentApiMixin:
         """
         att = self.db.get_attachment(attachment_id)
         if not att:
-            raise Exception("附件不存在")
+            raise NotFoundError("附件不存在")
 
         if att.get('type') == TYPE_LINK:
             url = att.get('url')
             if not url:
-                raise Exception("在线链接为空")
+                raise ValidationError("在线链接为空")
             self._open_external_url(url)
             return {'opened': True, 'kind': 'link', 'url': url}
 
@@ -279,9 +281,9 @@ class AttachmentApiMixin:
         """
         att = self.db.get_attachment(attachment_id)
         if not att:
-            raise Exception("附件不存在")
+            raise NotFoundError("附件不存在")
         if att.get('type') not in (TYPE_FILE, TYPE_FOLDER):
-            raise Exception("仅本地文件或文件夹支持定位")
+            raise ValidationError("仅本地文件或文件夹支持定位")
 
         service = get_attachment_service()
         resolved = self._resolve_attachment_path(att)
@@ -298,22 +300,22 @@ class AttachmentApiMixin:
         """获取附件的云端下载地址（移动端 / 已开启同步时使用）"""
         att = self.db.get_attachment(attachment_id)
         if not att:
-            raise Exception("附件不存在")
+            raise NotFoundError("附件不存在")
 
         if att.get('type') == TYPE_LINK:
             return {'type': 'link', 'url': att.get('url')}
 
         if att.get('type') == TYPE_FOLDER:
-            raise Exception("文件夹附件不支持通过云端下载")
+            raise ValidationError("文件夹附件不支持通过云端下载")
 
         service = get_attachment_service()
         relative = self._attachment_relative_path(att)
         if not relative:
-            raise Exception("附件文件信息缺失，无法获取下载地址")
+            raise ValidationError("附件文件信息缺失，无法获取下载地址")
 
         url = service.build_remote_url(relative)
         if not url:
-            raise Exception("未启用云端同步，无法获取下载地址")
+            raise ValidationError("未启用云端同步，无法获取下载地址")
         return {'type': 'file', 'url': url, 'name': att.get('name')}
 
     # ==================== 辅助方法 ====================
@@ -404,7 +406,7 @@ class AttachmentApiMixin:
     def _open_folder(self, att: Dict[str, Any]) -> Dict[str, Any]:
         """打开任务关联的文件夹（仅桌面端支持）"""
         if self.is_android:
-            raise Exception("移动端不支持打开任务关联的文件夹")
+            raise PermissionDeniedError("移动端不支持打开任务关联的文件夹")
 
         folder_path = str(att.get('filePath') or '').strip()
         target = Path(folder_path) if folder_path else None
@@ -417,7 +419,7 @@ class AttachmentApiMixin:
     def _open_local_file(self, file_path: str) -> None:
         """使用系统默认程序打开本地文件"""
         if self.is_android:
-            raise Exception("移动端请使用云链接下载后查看")
+            raise PermissionDeniedError("移动端请使用云链接下载后查看")
         self._open_local_path(file_path)
 
     def _open_local_path(self, path: str) -> None:
@@ -434,7 +436,7 @@ class AttachmentApiMixin:
     def _reveal_in_file_manager(self, target: Path) -> None:
         """在系统文件管理器中显示目标文件或目录"""
         if self.is_android:
-            raise Exception("移动端不支持打开文件所在目录")
+            raise PermissionDeniedError("移动端不支持打开文件所在目录")
 
         import subprocess
         path = str(target)

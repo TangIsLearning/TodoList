@@ -54,6 +54,7 @@ Object.assign(SettingsUIManager.prototype, {
                 }
             },
             onError: (error) => {
+                if (error?.code === 'CANCELLED') return; // 用户取消，不提示
                 Utils.showToast('浏览目录时发生错误: ' + error.message, 'error');
             },
             onFinally: () => this.setDirectoryButtonsDisabled(false)

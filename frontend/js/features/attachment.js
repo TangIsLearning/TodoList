@@ -127,8 +127,10 @@ class AttachmentManager {
                 }
                 this.renderFormList();
             },
-            onError: () => {
-                // 用户取消选择属于正常操作，不提示错误
+            onError: (error) => {
+                // 用户取消选择属于正常操作，不提示错误；其余失败要让用户知道
+                if (error?.code === 'CANCELLED') return;
+                Utils.showToast(this.getText('attachmentSelectFailed', '选择附件失败'), 'error');
             }
         });
     }
@@ -157,8 +159,10 @@ class AttachmentManager {
                 });
                 this.renderFormList();
             },
-            onError: () => {
-                // 用户取消选择属于正常操作，不提示错误
+            onError: (error) => {
+                // 用户取消选择属于正常操作，不提示错误；其余失败要让用户知道
+                if (error?.code === 'CANCELLED') return;
+                Utils.showToast(this.getText('attachmentSelectFailed', '选择附件失败'), 'error');
             }
         });
     }

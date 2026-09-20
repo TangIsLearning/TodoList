@@ -1,6 +1,7 @@
 # backend/api/mixins/task_relation_api_mixin.py
 from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
+from backend.utils.api_errors import NotFoundError, ValidationError
 
 class TaskRelationApiMixin:
     """任务关联核心操作 Mixin"""
@@ -32,16 +33,16 @@ class TaskRelationApiMixin:
         """
         sub = self.db.get_task(sub_task_id)
         if not sub:
-            raise Exception('子任务不存在')
+            raise NotFoundError('子任务不存在')
         if not main_task_id:
             return
         main = self.db.get_task(main_task_id)
         if not main:
-            raise Exception('父任务不存在')
+            raise NotFoundError('父任务不存在')
         if sub_task_id == main_task_id:
-            raise Exception('不能将自己设为父任务')
+            raise ValidationError('不能将自己设为父任务')
         if sub.get('isRecurring'):
-            raise Exception('周期性任务不允许添加父任务关联')
+            raise ValidationError('周期性任务不允许添加父任务关联')
 
     @api_handler
     def set_task_parent(self, sub_task_id: str, main_task_id: Optional[str] = None) -> None:

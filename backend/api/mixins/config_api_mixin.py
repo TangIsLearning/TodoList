@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import backend.globals
 from backend.utils import utils
 from backend.utils.response_wrapper import api_handler
+from backend.utils.api_errors import ValidationError
 
 class ConfigApiMixin:
     """配置操作 Mixin"""
@@ -80,7 +81,7 @@ class ConfigApiMixin:
     def set_config(self, key: str, value: Any) -> None:
         cfg = self.CONFIG_REGISTRY.get(key)
         if not cfg:
-            raise Exception(f'未知配置项: {key}')
+            raise ValidationError(f'未知配置项: {key}')
         # 可选校验钩子：用于在写库前规整/拦截非法值
         validate = cfg.get('validate')
         if validate:
