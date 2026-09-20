@@ -31,6 +31,25 @@ class TimelineManager {
         await this.renderTimeline();
     }
 
+    // 当前列表正在生效的搜索条件（标签 chips / 关键词 / 父任务 / 截止时间）。
+    // 时间轴与列表共用同一套结构化查询语义，这里直接从搜索栏实时构建，
+    // 避免取数时漏传导致「标签搜索等内容不生效」。
+    getCurrentSearchQuery() {
+        if (!window.todoManager) return null;
+        const query = window.todoManager.buildSearchQuery
+            ? window.todoManager.buildSearchQuery()
+            : window.todoManager.searchQuery;
+        if (!query) return null;
+
+        // 各维度均为空表示没有任何搜索条件，按 null 处理
+        const hasCondition = (query.tags && query.tags.length > 0)
+            || (query.keywords && query.keywords.length > 0)
+            || !!query.parent
+            || !!query.dueDate
+            || !!query.anyTag;
+        return hasCondition ? query : null;
+    }
+
     async getTasks(startDate, endDate) {
         let tasks = [];
         await Utils.apiCall({
@@ -38,13 +57,13 @@ class TimelineManager {
             apiArgs: [
                 1,  // page
                 999999,  // page_size - 设置一个足够大的值以获取所有任务
-                this.categoryId=== 'all' ? null : this.currentFilter,
+                (!this.categoryId || this.categoryId === 'all') ? null : this.categoryId,
                 this.statusFilter === 'all' ? null : this.statusFilter,
                 this.priorityFilter === 'all' ? null : this.priorityFilter,
                 this.dueDateFilter === 'all' ? null : this.dueDateFilter,
                 null,  // year
                 null,  // month
-                null,  // search-input
+                this.getCurrentSearchQuery(),  // search-input
                 null,  // custom-date
                 this.formatDate(startDate),
                 this.formatDate(endDate)
@@ -103,22 +122,22 @@ class TimelineManager {
         document.getElementById('weekPlusBtn')?.addEventListener('click', () => this.changeWeekCount(1));
         document.getElementById('priority-filter')?.addEventListener('change', async (e) => {
                 this.priorityFilter = e.target.value;
-                this.renderTimeline();
+                this.renderTimelineIfVisible();
             });
         document.getElementById('status-filter')?.addEventListener('change', async (e) => {
                 this.statusFilter = e.target.value;
-                this.renderTimeline();
+                this.renderTimelineIfVisible();
             });
         document.getElementById('due-date-filter')?.addEventListener('change', async (e) => {
                 this.dueDateFilter = e.target.value;
-                this.renderTimeline();
+                this.renderTimelineIfVisible();
             });
         document.addEventListener('click', (e) => {
             // 分类筛选 - 确保不是点击按钮时触发
             if (e.target.closest('.category-item-btn') && !e.target.closest('.category-edit-btn') && !e.target.closest('.category-delete-btn')) {
                 const categoryItem = e.target.closest('.category-item-btn');
                 this.categoryId = categoryItem.dataset.category;
-                this.renderTimeline();
+                this.renderTimelineIfVisible();
             }
         });
         this.timelineStartHour = 0;
@@ -209,6 +228,13 @@ class TimelineManager {
             let computedSize = Math.max(9, 14 - dateCount * 0.3);
             card.style.fontSize = `${Math.min(13, Math.max(9, computedSize))}px`;
         });
+    }
+
+    // 仅在时间轴视图处于前台时才重建：进入视图时由 calendarManager 负责首次渲染，
+    // 其余场景（分类切换等）避免在不可见状态下发起无效取数
+    renderTimelineIfVisible() {
+        if (window.calendarManager && window.calendarManager.currentView !== 'timeline') return;
+        return this.renderTimeline();
     }
 
     // 渲染主视图 + 自适应
