@@ -26,7 +26,11 @@ class StatisticsApiMixin:
         category_id: Optional[str] = None,
         tag_ids: Optional[list] = None,
     ) -> Dict[str, Any]:
-        """统计视图聚合查询。
+        """统计视图聚合查询，同时附带顶部统计条的全局指标。
+
+        返回体中的 overview 为「整个库」的口径（不受下列筛选参数影响），
+        供顶部统计条使用；其余字段为按筛选条件聚合的结果。两者共用同一次
+        全量任务加载，因此一次请求即可同时满足统计视图与顶部条。
 
         参数:
             date_basis: 统计口径 created/due/completed

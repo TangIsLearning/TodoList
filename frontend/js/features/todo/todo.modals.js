@@ -711,9 +711,10 @@ Object.assign(TodoManager.prototype, {
                             }
                         }
                     } else if (parentTaskId) {
-                        // 新建模式下直接添加关联
+                        // 新建模式下直接建立关联（与编辑模式同一个接口：
+                        // 传非空 parentTaskId 即设置，传 null 即解除）
                         await Utils.apiCall({
-                            apiMethod: 'add_task_relation',
+                            apiMethod: 'set_task_parent',
                             apiArgs: [taskId, parentTaskId],
                             successCheck: () => true,
                             onError: () => Utils.showToast(window.languageManager.getText('addParentRelationFailed', '添加父任务关联失败'), 'warning')

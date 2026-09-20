@@ -12,20 +12,11 @@ class TaskRelationCrudMixin:
     # 写入
     # ------------------------------------------------------------------ #
 
-    def add_task_relation(self, sub_task_id: str, main_task_id: str) -> None:
-        """添加或更新一条关联（UNIQUE(sub_task_id) 保证单父）"""
-        with self.tx() as conn:
-            conn.execute(
-                'INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at) '
-                'VALUES (?, ?, ?)',
-                (sub_task_id, main_task_id, datetime.now().isoformat())
-            )
-
     def set_task_parent(self, sub_task_id: str, main_task_id: Optional[str]) -> None:
         """在一个事务内重设子任务的父任务（main_task_id 为空表示解除关联）。
 
-        与「先删后加」两次写入相比，单事务能避免中途失败时子任务丢失父任务，
-        导致按父任务搜索搜不到它。
+        这是父子关联唯一的写入路径：与「先删后加」两次写入相比，单事务能避免
+        中途失败时子任务丢失父任务，导致按父任务搜索搜不到它。
         """
         with self.tx() as conn:
             conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (sub_task_id,))
@@ -35,11 +26,6 @@ class TaskRelationCrudMixin:
                     'VALUES (?, ?, ?)',
                     (sub_task_id, main_task_id, datetime.now().isoformat())
                 )
-
-    def delete_relation_by_children(self, task_id: str) -> None:
-        """删除该任务作为子任务的关联"""
-        with self.tx() as conn:
-            conn.execute('DELETE FROM task_relations WHERE sub_task_id = ?', (task_id,))
 
     # ------------------------------------------------------------------ #
     # 查询

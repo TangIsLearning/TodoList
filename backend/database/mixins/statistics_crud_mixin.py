@@ -63,6 +63,42 @@ class StatisticsCrudMixin:
             return None
         return _safe_dt(task.get('updatedAt'))
 
+    @staticmethod
+    def _build_overview(tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """顶部统计条的四项指标（全局口径）。
+
+        与 kpi 的区别：kpi 是「按本次筛选（时间口径 / 范围 / 分类 / 标签）过滤后」
+        的指标；overview 恒为整个库的口径，因为顶部统计条展示的是总体状态，
+        不该随统计视图的筛选变化。两者共用同一份 tasks 列表，不额外全量加载。
+
+        注意 over_due 与 kpi.overdue 的判定口径不同（合并前两者本就如此，此处
+        保持原样以免改动现有数值）：
+            over_due  —— 截止时刻早于"此刻"，今天早些时候到期的任务算逾期
+            kpi.overdue —— 截止日期早于"今天"，今天到期的任务不算逾期
+        """
+        now = datetime.now()
+        total = len(tasks)
+        completed = 0
+        today_completed = 0
+        over_due = 0
+        for task in tasks:
+            if task.get('completed'):
+                completed += 1
+                updated = _safe_dt(task.get('updatedAt'))
+                if updated and updated.date() == now.date():
+                    today_completed += 1
+                continue
+            due = _safe_dt(task.get('dueDate'))
+            if due and due < now:
+                over_due += 1
+
+        return {
+            'uncompleted': total - completed,
+            'today_completed': today_completed,
+            'over_due': over_due,
+            'completion_rate': round(completed / total * 100, 1) if total else 0.0,
+        }
+
     def get_statistics_options(self, date_basis: str = 'created') -> Dict[str, Any]:
         """返回指定时间口径下，可用于筛选的年/月/周候选项。"""
         dates: List[datetime] = []
@@ -388,6 +424,8 @@ class StatisticsCrudMixin:
             'basis': basis,
             'scope': scope,
             'categoryId': sel_cat,
+            # 全局口径的顶部统计条指标，与本次筛选无关
+            'overview': self._build_overview(all_tasks),
             'kpi': {
                 'total': total,
                 'completed': completed,

@@ -236,27 +236,5 @@ class TaskApiMixin:
             self.db.create_next_habit_task(task_id)
         return result
 
-    @api_handler
-    def get_stats(self) -> Dict[str, Any]:
-        """任务统计"""
-        tasks = self.db.get_all_tasks()
-        now = datetime.now()
-
-        # 总未完成
-        total_tasks = len(tasks)
-        completed_tasks = sum(1 for task in tasks if task['completed'])
-        uncompleted_tasks = total_tasks - completed_tasks
-
-        # 今日已完成
-        today_completed_tasks = sum([1 for task in tasks if task['completed'] and task['updatedAt'] and
-                          datetime.fromisoformat(task['updatedAt']).date() == now.date()])
-        # 已逾期
-        over_due_tasks = sum([1 for task in tasks if not task['completed'] and task['dueDate'] and
-                          datetime.fromisoformat(task['dueDate']) < now])
-
-        return {
-            'uncompleted': uncompleted_tasks,
-            'today_completed': today_completed_tasks,
-            'over_due': over_due_tasks,
-            'completion_rate': round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
-        }
+    # 顶部统计条指标已并入 get_task_statistics 的 overview 字段：
+    # 两者都基于同一份全量任务计算，拆成两个接口会让顶部条每次刷新都多一次全量加载。

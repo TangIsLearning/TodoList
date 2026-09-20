@@ -1270,13 +1270,16 @@ class TodoManager {
             const dateRangeText = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
             this.dateRangeStats.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
 
+            // 顶部统计条与统计视图共用 get_task_statistics：
+            // overview 是全局口径，用默认参数（created / all）取即可
             Utils.apiCall({
-                apiMethod: 'get_stats',
+                apiMethod: 'get_task_statistics',
                 onSuccess: (response) => {
-                    const totalUncompleted = response.data.uncompleted;
-                    const todayCompleted = response.data.today_completed;
-                    const rate = response.data.completion_rate;
-                    const overDueDate = response.data.over_due || 0;
+                    const overview = response.data.overview || {};
+                    const totalUncompleted = overview.uncompleted || 0;
+                    const todayCompleted = overview.today_completed || 0;
+                    const rate = overview.completion_rate || 0;
+                    const overDueDate = overview.over_due || 0;
 
                     this.overDueDateStats.style.color = overDueDate == 0 ? 'var(--text-primary)' : 'red';
 
