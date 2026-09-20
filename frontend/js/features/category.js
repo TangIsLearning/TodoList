@@ -211,33 +211,51 @@ class CategoryManager {
     
     // 获取任务数量统计
     async getTaskCounts(defaultFiltered = true, filteredTasks = null) {
-        const counts = { all: 0 };
-        let tasks = [];
+        // defaultFiltered 仅为兼容调用方保留，不再影响取数口径
+        const data = filteredTasks
+            ? this._countsFromTasks(filteredTasks)
+            : await this._fetchCountsData();
 
-        // 如果外部已传入筛选后的任务，直接使用，无需调 API
-        if (filteredTasks) {
-            tasks = filteredTasks;
-        } else {
-            // 无外部数据时按"未完成任务"口径自行取数。
-            // 注意不能传空参数：后端默认 page_size=10，会把统计压成 10 条以内的错误结果；
-            // 原先 defaultFiltered=true 走空参数正是这个坑，这里统一成全量未完成。
-            // defaultFiltered 仅为兼容调用方保留，不再影响取数口径。
-            await Utils.apiCall({
-                apiMethod: 'get_todos',
-                apiArgs: [{ status: 'uncompleted' }, 1, 999999],
-                onSuccess: (response) => tasks = response.data.tasks
-            });
-        }
+        return this._normalizeCounts(data);
+    }
 
-        // ---- 统计逻辑 ----
-        counts.all = tasks.length;
-        tasks.forEach(task => {
+    // 取分类计数：直接问后端要聚合结果（一次 GROUP BY），不再拉全量任务自行遍历
+    async _fetchCountsData() {
+        let data = null;
+        await Utils.apiCall({
+            apiMethod: 'get_category_task_counts',
+            onSuccess: (response) => data = response.data,
+            onError: () => {
+                // 聚合接口不可用时退回列表当前数据本地统计，口径仍为"未完成"
+                const fallback = window.todoManager?.tasks;
+                if (fallback && fallback.length) data = this._countsFromTasks(fallback);
+            }
+        });
+        return data;
+    }
+
+    // 后端聚合结果 → 渲染所需的扁平结构 { all, [categoryId]: n }
+    _normalizeCounts(data) {
+        const counts = { all: (data && data.all) || 0 };
+        const byCategory = (data && data.counts) || {};
+        Object.keys(byCategory).forEach(id => {
+            counts[id] = byCategory[id];
+        });
+        return counts;
+    }
+
+    // 本地兜底换算：与后端同一口径（未完成任务），结构也与聚合接口保持一致
+    _countsFromTasks(tasks) {
+        const counts = {};
+        let all = 0;
+        (tasks || []).forEach(task => {
+            if (task.completed) return;
+            all += 1;
             if (task.categoryId) {
                 counts[task.categoryId] = (counts[task.categoryId] || 0) + 1;
             }
         });
-
-        return counts;
+        return { all, counts };
     }
     
     // 按分类筛选
@@ -411,18 +429,12 @@ class CategoryManager {
         });
     }
     
-    // 获取分类下的任务数量
+    // 获取分类下的任务数量（删除分类确认弹窗用）
     async getCategoryTaskCount(categoryId) {
-        let count = 0;
-        await Utils.apiCall({
-            apiMethod: 'get_todos',
-            // 必须显式传分页：后端默认 page_size=10，会把统计压在前 10 条内，
-            // 删除确认弹窗里的"该分类下有 N 个任务"会说谎。
-            // 改为后端按 categoryId 筛选并一次取全量，结果才与实际受影响的任务数一致。
-            apiArgs: [{ categoryId: categoryId }, 1, 999999],
-            onSuccess: (response) => count = response.data.tasks.length
-        });
-        return count;
+        // 删除分类会让该分类下所有任务（含已完成）变为无分类，
+        // 所以这里取"全部任务数"而不是"未完成任务数"，与弹窗提示的语义一致。
+        const data = await this._fetchCountsData();
+        return (data && data.totals && data.totals[categoryId]) || 0;
     }
     
     // 获取分类信息
@@ -443,35 +455,28 @@ class CategoryManager {
     }
     
     // 左侧分类计数：口径固定为"未完成任务数"，与列表当前筛选无关。
-    // 取数收敛在本模块，由数据变更驱动（window.App.notifyDataChanged），
-    // 不再挂在任务列表的每次加载上：翻页/搜索/切视图都不会再拉全量任务。
+    // 取数走后端聚合接口 get_category_task_counts（一次 GROUP BY，只回传计数），
+    // 由数据变更驱动（window.App.notifyDataChanged），不再挂在任务列表的每次加载上：
+    // 翻页/搜索/切视图都不会再触发计数取数，更不会拉全量任务。
     async refreshCounts(fromZero = false) {
-        await Utils.apiCall({
-            apiMethod: 'get_todos',
-            apiArgs: [{ status: 'uncompleted' }, 1, 999999],
-            onSuccess: (response) => this.updateCategoryCounts(response.data.tasks, fromZero),
-            onError: () => {
-                // 取数失败时退回列表当前页数据兜底；实在拿不到就保持原有显示值
-                const fallback = window.todoManager?.tasks;
-                if (fallback && fallback.length) this.updateCategoryCounts(fallback, fromZero);
-            }
-        });
+        // 取数与兜底都收敛在 _fetchCountsData，这里只负责把结果交给渲染
+        this.updateCategoryCounts(await this._fetchCountsData(), fromZero);
     }
 
-    // 更新分类任务数量（只负责渲染，数据由 refreshCounts 或调用方传入）
-    async updateCategoryCounts(filteredTasks = null, fromZero = false) {
+    // 更新分类任务数量（只负责渲染，数据来自聚合接口或调用方传入的同构计数）
+    updateCategoryCounts(countsData = null, fromZero = false) {
         if (fromZero) this._pendingFromZero = true;
 
         if (this._statsDebounceTimer) {
             clearTimeout(this._statsDebounceTimer);
         }
 
-        this._statsDebounceTimer = setTimeout(async () => {
+        this._statsDebounceTimer = setTimeout(() => {
             const shouldFromZero = this._pendingFromZero;
             this._pendingFromZero = false;
             this._statsDebounceTimer = null;
 
-            const taskCounts = await this.getTaskCounts(true, filteredTasks);
+            const taskCounts = this._normalizeCounts(countsData);
             this._lastCounts = taskCounts;
 
             // 更新"全部"分类的数量 - 口径固定为未完成任务总数

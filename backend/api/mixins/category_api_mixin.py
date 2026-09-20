@@ -19,6 +19,15 @@ class CategoryApiMixin:
         return self.db.get_all_categories()
 
     @api_handler
+    def get_category_task_counts(self) -> Dict[str, Any]:
+        """按分类统计未完成任务数（左侧分类计数）。
+
+        替代此前「前端拉全量任务后自行遍历」的做法，返回体只有计数，
+        见 CategoryCrudMixin.get_category_task_counts 的口径说明。
+        """
+        return self.db.get_category_task_counts()
+
+    @api_handler
     @auto_sync
     def delete_category(self, category_id: str) -> None:
         """删除分类"""
