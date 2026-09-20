@@ -722,6 +722,12 @@ class TodoManager {
 
     // 供 App.refreshData() 统一调用（主窗口重新可见时同步任务列表）
     async refresh() {
+        // 按当前视图刷新：只有列表 / 日历视图展示这份分页数据，时间轴与统计各自独立取数，
+        // 不必为它们拉一次列表。日历视图会把 pageSize 放大到整月（9999），
+        // 停在其它视图时这一笔更没必要。
+        // 切回列表 / 日历时 switchView 会无条件重新 loadTasks，因此不存在数据陈旧。
+        const view = window.calendarManager?.currentView;
+        if (view && view !== 'list' && view !== 'calendar') return;
         await this.loadTasks();
     }
 

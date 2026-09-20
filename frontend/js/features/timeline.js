@@ -226,6 +226,12 @@ class TimelineManager {
         });
     }
 
+    // 供 App.refreshData() 统一调用（主窗口重新可见时同步时间轴）
+    async refresh() {
+        // 时间轴只在自己可见时重建，不可见时由进入视图的 switchView 负责首次渲染
+        await this.renderTimelineIfVisible();
+    }
+
     // 仅在时间轴视图处于前台时才重建：进入视图时由 calendarManager 负责首次渲染，
     // 其余场景（分类切换等）避免在不可见状态下发起无效取数
     renderTimelineIfVisible() {

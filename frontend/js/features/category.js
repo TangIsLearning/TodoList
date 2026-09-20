@@ -124,21 +124,24 @@ class CategoryManager {
     }
     
     // 渲染分类列表
-    async renderCategories(defaultFiltered = true, isShowMore=false) {
+    // fetchCounts=false：计数不在这里取，交由调用方（App.notifyDataChanged → refreshCounts）
+    // 统一驱动，避免同一轮刷新里取两遍。fallbackCounts 为纯粹的占位显示值，
+    // 只在缓存已失效时用来避免闪 0，不会被写回缓存。
+    async renderCategories(defaultFiltered = true, isShowMore=false, fetchCounts=true, fallbackCounts=null) {
         const categoryList = document.getElementById('category-list');
         if (!categoryList) return;
         
         // 加载任务数量统计：优先复用最近一次结果（由 refreshCounts / 上一次渲染维护），
         // 展开/收起分类这类纯 UI 重渲染无需再拉一次全量任务；
         // 缓存为空（首次渲染，或分类增删改后主动失效）时才真正取数，并回填缓存
-        let taskCounts = this._lastCounts;
-        if (!taskCounts) {
+        let taskCounts = this._lastCounts || fallbackCounts;
+        if (!taskCounts && fetchCounts) {
             taskCounts = await this.getTaskCounts(defaultFiltered);
             this._lastCounts = taskCounts;
         }
         
         // 生成HTML
-        const categoriesHtml = this.generateCategoriesHtml(taskCounts, isShowMore);
+        const categoriesHtml = this.generateCategoriesHtml(taskCounts || {}, isShowMore);
         categoryList.innerHTML = categoriesHtml;
 
         // 当分类项小于默认值时，展开更多按钮样式设置为禁用状态
@@ -499,9 +502,15 @@ class CategoryManager {
     
     // 重新加载数据（切库 / 导入 / 页面重新可见等"数据可能整体换了一批"的场景）
     async refresh() {
-        this._lastCounts = null;   // 数据可能已整体替换，旧计数缓存必须失效重算
+        // 计数不在这里取：两个调用方（App.refreshData / App.reloadAfterDataReplaced）
+        // 之后都会走 notifyDataChanged → refreshCounts，这里再取一次等于同一轮刷新取两遍。
+        // 所以缓存立即失效，上一次的计数只作为占位显示值沿用（避免先闪 0），
+        // 等 refreshCounts 取到新值后再由动画覆盖；万一后续 notifyDataChanged 没跑到，
+        // 缓存为空也会让下一次渲染重新取数，不会把过期值一直当缓存用。
+        const staleCounts = this._lastCounts;
+        this._lastCounts = null;
         await this.loadCategories();
-        await this.renderCategories(false);
+        await this.renderCategories(false, false, false, staleCounts);
     }
 }
 
