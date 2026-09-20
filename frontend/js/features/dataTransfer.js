@@ -207,7 +207,7 @@ class DataTransfer {
                 if (devices && devices.length > 0) {
                     this.displayDevices(devices);
                 } else {
-                    this.deviceList.innerHTML = `<p>${window.languageManager.getText('NoDeviceFound', '未找到可用的设备')}</p>`;
+                    this.deviceList.innerHTML = `<p>${window.languageManager.getText('noDeviceFound', '未找到可用的设备')}</p>`;
                 }
                 this.deviceListSection.style.display = 'block';
             },

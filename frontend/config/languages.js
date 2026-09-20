@@ -18,7 +18,6 @@ const Languages = {
         view: "查看",
         close: "关闭",
         loading: "加载中...",
-        retry: "发生未知异常，请稍后重试！",
         itemRequired: "请填写必填项！",
         
         // 任务相关
@@ -32,7 +31,6 @@ const Languages = {
         taskPriority: "优先级",
         taskCategory: "分类",
         taskDueDate: "截止日期",
-        taskDueTime: "截止时间",
         taskCreateTime: "创建时间",
         taskUpdateTime: "更新时间",
         taskTags: "标签",
@@ -92,7 +90,6 @@ const Languages = {
         statsCompletedTasks: "已完成",
         statsUnCompletedTasks: "未完成",
         statsCompletionRate: "完成率",
-        statsNoDueDateTasks: "无截止日期",
         statsLastUpdateTime: "最后更新",
         statsTodayCompletedTasks: "今日已完成",
         statsOverDueDateTasks: "已逾期",
@@ -117,17 +114,15 @@ const Languages = {
         contactAuthor: "联系作者",
         
         // 搜索和筛选
-        searchTitle: "支持通过【#标签(空格)】、【>父任务全称】或【@截止日期(如 2026-09-19)】进行特性搜索",
+        searchTitle: "支持通过【#标签(空格)】、【>父任务全称】或【@截止日期(如 2026-09-19)】进行特殊搜索",
         searchClear: "清空搜索",
         searchClearKeyword: "清除搜索文本",
         searchClearDueDate: "清除截止时间筛选",
         searchClearTags: "清除标签筛选",
         searchDuePrefix: "截止",
         searchDueDate: "按截止时间搜索（也可直接输入 @2026-09-19）",
-        filterAll: "所有",
         filterPriority: "所有优先级",
         filterStatus: "所有状态",
-        filterDueDate: "截止日期",
         
         // 日期筛选选项
         dueDateAll: "所有时间",
@@ -179,7 +174,6 @@ const Languages = {
         contactAuthorQrAlt: "联系作者二维码",
 
         // 日历相关
-        calendarMonth: "月",
         // 日历表头星期名：HTML 上逐日静态标注，一个 key 对应一天
         calendarWeekdaySun: "日",
         calendarWeekdayMon: "一",
@@ -271,8 +265,6 @@ const Languages = {
         taskCompleted: "任务已完成",
         taskReopened: "任务已重新开启",
         taskCreatedButFiltered: "任务已创建，但不在当前筛选结果中",
-        darkModeSwitched: "已切换到深色主题",
-        LightModeSwitched: "已切换到浅色主题",
         loadingTaskFailed: "加载任务失败",
         periodicTaskEditFailed: "周期性任务不支持编辑，请删除后重新创建",
         periodicTaskCopyFailed: "周期性任务不支持复制",
@@ -289,17 +281,15 @@ const Languages = {
         initializationFailed: "应用初始化失败",
         unknownErrorOccurred: "发生了未知错误",
         refreshDataFailed: "刷新数据失败",
-        refreshDataSuccess: "刷新数据成功",
         calendarPermissionRequired: "未获得日历权限，请在系统设置中开启后，到期提醒才能写入系统日历",
         resetStateFailed: "应用状态重置失败",
         resetStateSuccess: "应用状态已重置",
         sharingStopped: "共享已停止",
         sharingStarted: "共享已启动",
-        NoDeviceFound: "未找到可用的设备",
+        noDeviceFound: "未找到可用的设备",
         receiveDataFailed: "接收数据失败",
         dataImportedSuccess: "数据导入成功",
         dataImportedFailed: "数据导入失败",
-        retrieveDataFailed: "无法获取接收到的数据",
         transferIncludeAttachments: "同时传输附件文件（体积较大，耗时更久）",
         attachmentRecords: "附件记录数",
         attachmentFiles: "附件文件数",
@@ -330,7 +320,6 @@ const Languages = {
 
         // 周期性任务
         recurringTask: "周期性任务",
-        createRecurringTask: "创建为周期性任务",
         recurrenceType: "重复周期",
         recurrenceCount: "循环次数*",
         recurrenceDaily: "每天",
@@ -353,8 +342,6 @@ const Languages = {
         recurrenceDailyMode: "提醒方式",
         recurrenceDailyModeTimes: "指定时间点",
         recurrenceDailyModeInterval: "时间段 + 间隔",
-        recurrenceIntervalStart: "开始时间",
-        recurrenceIntervalEnd: "结束时间",
         recurrenceIntervalMinutes: "间隔（分钟）",
         // 提醒时间点
         recurrenceTimes: "提醒时间点",
@@ -396,13 +383,11 @@ const Languages = {
         // 设置中心
         settingsWindow: "通用设置",
         settingsWindowTop: "窗口置顶",
-        settingsDarkTheme: "深色模式",
         settingsAutoStart: "开机启动",
         settingsShortcut: "快捷操作",
         settingsApply: "应用",
         settingsData: "数据管理",
         settingsDataShare: "共享数据",
-        settingsDataReceive: "接收数据",
         settingsDataSync: "同步数据",
         // 自定义主题配色
         settingsThemeColors: "主题配色",
@@ -477,14 +462,8 @@ const Languages = {
         dataStoragePath: "存储目录",
 
         // 确认对话框
-        confirmDeleteTask: "确定要删除任务",
-        confirmDeleteTaskMessage: "此操作无法撤销。",
         
         // 周期性任务删除选项
-        deleteSingleTask: "仅删除此任务",
-        deleteSingleTaskDesc: "删除当前选中的任务，保留周期中的其他任务",
-        deleteAllTasks: "删除整个周期", 
-        deleteAllTasksDesc: "删除此周期内的所有任务",
         
         // 更多选项
         moreOptions: "更多选项",
@@ -569,7 +548,6 @@ const Languages = {
         view: "View",
         close: "Close",
         loading: "Loading...",
-        retry: "An unknown exception occurred. Please try again later.",
         itemRequired: "Please fill in the required fields.",
         
         // 任务相关
@@ -583,17 +561,16 @@ const Languages = {
         taskPriority: "Priority",
         taskCategory: "Category",
         taskDueDate: "Due Date",
-        taskDueTime: "Due Time",
-        taskCreateTime: "Create Time",
-        taskUpdateTime: "Update Time",
+        taskCreateTime: "Created",
+        taskUpdateTime: "Updated",
         taskTags: "Tags",
         taskTag: "Tag",
         taskTagsHint: "(select or add tags)",
         taskStatus: "Status",
 
         // 任务详情
-        noTaskTags: "(none)",
-        noTaskDescription: "(none)",
+        noTaskTags: "No tags",
+        noTaskDescription: "No description",
 
         // 任务附件
         taskAttachments: "Attachments",
@@ -643,12 +620,11 @@ const Languages = {
         statsCompletedTasks: "Completed",
         statsUnCompletedTasks: "Uncompleted",
         statsCompletionRate: "Completion Rate",
-        statsNoDueDateTasks: "No Due Date",
-        statsLastUpdateTime: "Last Updated Time",
-        statsTodayCompletedTasks: "Today Completed",
-        statsOverDueDateTasks: "Over Due Date",
+        statsLastUpdateTime: "Last Updated",
+        statsTodayCompletedTasks: "Completed Today",
+        statsOverDueDateTasks: "Overdue",
         statsCategories: "Total Categories",
-        statsAllTime: "All time",
+        statsAllTime: "All Time",
         
         // 分类管理
         categories: "Categories",
@@ -659,7 +635,7 @@ const Languages = {
         categoryName: "Category Name",
         categoryColor: "Color",
         uncategorized: "Uncategorized",
-        unknownCategory: "Unknown",
+        unknownCategory: "Unknown Category",
         showMoreCategories: "More",
         showMoreTags: "More",
         showLessTags: "Less",
@@ -675,10 +651,8 @@ const Languages = {
         searchClearTags: "Clear tag filter",
         searchDuePrefix: "Due",
         searchDueDate: "Search by due date (or type @2026-09-19)",
-        filterAll: "All",
-        filterPriority: "All Priority",
-        filterStatus: "All Status",
-        filterDueDate: "Due Date",
+        filterPriority: "All Priorities",
+        filterStatus: "All Statuses",
         
         // 日期筛选选项
         dueDateAll: "All Time",
@@ -730,7 +704,6 @@ const Languages = {
         contactAuthorQrAlt: "QR code to contact the author",
         
         // 日历相关
-        calendarMonth: "Month",
         // 日历表头星期名：HTML 上逐日静态标注，一个 key 对应一天
         calendarWeekdaySun: "Sun",
         calendarWeekdayMon: "Mon",
@@ -774,7 +747,7 @@ const Languages = {
         normalTaskEditTip: "Edit",
         taskViewTip: "View",
         taskDeleteTip: "Delete",
-        taskCopyTip: "Copy task",
+        taskCopyTip: "Copy Task",
 
         // 分页
         paginationShowing: "Showing",
@@ -803,11 +776,11 @@ const Languages = {
 
         // 统计视图工具栏
         statsBasis: "Basis",
-        statsBasisCreated: "Created time",
+        statsBasisCreated: "Created",
         statsBasisDue: "Due date",
-        statsBasisCompleted: "Completed time (completed only)",
+        statsBasisCompleted: "Completion time (completed only)",
         statsScope: "Time Range",
-        statsScopeAll: "All time",
+        statsScopeAll: "All Time",
         statsScopeYear: "By year",
         statsScopeMonth: "By month",
         statsScopeWeek: "By week",
@@ -822,36 +795,32 @@ const Languages = {
         taskCompleted: "Task completed",
         taskReopened: "Task reopened",
         taskCreatedButFiltered: "Task created, but not shown in the current filter results",
-        darkModeSwitched: "Switched to Dark mode",
-        LightModeSwitched: "Switched to Light mode",
         loadingTaskFailed: "Failed to load tasks",
         periodicTaskEditFailed: "Periodic tasks cannot be edited, please delete and recreate them",
         periodicTaskCopyFailed: "Periodic tasks cannot be copied",
         taskCopied: "Task info copied. Confirm to save it as a new task",
-        periodicTaskDeleted: "The periodic task has been deleted successfully",
+        periodicTaskDeleted: "The entire recurring series has been deleted",
         operationFailed: "Operation failed",
         taskTagDeleted: "The tag has been deleted successfully",
         errorTagNameRequired: "Please enter a tag name",
         errorTagExisted: "The tag already exists",
-        windowOnTopSet: "The window has been set to stay on top",
-        windowOnTopUnset: "The window has been unset from staying on top",
+        windowOnTopSet: "Window set to stay on top",
+        windowOnTopUnset: "Window no longer stays on top",
         languageSwitchFailed: "Language switch failed",
         languageSwitchTo: "Switched to ",
         initializationFailed: "Application initialization failed",
         unknownErrorOccurred: "An unknown error occurred",
         refreshDataFailed: "Failed to refresh data",
-        refreshDataSuccess: "Refresh data successfully",
         calendarPermissionRequired: "Calendar permission not granted. Enable it in system settings so due reminders can be written to the system calendar",
         resetStateFailed: "Failed to reset application state",
         resetStateSuccess: "Application state has been reset",
-        sharingStopped: "Sharing has stopped",
-        sharingStarted: "Sharing has started",
-        NoDeviceFound: "No available devices found",
+        sharingStopped: "Sharing stopped",
+        sharingStarted: "Sharing started",
+        noDeviceFound: "No available devices found",
         receiveDataFailed: "Failed to receive data",
         dataImportedSuccess: "Data imported successfully",
         dataImportedFailed: "Data import failed",
-        retrieveDataFailed: "Unable to retrieve received data",
-        transferIncludeAttachments: "Also transfer attachment files (larger and slower)",
+        transferIncludeAttachments: "Also transfer attachment files (large, may take longer)",
         attachmentRecords: "Attachment records",
         attachmentFiles: "Attachment files",
         loadCategoriesFailed: "Failed to load categories",
@@ -881,16 +850,15 @@ const Languages = {
 
         // 周期性任务
         recurringTask: "Recurring Task",
-        createRecurringTask: "Create as recurring task",
         recurrenceType: "Recurrence",
         recurrenceCount: "Repeat Count",
         recurrenceDaily: "Daily",
         recurrenceWeekly: "Weekly",
         recurrenceMonthly: "Monthly",
         recurrenceYearly: "Yearly",
-        recurrenceCountRequired: "Cycle times cannot be empty",
-        recurrenceChoose: "Please Choose",
-        recurringEditNotice: "Periodic tasks cannot be edited in non-periodic mode",
+        recurrenceCountRequired: "Repeat count cannot be empty",
+        recurrenceChoose: "Please select",
+        recurringEditNotice: "Cannot convert to a recurring task while editing a non-recurring task",
         // 时间设置：单次任务 / 周期性任务
         scheduleMode: "Schedule",
         scheduleModeOnce: "One-time",
@@ -904,8 +872,6 @@ const Languages = {
         recurrenceDailyMode: "Reminder Type",
         recurrenceDailyModeTimes: "Fixed Times",
         recurrenceDailyModeInterval: "Range + Interval",
-        recurrenceIntervalStart: "Start Time",
-        recurrenceIntervalEnd: "End Time",
         recurrenceIntervalMinutes: "Interval (minutes)",
         // 提醒时间点
         recurrenceTimes: "Reminder Times",
@@ -942,19 +908,17 @@ const Languages = {
         recurrencePreviewBtn: "Preview Reminders",
         recurrencePreviewTitle: "Next 10 reminders:",
         recurrencePreviewHabitTitle: "First reminder:",
-        recurrencePreviewEmpty: "No reminders match the current rule, please adjust it",
+        recurrencePreviewEmpty: "No reminders match the current rule. Please adjust it",
 
         // 设置中心
         settingsWindow: "General Settings",
         settingsWindowTop: "Window Always On Top",
-        settingsDarkTheme: "Dark Mode",
-        settingsAutoStart: "Auto-start On Boot",
+        settingsAutoStart: "Start on Boot",
         settingsShortcut: "Shortcut",
         settingsApply: "Apply",
         settingsData: "Data Management",
         settingsDataShare: "Share Data",
-        settingsDataReceive: "Receive Data",
-        settingsDataSync: "Synchronize Data",
+        settingsDataSync: "Sync Data",
         // Custom theme colors
         settingsThemeColors: "Theme Colors",
         settingsThemeMode: "Theme Mode",
@@ -967,7 +931,7 @@ const Languages = {
         settingsThemeBaseDark: "Dark",
         settingsThemePreset: "Presets",
         settingsThemeLinkPriority: "Priority follows semantic colors",
-        settingsThemeReset: "Reset",
+        settingsThemeReset: "Reset to Default",
         settingsThemeSave: "Save Colors",
         settingsThemeSaved: "Color scheme saved",
         settingsThemeInvalid: "Invalid color value (expected #RRGGBB)",
@@ -981,9 +945,9 @@ const Languages = {
         themeColorPriorityMedium: "Medium priority",
         themeColorPriorityLow: "Low priority",
         themeColorPriorityNone: "No priority",
-        settingsSuccess: "Setting successful",
-        settingsSaveSuccess: "Save successful",
-        settingsFailed: "Setting failed",
+        settingsSuccess: "Settings saved",
+        settingsSaveSuccess: "Saved successfully",
+        settingsFailed: "Failed to save settings",
         settingsShortcutAs: "Hotkey set to ",
         settingsShortcutNeedRestart: "Please restart the app to apply changes.",
         settingsShortcutEnabled: "Shortcut enabled",
@@ -991,17 +955,17 @@ const Languages = {
         settingsAutoStartEnabled: "Auto-start on boot is enabled.",
         settingsAutoStartDisabled: "Auto-start on boot is disabled.",
         settingsAutoStartWarning: "The current platform does not support the auto-start on boot feature.",
-        settingsConnectSuccess: "Connection successful! The cloud synchronization feature is now available for use.",
+        settingsConnectSuccess: "Connected! Cloud sync is ready to use.",
         settingsConnectionFailed: "Connection failed",
-        settingsImportWarning: "Note: This operation will overwrite all local data. It is recommended to back up important data first. Continue?",
-        settingsStorageWarning: "Note: This will affect all data read and write operations. The current data will be copied to the new storage directory and the original data file will be kept as a backup. It is recommended to back up important data first. Continue?",
+        settingsImportWarning: "Note: This will overwrite all local data. We recommend backing up important data first. Continue?",
+        settingsStorageWarning: "Note: This affects all data read and write operations. Your data will be copied to the new storage directory, and the original file will be kept as a backup. We recommend backing up important data first. Continue?",
         settingsStorageUnchanged: "Storage directory unchanged, data reloaded.",
-        settingsSyncModeLocalWarning: "Warning: The current operation will directly trigger a local data override of the remote file data. It is recommended to back up important data first. Continue anyway?",
-        settingsSyncModeRemoteWarning: "Warning: The current operation will directly trigger a remote data override of the local file data. It is recommended to back up important data first. Continue anyway?",
-        settingsSyncCloseWarning: "Warning: This operation will disable cloud data synchronization. Do you wish to proceed?",
+        settingsSyncModeLocalWarning: "Warning: This will immediately overwrite the remote file with your local data. We recommend backing up important data first. Continue?",
+        settingsSyncModeRemoteWarning: "Warning: This will immediately overwrite your local data with the remote file. We recommend backing up important data first. Continue?",
+        settingsSyncCloseWarning: "Warning: This will disable cloud sync. Continue?",
         storageBackupKept: "The old data is still kept in the original directory: ",
         storageBackupCleanupConfirm: "Do you want to remove the old data backup kept in the original directory? Data in the new directory will not be affected. If the original directory becomes empty, it will be removed as well.",
-        settingsStorageLargeWarning: "Note: about {size} of data ({count} attachments) will be copied. This may take a while, so please keep the app open.",
+        settingsStorageLargeWarning: "Note: About {size} of data ({count} attachments) will be copied. This may take a while, so please keep the app open.",
         storageMigrationTitle: "Switching storage directory",
         storageMigrationPreparing: "Preparing migration...",
         storageMigrationDatabase: "Copying database file...",
@@ -1014,28 +978,22 @@ const Languages = {
         storageMigrationCancelled: "Switch cancelled. Data remains in the original directory",
 
         // 语言设置
-        language: "Chinese/English Switch",
+        language: "Language",
 
         // 关于
         about: "About",
-        sourceCode: "SourceCode",
-        document: "Document",
+        sourceCode: "Source Code",
+        document: "Documentation",
         documentText: "Usage Guide",
-        statement: "Statement",
+        statement: "License",
         statementText: "Personal use only, not for commercial use.",
 
         // 数据存储路径
         dataStoragePath: "Storage Directory",
 
         // 确认对话框
-        confirmDeleteTask: "Are you sure you want to delete task",
-        confirmDeleteTaskMessage: "This action cannot be undone.",
         
         // 周期性任务删除选项
-        deleteSingleTask: "Delete this task only",
-        deleteSingleTaskDesc: "Delete the selected task, keep other tasks in the series",
-        deleteAllTasks: "Delete entire series",
-        deleteAllTasksDesc: "Delete all tasks in this recurring series",
         
         // 更多选项
         moreOptions: "More Options",
@@ -1086,10 +1044,10 @@ const Languages = {
         syncType: "Data Sync Type",
         syncTypeJianguoyun: "JianGuoYun",
         syncTypeCustom: "Custom",
-        url: "Server Url*",
+        url: "Server URL*",
         account: "Account*",
         password: "Password*",
-        filepath: "Filepath*",
+        filepath: "File Path*",
         firstSyncMode: "First Sync Mode",
         firstSyncModeRemote: "Remote Overwrite Local",
         firstSyncModeLocal: "Local Overwrite Remote",
