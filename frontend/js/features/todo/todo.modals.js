@@ -743,9 +743,8 @@ Object.assign(TodoManager.prototype, {
                 this.loadTasks(true);
                 // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
                 window.timelineManager.renderTimelineIfVisible();
-
-                // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
-                // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
+                // 数据变更：刷新左侧分类计数与顶部统计条
+                window.App?.notifyDataChanged({ fromZero: true });
 
                 if (!tagsModuleRefreshed) this.tagManager.loadModule(true);
             },
@@ -950,8 +949,6 @@ Object.assign(TodoManager.prototype, {
                 }
                 // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
                 window.timelineManager.renderTimelineIfVisible();
-                // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
-                // 不需要再调用 renderCategories()，否则会导致数据不准确
 
                 this.tagManager.loadModule(true);
             },
@@ -962,6 +959,8 @@ Object.assign(TodoManager.prototype, {
                 Utils.setLoading(false);
                 // 重新加载任务以确保数据一致性
                 this.loadTasks(true);
+                // 数据变更：刷新左侧分类计数与顶部统计条
+                window.App?.notifyDataChanged({ fromZero: true });
             }
         });
     },

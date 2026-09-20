@@ -245,6 +245,9 @@ class App {
             });
             
             await Promise.all(refreshPromises);
+
+            // 常驻数据（左侧分类计数 / 顶部统计条）不随视图切换重建，这里单独刷新
+            this.notifyDataChanged();
         } catch (error) {
             logger.error('Failed to refresh data:', error);
             Utils.showToast(window.languageManager.getText('refreshDataFailed', '刷新数据失败'), 'error');
@@ -283,13 +286,26 @@ class App {
             await todo.tagManager?.loadModule(true);
         }
 
-        // 4. 任务列表：内部会同步日历、统计与分类计数
+        // 4. 任务列表：内部会同步日历数据（分类计数与顶部统计条已解耦到第 6 步）
         if (todo) await todo.loadTasks();
 
         // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
         await window.timelineManager?.renderTimelineIfVisible();
+
+        // 6. 常驻数据：数据整体被替换，分类计数与顶部统计条从 0 重新计数更直观
+        this.notifyDataChanged({ fromZero: true });
     }
     
+    // 数据发生变更（增删改、完成状态切换、分类变更、切库/导入、页面重新可见）后，
+    // 刷新不随视图切换重建的常驻数据：左侧分类计数 + 顶部统计条。
+    // 两者口径都是全局的（未完成任务数 / 全局 overview），与列表筛选无关，
+    // 因此只在数据真正变更时刷新，不再跟着任务列表的每次加载走。
+    notifyDataChanged({ fromZero = false, skipCategoryCounts = false } = {}) {
+        // 调用方（如分类模块）若已经自己重算过左侧计数，跳过以免重复拉一次全量任务
+        if (!skipCategoryCounts) window.categoryManager?.refreshCounts(fromZero);
+        window.statsManager?.refreshOverviewBar(fromZero);
+    }
+
     // 获取应用状态
     getAppState() {
         return {

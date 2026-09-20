@@ -130,11 +130,6 @@ class TodoManager {
         this.parentTaskMap = {};
         // 日期范围缓存
         this.currentDateRange = null;
-        // 统计数据更新防抖
-        this._statsDebounceTimer = null;
-        this._pendingFromZero = false;
-        this._statsTagDebounceTimer = null;
-        this._tagPendingFromZero = false;
         // DOM 元素缓存与统一管理
         this.cacheDomRefs();
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
@@ -551,8 +546,8 @@ class TodoManager {
                     this.initInfiniteScroll();
                 }
 
-                this.updateStats(fromZero);
-                this.updateCategoryCounts(fromZero);
+                // 分类计数与顶部统计条口径均为全局，与列表筛选无关，
+                // 已各自收敛到 category / stats 模块，由 App.notifyDataChanged 在数据变更时刷新
 
                 // 更新日历视图数据
                 if (window.calendarManager) window.calendarManager.updateTasks(this.tasks);
@@ -1070,7 +1065,6 @@ class TodoManager {
                 }
                 checkbox?.classList.remove('is-checking');
 
-                // 不需要调用 renderCategories()，updateCategoryCounts() 已经更新了分类统计
                 Utils.showToast(completed ?
                     window.languageManager.getText('taskCompleted', '任务已完成') :
                     window.languageManager.getText('taskReopened', '任务已重新开启'), 'success');
@@ -1078,6 +1072,8 @@ class TodoManager {
                 // 先播放完成/重开动效，动画结束后再刷新列表，避免突兀的状态跳变
                 await this.playToggleAnimation(taskId, completed);
                 this.loadTasks(true);
+                // 完成状态变化会改变"未完成任务数"，同步刷新分类计数与顶部统计条
+                window.App?.notifyDataChanged({ fromZero: true });
             },
             onError: (error) => {
                 checkbox?.classList.remove('is-checking');
@@ -1228,64 +1224,6 @@ class TodoManager {
                 }
             });
         });
-    }
-
-    // 更新分类任务数量：当前保持分类数量更新变化不受搜索条件影响，因而设置大部分入参为null
-    async updateCategoryCounts(fromZero = false) {
-        if (window.categoryManager) {
-            // 获取当前筛选条件下的所有任务（不分页）
-            await Utils.apiCall({
-                apiMethod: 'get_todos',
-                // 只要"未完成"这一个筛选维度，其余交给后端默认值
-                apiArgs: [{ status: 'uncompleted' }, 1, 999999],
-                onSuccess: (response) => {
-                    window.categoryManager.updateCategoryCounts(response.data.tasks, fromZero);
-                },
-                onError: (error) => {
-                    // 如果获取失败，使用当前页的任务
-                    window.categoryManager.updateCategoryCounts(this.tasks, fromZero);
-                }
-            });
-        }
-    }
-
-    // 更新统计信息
-    async updateStats(fromZero = false) {
-        if (fromZero) this._pendingFromZero = true;
-
-        if (this._statsDebounceTimer) {
-            clearTimeout(this._statsDebounceTimer);
-        }
-
-        this._statsDebounceTimer = setTimeout(() => {
-            const shouldFromZero = this._pendingFromZero;
-            this._pendingFromZero = false;
-            this._statsDebounceTimer = null;
-
-            const now = new Date();
-            const dateRangeText = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-            this.dateRangeStats.innerHTML = `<span class="date-range-text">${dateRangeText}</span>`;
-
-            // 顶部统计条与统计视图共用 get_task_statistics：
-            // overview 是全局口径，用默认参数（created / all）取即可
-            Utils.apiCall({
-                apiMethod: 'get_task_statistics',
-                onSuccess: (response) => {
-                    const overview = response.data.overview || {};
-                    const totalUncompleted = overview.uncompleted || 0;
-                    const todayCompleted = overview.today_completed || 0;
-                    const rate = overview.completion_rate || 0;
-                    const overDueDate = overview.over_due || 0;
-
-                    this.overDueDateStats.style.color = overDueDate == 0 ? 'var(--text-primary)' : 'red';
-
-                    Utils.animateNumber(this.totalUncompletedTasksStats, totalUncompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(this.todayCompletedTasksStats, todayCompleted, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(this.completionRateStats, rate, { duration: 600, suffix: '%', decimals: 1, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                    Utils.animateNumber(this.overDueDateStats, overDueDate, { duration: 600, easing: 'easeOutCubic', fromZero: shouldFromZero });
-                }
-            });
-        }, 200);
     }
 
     // 判断是否为移动端或小屏幕

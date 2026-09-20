@@ -7,6 +7,8 @@ class CategoryManager {
         this.defaultShowCategories = 3; // 默认只展示4个分类项，超出则隐藏
         this._statsDebounceTimer = null;
         this._pendingFromZero = false;
+        // 最近一次分类计数结果，供 renderCategories 复用，避免每次重渲染都拉一次全量任务
+        this._lastCounts = null;
     }
     
     // 初始化
@@ -126,8 +128,14 @@ class CategoryManager {
         const categoryList = document.getElementById('category-list');
         if (!categoryList) return;
         
-        // 加载任务数量统计
-        const taskCounts = await this.getTaskCounts(defaultFiltered);
+        // 加载任务数量统计：优先复用最近一次结果（由 refreshCounts / 上一次渲染维护），
+        // 展开/收起分类这类纯 UI 重渲染无需再拉一次全量任务；
+        // 缓存为空（首次渲染，或分类增删改后主动失效）时才真正取数，并回填缓存
+        let taskCounts = this._lastCounts;
+        if (!taskCounts) {
+            taskCounts = await this.getTaskCounts(defaultFiltered);
+            this._lastCounts = taskCounts;
+        }
         
         // 生成HTML
         const categoriesHtml = this.generateCategoriesHtml(taskCounts, isShowMore);
@@ -150,6 +158,20 @@ class CategoryManager {
         this.setActiveCategory(this.currentCategory);
     }
     
+    // 分类集合发生变化（新建 / 编辑 / 删除）后的完整刷新。
+    // 必须串行：先等最新分类数据回来，再重建列表。
+    // 之前 loadCategories() 与 renderCategories() 都是"发完就不管"，渲染跑在取数前面，
+    // 用的是旧 categories —— 删掉的分类会被重新渲染回页面，新建的也不会出现。
+    async refreshAfterCategoryChange() {
+        // 保留"更多"的展开状态，避免刷新后列表被莫名收起
+        const showMoreBtn = document.getElementById('categories-more');
+        const isShowMore = !!showMoreBtn?.classList.contains('selected');
+
+        this._lastCounts = null;       // 分类集合变了，旧的计数缓存失效，必须重新取数
+        await this.loadCategories();
+        await this.renderCategories(true, isShowMore); // 缓存已清空 → 重新拉全量未完成并重算计数
+    }
+
     // 生成分类HTML
     generateCategoriesHtml(taskCounts, isShowMore=false) {
         let html = `
@@ -196,15 +218,13 @@ class CategoryManager {
         if (filteredTasks) {
             tasks = filteredTasks;
         } else {
-            // 根据 defaultFiltered 决定 API 参数（保持原有逻辑）
-            const apiArgs = defaultFiltered
-                ? []
-                : [{ status: 'uncompleted' }, 1, 999999];
-
-            // 调用公共方法，自动处理加载检查、错误日志和成功/失败回调
+            // 无外部数据时按"未完成任务"口径自行取数。
+            // 注意不能传空参数：后端默认 page_size=10，会把统计压成 10 条以内的错误结果；
+            // 原先 defaultFiltered=true 走空参数正是这个坑，这里统一成全量未完成。
+            // defaultFiltered 仅为兼容调用方保留，不再影响取数口径。
             await Utils.apiCall({
                 apiMethod: 'get_todos',
-                apiArgs: apiArgs,
+                apiArgs: [{ status: 'uncompleted' }, 1, 999999],
                 onSuccess: (response) => tasks = response.data.tasks
             });
         }
@@ -305,26 +325,27 @@ class CategoryManager {
         await Utils.apiCall({
             apiMethod: apiMethod,
             apiArgs: apiArgs,
-            onSuccess: (response) => {
+            onSuccess: async (response) => {
                 Utils.showToast(isEdit ?
                     window.languageManager.getText('categoryUpdated', '分类更新成功') :
                     window.languageManager.getText('categoryCreated', '分类创建成功'), 'success');
                 Utils.ModalManager.hide('category-modal');
 
-                this.loadCategories();
-                this.renderCategories();
+                // 串行刷新：拿最新分类 → 重算计数 → 重建列表
+                await this.refreshAfterCategoryChange();
 
                 // 重新加载任务列表以更新分类信息
                 window.todoManager?.loadTasks();
-                // 触发云端同步上传
-                window.todoManager?.triggerCloudUpload();
+                // 左侧计数已由 refreshAfterCategoryChange 重算，这里只补刷顶部统计条
+                window.App?.notifyDataChanged({ skipCategoryCounts: true });
+                // 云端同步已由后端写操作 API 上的 @auto_sync 统一触发，前端无需再手工调用
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
         });
     }
     
-    // 删除分类
+    // 编辑分类
     async editCategory(categoryId) {
         const category = this.categories.find(c => c.id === categoryId);
         if (!category) return;
@@ -365,21 +386,24 @@ class CategoryManager {
             Utils.apiCall({
                 apiMethod: 'delete_category',
                 apiArgs: [categoryId],
-                onSuccess: (response) => {
+                onSuccess: async (response) => {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
 
-                    // 如果当前选中的是被删除的分类，切换到"全部"
-                    if (this.currentCategory === categoryId) {
-                        this.filterByCategory('all');
+                    // 如果当前选中的是被删除的分类，切回"全部"（内部已重新加载列表）；
+                    // 否则当前筛选不受影响，下面再补刷一次
+                    const switchedToAll = this.currentCategory === categoryId;
+                    if (switchedToAll) {
+                        await this.filterByCategory('all');
                     }
 
-                    this.loadCategories();
-                    this.renderCategories();
+                    // 串行刷新：拿最新分类 → 重算计数 → 重建列表
+                    await this.refreshAfterCategoryChange();
 
                     // 重新加载任务列表
-                    window.todoManager?.loadTasks();
-                    // 触发云端同步上传
-                    window.todoManager?.triggerCloudUpload();
+                    if (!switchedToAll) window.todoManager?.loadTasks();
+                    // 左侧计数已由 refreshAfterCategoryChange 重算，这里只补刷顶部统计条
+                    window.App?.notifyDataChanged({ skipCategoryCounts: true });
+                    // 云端同步已由后端写操作 API 上的 @auto_sync 统一触发，前端无需再手工调用
                 },
                 onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
                 onFinally: () => Utils.setLoading(false)
@@ -392,7 +416,11 @@ class CategoryManager {
         let count = 0;
         await Utils.apiCall({
             apiMethod: 'get_todos',
-            onSuccess: (response) => count = response.data.tasks.filter(task => task.categoryId === categoryId).length
+            // 必须显式传分页：后端默认 page_size=10，会把统计压在前 10 条内，
+            // 删除确认弹窗里的"该分类下有 N 个任务"会说谎。
+            // 改为后端按 categoryId 筛选并一次取全量，结果才与实际受影响的任务数一致。
+            apiArgs: [{ categoryId: categoryId }, 1, 999999],
+            onSuccess: (response) => count = response.data.tasks.length
         });
         return count;
     }
@@ -414,7 +442,23 @@ class CategoryManager {
         return category ? category.color : 'var(--primary-color)';
     }
     
-    // 更新分类任务数量
+    // 左侧分类计数：口径固定为"未完成任务数"，与列表当前筛选无关。
+    // 取数收敛在本模块，由数据变更驱动（window.App.notifyDataChanged），
+    // 不再挂在任务列表的每次加载上：翻页/搜索/切视图都不会再拉全量任务。
+    async refreshCounts(fromZero = false) {
+        await Utils.apiCall({
+            apiMethod: 'get_todos',
+            apiArgs: [{ status: 'uncompleted' }, 1, 999999],
+            onSuccess: (response) => this.updateCategoryCounts(response.data.tasks, fromZero),
+            onError: () => {
+                // 取数失败时退回列表当前页数据兜底；实在拿不到就保持原有显示值
+                const fallback = window.todoManager?.tasks;
+                if (fallback && fallback.length) this.updateCategoryCounts(fallback, fromZero);
+            }
+        });
+    }
+
+    // 更新分类任务数量（只负责渲染，数据由 refreshCounts 或调用方传入）
     async updateCategoryCounts(filteredTasks = null, fromZero = false) {
         if (fromZero) this._pendingFromZero = true;
 
@@ -428,8 +472,9 @@ class CategoryManager {
             this._statsDebounceTimer = null;
 
             const taskCounts = await this.getTaskCounts(true, filteredTasks);
+            this._lastCounts = taskCounts;
 
-            // 更新"全部"分类的数量 - 如果有筛选任务则显示筛选后的数量，否则显示总数量
+            // 更新"全部"分类的数量 - 口径固定为未完成任务总数
             const allCountEl = document.querySelector('[data-category="all"] .category-count');
             if (allCountEl) {
                 const allCount = taskCounts.all || 0;
@@ -447,8 +492,9 @@ class CategoryManager {
         }, 200);
     }
     
-    // 重新加载数据
+    // 重新加载数据（切库 / 导入 / 页面重新可见等"数据可能整体换了一批"的场景）
     async refresh() {
+        this._lastCounts = null;   // 数据可能已整体替换，旧计数缓存必须失效重算
         await this.loadCategories();
         await this.renderCategories(false);
     }

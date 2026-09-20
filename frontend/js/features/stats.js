@@ -146,13 +146,17 @@ class StatsManager {
         this._loadedOnce = false;
         this._seq = 0;
         this._lastTotal = 0;
+        // 顶部统计条（全局 overview）独立的防抖状态，与统计视图的加载互不干扰
+        this._overviewTimer = null;
+        this._overviewFromZero = false;
     }
 
-    // 模块初始化（仅绑定事件，不做重量级请求）
+    // 模块初始化（统计视图数据仍按需加载；顶部统计条常驻可见，这里刷一次）
     init() {
         if (this.inited) return;
         this.inited = true;
         this.bindEvents();
+        this.refreshOverviewBar();
     }
 
     // 统计视图被切换到前台时触发
@@ -168,6 +172,48 @@ class StatsManager {
         const view = document.getElementById('stats-view');
         if (!view || view.style.display === 'none') return;
         this.ensureReady();
+    }
+
+    // 顶部统计条：与统计视图共用 get_task_statistics，但口径是全局 overview（默认参数），
+    // 与列表筛选无关，因此由数据变更驱动（window.App.notifyDataChanged），
+    // 不跟随任务列表的每次加载，翻页/搜索/切视图都不会再触发。
+    async refreshOverviewBar(fromZero = false) {
+        if (fromZero) this._overviewFromZero = true;
+        if (this._overviewTimer) clearTimeout(this._overviewTimer);
+
+        this._overviewTimer = setTimeout(async () => {
+            const shouldFromZero = this._overviewFromZero;
+            this._overviewFromZero = false;
+            this._overviewTimer = null;
+            try {
+                const data = await this._call('get_task_statistics');
+                this._renderOverviewBar(data || {}, shouldFromZero);
+            } catch (e) {
+                // 顶部条刷新失败时保留原有数值，不打扰用户（apiCall 内部已记录日志）
+            }
+        }, 200);
+    }
+
+    _renderOverviewBar(data, fromZero) {
+        const overview = data.overview || {};
+        const el = (id) => document.getElementById(id);
+        const overdueEl = el('over-due-date-tasks');
+        if (overdueEl) overdueEl.style.color = (overview.over_due || 0) == 0 ? 'var(--text-primary)' : 'red';
+
+        const animate = (node, value, extra = {}) => {
+            if (!node) return;
+            Utils.animateNumber(node, value, { duration: 600, easing: 'easeOutCubic', fromZero, ...extra });
+        };
+        animate(el('total-uncompleted-tasks'), overview.uncompleted || 0);
+        animate(el('today-completed-tasks'), overview.today_completed || 0);
+        animate(el('completion-rate'), overview.completion_rate || 0, { suffix: '%', decimals: 1 });
+        animate(overdueEl, overview.over_due || 0);
+
+        const dateRangeEl = el('stats-date-range');
+        if (dateRangeEl) {
+            const now = new Date();
+            dateRangeEl.innerHTML = `<span class="date-range-text">${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}</span>`;
+        }
     }
 
     bindEvents() {

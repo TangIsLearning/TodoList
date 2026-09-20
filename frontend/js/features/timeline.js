@@ -411,6 +411,9 @@ class TimelineManager {
                 }
             });
         }
+        // 截止日期被改写，逾期数等全局统计随之变化，同步刷新顶部统计条与分类计数
+        window.App?.notifyDataChanged();
+
         this.currentDragTaskId = null;
         document.querySelectorAll('.grid-cell').forEach(cell => cell.classList.remove('drag-over'));
     }
