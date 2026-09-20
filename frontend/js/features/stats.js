@@ -174,9 +174,10 @@ class StatsManager {
         this.ensureReady();
     }
 
-    // 顶部统计条：与统计视图共用 get_task_statistics，但口径是全局 overview（默认参数），
-    // 与列表筛选无关，因此由数据变更驱动（window.App.notifyDataChanged），
-    // 不跟随任务列表的每次加载，翻页/搜索/切视图都不会再触发。
+    // 顶部统计条：口径是全局 overview，与列表筛选无关，因此由数据变更驱动
+    // （window.App.notifyDataChanged），不跟随任务列表的每次加载，翻页/搜索/切视图都不会再触发。
+    // 走专用的 get_overview_statistics：只要四个数，不必像 get_task_statistics 那样
+    // 全量加载任务并算出一整套统计视图图表数据（此前绝大多数结果都被丢弃）。
     async refreshOverviewBar(fromZero = false) {
         if (fromZero) this._overviewFromZero = true;
         if (this._overviewTimer) clearTimeout(this._overviewTimer);
@@ -186,16 +187,16 @@ class StatsManager {
             this._overviewFromZero = false;
             this._overviewTimer = null;
             try {
-                const data = await this._call('get_task_statistics');
-                this._renderOverviewBar(data || {}, shouldFromZero);
+                const overview = await this._call('get_overview_statistics');
+                this._renderOverviewBar(overview || {}, shouldFromZero);
             } catch (e) {
                 // 顶部条刷新失败时保留原有数值，不打扰用户（apiCall 内部已记录日志）
             }
         }, 200);
     }
 
-    _renderOverviewBar(data, fromZero) {
-        const overview = data.overview || {};
+    // 入参就是 get_overview_statistics 的返回体（四个数），不再套在 data.overview 里
+    _renderOverviewBar(overview, fromZero) {
         const el = (id) => document.getElementById(id);
         const overdueEl = el('over-due-date-tasks');
         if (overdueEl) overdueEl.style.color = (overview.over_due || 0) == 0 ? 'var(--text-primary)' : 'red';

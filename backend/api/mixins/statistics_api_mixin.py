@@ -16,6 +16,15 @@ class StatisticsApiMixin:
         return self.db.get_statistics_options(date_basis=date_basis)
 
     @api_handler
+    def get_overview_statistics(self) -> Dict[str, Any]:
+        """顶部统计条专用的四项全局指标（SQL 聚合，不加载任务）。
+
+        统计视图请继续用 get_task_statistics：它已经加载了全量任务，
+        overview 由同一份数据算出，零额外成本；这里只服务于"只要四个数"的场景。
+        """
+        return self.db.get_overview_statistics()
+
+    @api_handler
     def get_task_statistics(
         self,
         date_basis: str = 'created',

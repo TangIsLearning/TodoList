@@ -81,6 +81,9 @@ class StatisticsCrudMixin:
         的指标；overview 恒为整个库的口径，因为顶部统计条展示的是总体状态，
         不该随统计视图的筛选变化。两者共用同一份 tasks 列表，不额外全量加载。
         逾期判定与 kpi.overdue / 逾期明细共用 _is_overdue，口径一致。
+
+        注：顶部统计条单独走 SQL 聚合版 get_overview_statistics（不加载任务），
+        口径与本函数一致；调整逾期 / 今日完成判定时要两处同步。
         """
         now = datetime.now()
         total = len(tasks)
@@ -101,6 +104,46 @@ class StatisticsCrudMixin:
             'uncompleted': total - completed,
             'today_completed': today_completed,
             'over_due': over_due,
+            'completion_rate': round(completed / total * 100, 1) if total else 0.0,
+        }
+
+    def get_overview_statistics(self) -> Dict[str, Any]:
+        """顶部统计条的四项指标（全局口径），走 SQL 聚合，不加载任务。
+
+        与 _build_overview 同一口径（未完成 / 今日完成 / 已逾期 / 完成率），
+        但统计条只要这四个数，此前却调用 get_task_statistics：
+        后者 get_all_tasks() 全量加载，并在 Python 侧算出趋势、分布、优先级、
+        分类、逾期明细等一整套图表数据，绝大多数结果被丢弃。
+
+        口径对齐要点：
+        - 逾期判定与 _is_overdue 一致：未完成且截止时刻早于"此刻"。
+          SQLite 的 datetime('now') 取的是 UTC，所以由 Python 传入本地 now 串，
+          与列表筛选 status='overdue' 的写法保持一致。
+        - 时间列可能带时区偏移或 'Z'，SQLite 的 datetime() 遇到这类串返回 NULL 会漏计，
+          而 _safe_dt 会解析成墙上时间；这里统一截取前 19 位
+          （'YYYY-MM-DDTHH:MM:SS'），与 _safe_dt 的结果对齐。
+        - 行集与 get_all_tasks() 一致（tasks 全表，无额外过滤）。
+        """
+        now = datetime.now()
+        with self.query() as conn:
+            row = conn.execute(
+                'SELECT COUNT(*) AS total, '
+                '  SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed, '
+                '  SUM(CASE WHEN completed = 1 '
+                '           AND date(substr(updated_at, 1, 10)) = ? THEN 1 ELSE 0 END) AS today_completed, '
+                '  SUM(CASE WHEN completed = 0 AND due_date IS NOT NULL AND due_date <> \'\' '
+                '           AND datetime(substr(due_date, 1, 19)) < datetime(?) '
+                '           THEN 1 ELSE 0 END) AS over_due '
+                'FROM tasks',
+                (now.strftime('%Y-%m-%d'), now.isoformat(sep=' ', timespec='seconds')),
+            ).fetchone()
+
+        total = row['total'] or 0
+        completed = row['completed'] or 0
+        return {
+            'uncompleted': total - completed,
+            'today_completed': row['today_completed'] or 0,
+            'over_due': row['over_due'] or 0,
             'completion_rate': round(completed / total * 100, 1) if total else 0.0,
         }
 
