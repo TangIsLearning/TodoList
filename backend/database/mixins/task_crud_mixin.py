@@ -549,6 +549,21 @@ class TaskCrudMixin:
             'parentTaskId': row['parent_task_id'],
         }
 
+    def get_task_due_years(self) -> List[str]:
+        """有截止时间的任务覆盖了哪些年份（导出年份下拉专用），按降序返回。
+
+        存储格式统一为 ISO 时间串，strftime('%Y', ...) 无法解析时返回 NULL，
+        由条件一并剔除，不会产出空年份。
+        """
+        with self.query() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT strftime('%Y', due_date) AS year FROM tasks "
+                "WHERE due_date IS NOT NULL AND due_date <> '' "
+                "AND strftime('%Y', due_date) IS NOT NULL "
+                "ORDER BY year DESC"
+            ).fetchall()
+        return [row['year'] for row in rows]
+
     def get_tasks_by_ids(self, task_ids: List[str]) -> List[Dict[str, Any]]:
         """
         根据任务ID列表批量获取任务完整信息（含标签 / 附件）

@@ -109,6 +109,11 @@ class TaskApiMixin:
         return self.db.get_timeline_tasks(task_filter)
 
     @api_handler
+    def get_task_due_years(self) -> List[str]:
+        """导出年份下拉：有截止时间的任务覆盖的年份，已去重、按降序返回。"""
+        return self.db.get_task_due_years()
+
+    @api_handler
     def get_task_page(self, task_id: str, task_filter: Optional[Dict[str, Any]] = None,
                       page_size: int = 10) -> Optional[int]:
         """定位任务在当前筛选条件下的页码（从1开始）。

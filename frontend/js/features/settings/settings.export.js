@@ -45,11 +45,10 @@ Object.assign(SettingsUIManager.prototype, {
                 onSuccess: (response) => this.updateExportTags(response.data)
             });
 
-            // 获取所有任务以提取年份
+            // 获取年份列表：后端一条 DISTINCT 取回，
             await Utils.apiCall({
-                apiMethod: 'get_todos',
-                apiArgs: [null, 1, 10000],
-                onSuccess: (response) => this.updateExportYears(response.data.tasks)
+                apiMethod: 'get_task_due_years',
+                onSuccess: (response) => this.updateExportYears(response.data)
             });
 
             // 绑定导出模态框事件
@@ -95,25 +94,15 @@ Object.assign(SettingsUIManager.prototype, {
         });
     },
 
-    updateExportYears(tasks) {
+    // 年份由后端去重并降序返回（口径：有截止时间的任务）
+    updateExportYears(years) {
         const select = document.getElementById('export-year');
         if (!select) return;
 
-        // 提取所有年份
-        const years = new Set();
-        tasks.forEach(task => {
-            if (task.dueDate) {
-                const year = new Date(task.dueDate).getFullYear();
-                if (year) years.add(year);
-            }
-        });
-
-        // 按降序排列
-        const sortedYears = Array.from(years).sort((a, b) => b - a);
-
         // 保留"全部年份"选项
         select.innerHTML = '<option value="">全部年份</option>';
-        sortedYears.forEach(year => {
+        (years || []).forEach(year => {
+            if (!year) return;
             const option = document.createElement('option');
             option.value = year;
             option.textContent = year + '年';
