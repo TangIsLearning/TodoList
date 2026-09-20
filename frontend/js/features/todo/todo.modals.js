@@ -79,12 +79,30 @@ Object.assign(TodoManager.prototype, {
         return false;
     },
 
+    // 任务模态框标题：新建 / 复制 / 编辑 由打开时的模式决定，模式记录在实例上以便切语言后重设
+    setTaskModalMode(mode) {
+        this._taskModalMode = mode;
+        this.refreshTaskModalTitle();
+    },
+
+    // 按当前模式重设任务模态框标题（切换语言时由 languageManager 调用）
+    refreshTaskModalTitle() {
+        if (!this.modalTitle) return;
+
+        const modeKeys = { new: 'newTask', copy: 'copyTask', edit: 'editTask' };
+        const fallbacks = { new: '新建任务', copy: '复制任务', edit: '编辑任务' };
+        const mode = this._taskModalMode || 'new';
+
+        this.modalTitle.textContent = window.languageManager.getText(
+            modeKeys[mode] || modeKeys.new,
+            fallbacks[mode] || fallbacks.new
+        );
+    },
+
     // 显示添加任务模态框
     // sourceTask 非空时进入"复制任务"模式：表单预填源任务的全部信息，保存后生成一条新的独立任务
     async showAddTaskModal({ sourceTask = null } = {}) {
-        this.modalTitle.textContent = sourceTask
-            ? window.languageManager.getText('copyTask', '复制任务')
-            : window.languageManager.getText('newTask', '新建任务');
+        this.setTaskModalMode(sourceTask ? 'copy' : 'new');
         this.taskForm.reset();
         this.taskForm.dataset.editingId = '';
         
@@ -438,7 +456,7 @@ Object.assign(TodoManager.prototype, {
             return;
         }
         
-        this.modalTitle.textContent = '编辑任务';
+        this.setTaskModalMode('edit');
         this.taskForm.dataset.editingId = taskId;
 
         // 重置更多选项状态

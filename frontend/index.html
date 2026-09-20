@@ -288,9 +288,10 @@
     <!-- 侧边栏 -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h1 class="app-title">📝 Todo List</h1>
+            <h1 class="app-title" data-i18n="appTitle">📝 Todo List</h1>
             <div class="sidebar-header-actions">
-                <button id="settings-btn" class="btn btn--colorless btn--font-size-lg" title="设置中心">⚙️</button>
+                <button id="settings-btn" class="btn btn--colorless btn--font-size-lg"
+                        title="设置中心" data-i18n="settingsBtn" data-i18n-attr="title">⚙️</button>
             </div>
         </div>
 
@@ -298,24 +299,24 @@
         <div class="stats-container">
             <!-- 统计日期范围显示 -->
             <div class="stats-date-range" id="stats-date-range">
-                <span class="date-range-text">全部时间</span>
+                <span class="date-range-text" data-i18n="statsAllTime">全部时间</span>
             </div>
             <!-- 统计数据 -->
             <div class="stats-data">
                 <div class="stat-item">
-                    <span class="stat-label">未完成</span>
+                    <span class="stat-label" data-i18n="statsUnCompletedTasks">未完成</span>
                     <span id="total-uncompleted-tasks" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">今日已完成</span>
+                    <span class="stat-label" data-i18n="statsTodayCompletedTasks">今日已完成</span>
                     <span id="today-completed-tasks" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">完成率</span>
+                    <span class="stat-label" data-i18n="statsCompletionRate">完成率</span>
                     <span id="completion-rate" class="stat-value">0%</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">已逾期</span>
+                    <span class="stat-label" data-i18n="statsOverDueDateTasks">已逾期</span>
                     <span id="over-due-date-tasks" class="stat-value">0</span>
                 </div>
             </div>
@@ -324,21 +325,23 @@
         <!-- 分类管理 -->
         <div class="categories-section">
             <div class="categories-section-header">
-                <span class="categories-section-title">分类</span>
-                <span class="categories-more" id="categories-more">展示更多</span>
+                <span class="categories-section-title" data-i18n="categories">分类</span>
+                <span class="categories-more" id="categories-more"
+                      data-i18n="showMoreCategories">展示更多</span>
             </div>
             <div class="category-list" id="category-list">
                 <button class="btn btn--colorless btn--width-100 category-item-btn active" id="all-category-item" data-category="all">
-                    <span>📋全部</span>
+                    <span id="allCategories" data-i18n="allCategories">📋全部</span>
                     <span class="category-count">0</span>
                 </button>
             </div>
-            <button id="add-category-btn" class="btn btn--border-dashed btn--width-100">+ 添加分类</button>
+            <button id="add-category-btn" class="btn btn--border-dashed btn--width-100"
+                    data-i18n="addCategory" data-i18n-prefix="+ ">添加分类</button>
         </div>
 
         <div class="tags-section" id="tags-section">
             <span>
-                <span id="tags-title">标签</span>
+                <span id="tags-title" data-i18n="taskTags">标签</span>
                 <span class="tags-list" id="tags-list"></span>
                 <!-- 展开更多/更少标识：仅在标签数量超过限定个数时展示，且始终位于最后一个标签之后 -->
                 <span class="tags-more" id="tags-more" style="display: none;" title="更多">
@@ -359,7 +362,7 @@
         <div class="contact-author-section">
             <button id="contact-author-btn" class="btn btn--primary-color btn--width-100">
                 <span class="contact-icon">✉️</span>
-                <span class="contact-text">联系作者</span>
+                <span class="contact-text" data-i18n="contactAuthor">联系作者</span>
             </button>
         </div>
 
@@ -375,58 +378,68 @@
             <!-- 移动端菜单按钮 -->
             <button id="mobile-menu-btn" class="btn btn--colorless btn--font-size-lg">☰</button>
             <!-- 小屏幕更多按钮 -->
-            <button id="more-menu-btn" class="btn btn--colorless btn--font-size-lg" title="更多选项">︰</button>
+            <button id="more-menu-btn" class="btn btn--colorless btn--font-size-lg"
+                    title="更多选项" data-i18n="moreOptions" data-i18n-attr="title">︰</button>
             <div class="search-container">
                 <div class="search-input-wrapper search-tag-wrapper" id="search-tag-wrapper">
-                    <input type="text" id="search-input" class="search-input" autocomplete="off">
+                    <input type="text" id="search-input" class="search-input" autocomplete="off"
+                           title="支持通过【#标签(空格)】、【>父任务全称】或【@截止日期(如 2026-09-19)】进行特性搜索"
+                           data-i18n="searchTitle" data-i18n-attr="title">
                     <!-- 截止时间筛选：隐藏输入框承载日历实例，📅 按钮负责弹出 -->
                     <input type="hidden" id="search-due-input">
-                    <button type="button" id="search-due-btn" class="btn btn--colorless btn--font-size-lg search-due-btn" title="按截止时间搜索">📅</button>
-                    <button type="button" id="search-clear-btn" class="btn btn--colorless btn--font-size-lg" title="清空搜索">×</button>
+                    <button type="button" id="search-due-btn" class="btn btn--colorless btn--font-size-lg search-due-btn"
+                            title="按截止时间搜索" data-i18n="searchDueDate" data-i18n-attr="title">📅</button>
+                    <button type="button" id="search-clear-btn" class="btn btn--colorless btn--font-size-lg"
+                            title="清空搜索" data-i18n="searchClear" data-i18n-attr="title">×</button>
                 </div>
                 <button id="search-btn" class="btn">🔍</button>
             </div>
 
             <div class="action-buttons">
-                <select id="view-toggle-select" class="view-filter" title="切换视图，日历视图不显示无截止日期数据">
-                    <option value="list">📋 列表视图</option>
-                    <option value="calendar">📅 日历视图</option>
-                    <option value="timeline">⌛ 时间轴视图</option>
-                    <option value="stats">📊 统计视图</option>
+                <select id="view-toggle-select" class="view-filter"
+                        title="切换视图，日历视图不显示无截止日期数据"
+                        data-i18n="viewToggleTip" data-i18n-attr="title">
+                    <option value="list" data-i18n="listView" data-i18n-prefix="📋 ">列表视图</option>
+                    <option value="calendar" data-i18n="calendarView" data-i18n-prefix="📅 ">日历视图</option>
+                    <option value="timeline" data-i18n="timelineView" data-i18n-prefix="⌛ ">时间轴视图</option>
+                    <option value="stats" data-i18n="statsView" data-i18n-prefix="📊 ">统计视图</option>
                 </select>
 
                 <select id="priority-filter" class="priority-filter">
-                    <option value="all">所有优先级</option>
-                    <option value="high">🔴 高优先级</option>
-                    <option value="medium">🟡 中优先级</option>
-                    <option value="low">🟢 低优先级</option>
-                    <option value="none">⚪ 无优先级</option>
+                    <option value="all" data-i18n="filterPriority">所有优先级</option>
+                    <option value="high" data-i18n="priorityHigh" data-i18n-prefix="🔴 ">高优先级</option>
+                    <option value="medium" data-i18n="priorityMedium" data-i18n-prefix="🟡 ">中优先级</option>
+                    <option value="low" data-i18n="priorityLow" data-i18n-prefix="🟢 ">低优先级</option>
+                    <option value="none" data-i18n="priorityNone" data-i18n-prefix="⚪ ">无优先级</option>
                 </select>
 
                 <select id="status-filter" class="status-filter">
-                    <option value="all">所有状态</option>
-                    <option value="completed">已完成</option>
-                    <option value="uncompleted" selected>未完成</option>
-                    <option value="pending">未完成未逾期</option>
-                    <option value="overdue">未完成已逾期</option>
+                    <option value="all" data-i18n="filterStatus">所有状态</option>
+                    <option value="completed" data-i18n="statusCompleted">已完成</option>
+                    <option value="uncompleted" selected data-i18n="statusUncompleted">未完成</option>
+                    <option value="pending" data-i18n="statusPending">未完成未逾期</option>
+                    <option value="overdue" data-i18n="statusOverdue">未完成已逾期</option>
                 </select>
 
                 <select id="due-date-filter" class="due-date-filter">
-                    <option value="all">所有时间</option>
-                    <option value="today">今天</option>
-                    <option value="tomorrow">明天</option>
-                    <option value="week">本周内</option>
-                    <option value="month">本月内</option>
-                    <option value="no-due-date">无截止日期</option>
+                    <option value="all" data-i18n="dueDateAll">所有时间</option>
+                    <option value="today" data-i18n="dueDateToday">今天</option>
+                    <option value="tomorrow" data-i18n="dueDateTomorrow">明天</option>
+                    <option value="week" data-i18n="dueDateWeek">本周内</option>
+                    <option value="month" data-i18n="dueDateMonth">本月内</option>
+                    <option value="no-due-date" data-i18n="dueDateNoDueDate">无截止日期</option>
                 </select>
 
-                <button id="add-task-btn" class="btn btn--primary-color btn--padding-md desktop-only">+ 新建任务</button>
-                <button id="export-tasks-btn" class="btn btn--success-color btn--padding-md desktop-only">📥 导出任务</button>
+                <button id="add-task-btn" class="btn btn--primary-color btn--padding-md desktop-only"
+                        data-i18n="newTask" data-i18n-prefix="+ ">新建任务</button>
+                <button id="export-tasks-btn" class="btn btn--success-color btn--padding-md desktop-only"
+                        data-i18n="exportTasks" data-i18n-prefix="📥 ">导出任务</button>
             </div>
         </header>
 
         <!-- 移动端悬浮按钮 -->
-        <button id="add-task-fab" class="btn btn--primary-color btn--circle mobile-only" title="新建任务">
+        <button id="add-task-fab" class="btn btn--primary-color btn--circle mobile-only"
+                title="新建任务" data-i18n="newTask" data-i18n-attr="title">
             <span class="fab-icon">+</span>
         </button>
 
@@ -438,8 +451,8 @@
 
             <div id="empty-state" class="empty-state" style="display: none;">
                 <div class="empty-icon">📝</div>
-                <h3>暂无任务</h3>
-                <p>点击"新建任务"按钮创建你的第一个任务</p>
+                <h3 data-i18n="emptyTasks">暂无任务</h3>
+                <p data-i18n="emptyTasksMessage">点击"新建任务"按钮创建你的第一个任务</p>
             </div>
         </div>
 
@@ -448,20 +461,20 @@
             <div class="pagination-info">
                 <span id="pagination-showing">显示 0-0 共 0 条</span>
                 <select id="page-size-select" class="page-size-select">
-                    <option value="10">10条/页</option>
-                    <option value="20">20条/页</option>
-                    <option value="50">50条/页</option>
-                    <option value="100">100条/页</option>
+                    <option value="10" data-i18n="paginationPerPage" data-i18n-prefix="10 ">条/页</option>
+                    <option value="20" data-i18n="paginationPerPage" data-i18n-prefix="20 ">条/页</option>
+                    <option value="50" data-i18n="paginationPerPage" data-i18n-prefix="50 ">条/页</option>
+                    <option value="100" data-i18n="paginationPerPage" data-i18n-prefix="100 ">条/页</option>
                 </select>
             </div>
             <div class="pagination-controls">
-                <button id="pagination-first" class="btn" disabled>首页</button>
-                <button id="pagination-prev" class="btn" disabled>上一页</button>
+                <button id="pagination-first" class="btn" disabled data-i18n="paginationFirst">首页</button>
+                <button id="pagination-prev" class="btn" disabled data-i18n="paginationPrev">上一页</button>
                 <div id="pagination-numbers" class="pagination-numbers">
                     <!-- 页码按钮将动态生成 -->
                 </div>
-                <button id="pagination-next" class="btn" disabled>下一页</button>
-                <button id="pagination-last" class="btn" disabled>末页</button>
+                <button id="pagination-next" class="btn" disabled data-i18n="paginationNext">下一页</button>
+                <button id="pagination-last" class="btn" disabled data-i18n="paginationLast">末页</button>
             </div>
         </div>
 
@@ -471,13 +484,13 @@
             <div class="calendar-prev-month" id="prev-month">◀</div>
             <div class="calendar-main-content">
                 <div class="calendar-weekdays">
-                    <div class="calendar-weekday">日</div>
-                    <div class="calendar-weekday">一</div>
-                    <div class="calendar-weekday">二</div>
-                    <div class="calendar-weekday">三</div>
-                    <div class="calendar-weekday">四</div>
-                    <div class="calendar-weekday">五</div>
-                    <div class="calendar-weekday">六</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdaySun">日</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdayMon">一</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdayTue">二</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdayWed">三</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdayThu">四</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdayFri">五</div>
+                    <div class="calendar-weekday" data-i18n="calendarWeekdaySat">六</div>
                 </div>
                 <div id="calendar-days" class="calendar-days">
                     <!-- 日历日期将通过JavaScript动态添加 -->
@@ -489,14 +502,23 @@
         <div class="task-scheduler" id="timeline-view" style="display: none;">
             <div class="toolbar">
                 <div class="date-controls">
-                    <button id="prevWeekBtn" class="btn btn--circle" title="上一周">←</button>
-                    <span id="dateRangeLabel" class="date-range-label">加载中...</span>
-                    <button id="nextWeekBtn" class="btn btn--circle" title="下一周">→</button>
+                    <button id="prevWeekBtn" class="btn btn--circle" title="上一周"
+                            data-i18n="timelinePrevWeek" data-i18n-attr="title">←</button>
+                    <span id="dateRangeLabel" class="date-range-label" data-i18n="loading">加载中...</span>
+                    <button id="nextWeekBtn" class="btn btn--circle" title="下一周"
+                            data-i18n="timelineNextWeek" data-i18n-attr="title">→</button>
                 </div>
                 <div class="week-adjust">
-                    <button id="weekMinusBtn" class="btn" title="减少显示周数">📆 -1周</button>
+                    <button id="weekMinusBtn" class="btn" title="减少显示周数"
+                            data-i18n="timelineDecreaseWeeks" data-i18n-attr="title">
+                        <!-- 按钮文案与 title 各用一套标注，故拆成子节点 -->
+                        <span data-i18n="timelineWeekMinus" data-i18n-prefix="📆 ">-1周</span>
+                    </button>
                     <span id="weekCountIndicator" class="week-indicator">1周</span>
-                    <button id="weekPlusBtn" class="btn" title="增加显示周数">+1周 📆</button>
+                    <button id="weekPlusBtn" class="btn" title="增加显示周数"
+                            data-i18n="timelineIncreaseWeeks" data-i18n-attr="title">
+                        <span data-i18n="timelineWeekPlus" data-i18n-suffix=" 📆">+1周</span>
+                    </button>
                 </div>
             </div>
             <div class="timeline-container" id="timelineContainer">
@@ -508,32 +530,34 @@
         <div class="stats-view" id="stats-view" style="display: none;">
             <div class="stats-toolbar">
                 <div class="stats-toolbar__item">
-                    <label class="stats-label" for="stats-basis-select">统计口径</label>
+                    <label class="stats-label" for="stats-basis-select"
+                           data-i18n="statsBasis">统计口径</label>
                     <select id="stats-basis-select" class="stats-select">
-                        <option value="created">创建时间</option>
-                        <option value="due">截止时间</option>
-                        <option value="completed">完成时间（仅已完成）</option>
+                        <option value="created" data-i18n="statsBasisCreated">创建时间</option>
+                        <option value="due" data-i18n="statsBasisDue">截止时间</option>
+                        <option value="completed" data-i18n="statsBasisCompleted">完成时间（仅已完成）</option>
                     </select>
                 </div>
                 <div class="stats-toolbar__item">
-                    <label class="stats-label" for="stats-scope-select">时间范围</label>
+                    <label class="stats-label" for="stats-scope-select"
+                           data-i18n="statsScope">时间范围</label>
                     <select id="stats-scope-select" class="stats-select">
-                        <option value="all">全部时间</option>
-                        <option value="year">按年份</option>
-                        <option value="month">按月份</option>
-                        <option value="week">按周</option>
+                        <option value="all" data-i18n="statsScopeAll">全部时间</option>
+                        <option value="year" data-i18n="statsScopeYear">按年份</option>
+                        <option value="month" data-i18n="statsScopeMonth">按月份</option>
+                        <option value="week" data-i18n="statsScopeWeek">按周</option>
                     </select>
                 </div>
                 <div class="stats-toolbar__item stats-period-item" id="stats-year-item" style="display: none;">
-                    <label class="stats-label" for="stats-year-select">年份</label>
+                    <label class="stats-label" for="stats-year-select" data-i18n="statsYear">年份</label>
                     <select id="stats-year-select" class="stats-select"></select>
                 </div>
                 <div class="stats-toolbar__item stats-period-item" id="stats-month-item" style="display: none;">
-                    <label class="stats-label" for="stats-month-select">月份</label>
+                    <label class="stats-label" for="stats-month-select" data-i18n="statsMonth">月份</label>
                     <select id="stats-month-select" class="stats-select"></select>
                 </div>
                 <div class="stats-toolbar__item stats-period-item" id="stats-week-item" style="display: none;">
-                    <label class="stats-label" for="stats-week-select">周</label>
+                    <label class="stats-label" for="stats-week-select" data-i18n="statsWeek">周</label>
                     <select id="stats-week-select" class="stats-select"></select>
                 </div>
                 <div class="stats-toolbar__hint" id="stats-toolbar-hint"></div>
@@ -554,18 +578,25 @@
         <div class="modal-body">
             <form id="task-form" class="task-form">
                 <div class="form-group">
-                    <label for="task-title">任务标题*</label>
+                    <label for="task-title" data-i18n="taskTitle" data-i18n-suffix="*">任务标题</label>
                     <input type="text" id="task-title" required maxlength="100">
                 </div>
 
                 <div class="form-group">
-                    <label for="task-description">任务描述
-                        <span style="color: var(--text-secondary); font-size: 12px;">（可选）</span></label>
+                    <label for="task-description">
+                        <span data-i18n="taskDescription">任务描述</span>
+                        <span style="color: var(--text-secondary); font-size: 12px;"
+                              data-i18n="optional" data-i18n-prefix="（" data-i18n-suffix="）">可选</span>
+                    </label>
                     <textarea id="task-description" rows="3" maxlength="500"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label for="tags-selector">标签 <span style="color: var(--text-muted); font-size: 12px;">（选择或添加标签）</span></label>
+                    <label for="tags-selector">
+                        <span data-i18n="taskTags">标签</span>
+                        <span style="color: var(--text-muted); font-size: 12px;"
+                              data-i18n="taskTagsHint">（选择或添加标签）</span>
+                    </label>
                     <div id="tags-selector" class="tags-selector">
                         <!-- 标签列表将通过JavaScript动态生成 -->
                     </div>
@@ -573,83 +604,95 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="task-priority">优先级</label>
+                        <label for="task-priority" data-i18n="taskPriority">优先级</label>
                         <select id="task-priority">
-                            <option value="none">⚪ 无</option>
-                            <option value="low">🟢 低</option>
-                            <option value="medium">🟡 中</option>
-                            <option value="high">🔴 高</option>
+                            <option value="none" data-i18n="priorityNone" data-i18n-prefix="⚪ ">无优先级</option>
+                            <option value="low" data-i18n="priorityLow" data-i18n-prefix="🟢 ">低优先级</option>
+                            <option value="medium" data-i18n="priorityMedium" data-i18n-prefix="🟡 ">中优先级</option>
+                            <option value="high" data-i18n="priorityHigh" data-i18n-prefix="🔴 ">高优先级</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="task-category">分类</label>
+                        <label for="task-category" data-i18n="taskCategory">分类</label>
                         <select id="task-category">
-                            <option value="">无分类</option>
+                            <option value="" data-i18n="uncategorized">未分类</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- 更多选项 -->
                 <div class="more-options-section">
+                    <!-- toggle-icon 的 +/- 由 JS 按展开状态切换，文案单独成节点以便静态翻译 -->
                     <button type="button" id="more-options-toggle" class="btn btn--colorless">
-                        <span class="toggle-icon">+</span> 更多选项
+                        <span class="toggle-icon">+</span> <span data-i18n="moreOptions">更多选项</span>
                     </button>
 
                     <div id="more-options-content" class="more-options-content" style="display: none;">
                         <div class="form-group">
-                            <label for="task-parent">父任务 <span style="color: var(--text-secondary); font-size: 12px;">可选</span></label>
+                            <label for="task-parent">
+                                <span data-i18n="parentTask">父任务</span>
+                                <span style="color: var(--text-secondary); font-size: 12px;"
+                                      data-i18n="optional" data-i18n-prefix="（" data-i18n-suffix="）">可选</span>
+                            </label>
                             <div class="parent-task-combobox" id="parent-task-combobox">
-                                <input type="text" id="task-parent-input" placeholder="点击选择或输入搜索未完成的任务" autocomplete="off">
+                                <input type="text" id="task-parent-input" autocomplete="off"
+                                       placeholder="点击选择或输入搜索未完成的任务" data-i18n="parentTaskPlaceholder"
+                                       data-i18n-attr="placeholder">
                                 <input type="hidden" id="task-parent" value="">
                                 <div class="combobox-dropdown" id="parent-task-dropdown">
-                                    <div class="combobox-loading" style="display: none;">加载中...</div>
+                                    <div class="combobox-loading" style="display: none;"
+                                         data-i18n="loading">加载中...</div>
                                     <div class="combobox-results"></div>
                                     <div class="combobox-load-more" style="display: none;">
-                                        <button type="button" class="btn" id="load-more-btn">加载更多</button>
+                                        <button type="button" class="btn" id="load-more-btn"
+                                                data-i18n="loadMore">加载更多</button>
                                     </div>
-                                    <div class="combobox-empty" style="display: none;">无匹配任务</div>
+                                    <div class="combobox-empty" style="display: none;"
+                                         data-i18n="noMatchingTasks">无匹配任务</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 附件 -->
                         <div class="form-group attachment-group">
-                            <label>附件
-                                <span style="color: var(--text-secondary); font-size: 12px;">
-                                    （可选，最多 5 个，单个 10MB 以内）
-                                </span>
+                            <label>
+                                <span data-i18n="attachment">附件</span>
+                                <span style="color: var(--text-secondary); font-size: 12px;"
+                                      data-i18n="attachmentOptionalHint">（可选，最多 5 个，单个 10MB 以内）</span>
                                 <span id="attachment-count" class="attachment-count">0/5</span>
                             </label>
                             <div id="attachment-list" class="attachment-list">
-                                <div class="attachment-empty">暂无附件</div>
+                                <!-- 空态与附件条目由附件模块渲染，文案走 attachmentEmpty 等动态分支 -->
                             </div>
                             <div class="attachment-actions">
-                                <button type="button" id="attachment-add-file-btn" class="btn btn--tertiary-color">
-                                    📎 上传文件
+                                <button type="button" id="attachment-add-file-btn" class="btn btn--tertiary-color"
+                                        data-i18n="attachmentUploadFile" data-i18n-prefix="📎 ">上传文件
                                 </button>
-                                <button type="button" id="attachment-add-link-btn" class="btn btn--tertiary-color">
-                                    🔗 添加链接
+                                <button type="button" id="attachment-add-link-btn" class="btn btn--tertiary-color"
+                                        data-i18n="attachmentAddLink" data-i18n-prefix="🔗 ">添加链接
                                 </button>
-                                <button type="button" id="attachment-add-folder-btn" class="btn btn--tertiary-color">
-                                    📁 关联文件夹
+                                <button type="button" id="attachment-add-folder-btn" class="btn btn--tertiary-color"
+                                        data-i18n="attachmentAddFolder" data-i18n-prefix="📁 ">关联文件夹
                                 </button>
                             </div>
                         </div>
 
                         <!-- 时间设置：单次任务 / 周期性任务（并列二选一） -->
                         <div class="form-group schedule-group">
-                            <label id="schedule-mode-label" class="schedule-group__label">时间设置</label>
+                            <label id="schedule-mode-label" class="schedule-group__label"
+                                   data-i18n="scheduleMode">时间设置</label>
                             <div class="segmented segmented--block" id="schedule-mode-switch">
                                 <label class="segmented-item">
                                     <input type="radio" name="schedule-mode" value="once"
                                            id="schedule-mode-once" checked>
-                                    <span id="schedule-mode-once-text">单次任务</span>
+                                    <span id="schedule-mode-once-text" data-i18n="scheduleModeOnce">单次任务</span>
                                 </label>
                                 <label class="segmented-item">
                                     <input type="radio" name="schedule-mode" value="recurring"
                                            id="schedule-mode-recurring">
-                                    <span id="schedule-mode-recurring-text">周期性任务</span>
+                                    <span id="schedule-mode-recurring-text"
+                                          data-i18n="scheduleModeRecurring">周期性任务</span>
                                 </label>
                             </div>
                         </div>
@@ -657,18 +700,22 @@
                         <!-- 截止日期与时间：仅单次任务使用，周期性任务的提醒时间由规则决定 -->
                         <div class="datetime-inputs" id="datetime-inputs">
                             <div class="field-block" id="date-field">
-                                <label class="field-block__label" id="date-field-label" for="task-due-date-picker">截止日期</label>
+                                <label class="field-block__label" id="date-field-label" for="task-due-date-picker"
+                                       data-i18n="taskDueDate">截止日期</label>
                                 <div class="input-wrapper">
                                     <input type="text" id="task-due-date-picker" class="picker-input"
                                            placeholder="YYYY-MM-DD" readonly>
-                                    <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-date" title="清空日期">×</button>
+                                    <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-date"
+                                            title="清空日期" data-i18n="clearDate" data-i18n-attr="title">×</button>
                                 </div>
                             </div>
                             <div class="field-block" id="time-field">
-                                <label class="field-block__label" id="time-field-label" for="task-due-time">时间</label>
+                                <label class="field-block__label" id="time-field-label" for="task-due-time"
+                                       data-i18n="timeLabel">时间</label>
                                 <div class="input-wrapper">
                                     <input type="time" id="task-due-time" class="time-input">
-                                    <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-time" title="清空时间">×</button>
+                                    <button type="button" class="btn btn--colorless btn--font-size-lg" id="clear-time"
+                                            title="清空时间" data-i18n="clearTime" data-i18n-attr="title">×</button>
                                 </div>
                             </div>
                         </div>
@@ -677,62 +724,73 @@
                         <div id="recurring-options" class="recurring-options" style="display: none;">
                             <!-- 配置模式：普通 / Cron -->
                             <div class="recur-section">
-                                <div class="recur-section__title" id="recurrence-mode-label">配置模式</div>
+                                <div class="recur-section__title" id="recurrence-mode-label"
+                                     data-i18n="recurrenceMode">配置模式</div>
                                 <div class="segmented segmented--block" id="recurrence-mode-switch">
                                     <label class="segmented-item">
                                         <input type="radio" name="recurrence-mode" value="normal"
                                                id="recurrence-mode-normal" checked>
-                                        <span id="recurrence-mode-normal-text">普通模式</span>
+                                        <span id="recurrence-mode-normal-text"
+                                              data-i18n="recurrenceModeNormal">普通模式</span>
                                     </label>
                                     <label class="segmented-item">
                                         <input type="radio" name="recurrence-mode" value="cron"
                                                id="recurrence-mode-cron">
-                                        <span id="recurrence-mode-cron-text">Cron 模式</span>
+                                        <span id="recurrence-mode-cron-text"
+                                              data-i18n="recurrenceModeCron">Cron 模式</span>
                                     </label>
                                 </div>
                             </div>
 
                             <!-- 普通模式 -->
                             <div id="recurrence-normal-panel" class="recur-section recurrence-panel">
-                                <div class="recur-section__title" id="recurrence-type-label">重复周期</div>
+                                <div class="recur-section__title" id="recurrence-type-label"
+                                     data-i18n="recurrenceTypeLabel">重复周期</div>
                                 <select id="recurrence-type">
-                                    <option value="">请选择</option>
-                                    <option value="daily">每天</option>
-                                    <option value="weekly">每周</option>
-                                    <option value="monthly">每月</option>
-                                    <option value="yearly">每年</option>
+                                    <option value="" data-i18n="recurrenceChoose">请选择</option>
+                                    <option value="daily" data-i18n="recurrenceDaily">每天</option>
+                                    <option value="weekly" data-i18n="recurrenceWeekly">每周</option>
+                                    <option value="monthly" data-i18n="recurrenceMonthly">每月</option>
+                                    <option value="yearly" data-i18n="recurrenceYearly">每年</option>
                                 </select>
 
                                 <!-- 每天：指定时间点 / 时间段+间隔 -->
                                 <div class="recur-block recurrence-sub-panel" id="daily-mode-group" style="display: none;">
-                                    <div class="recur-block__title" id="daily-mode-label">提醒方式</div>
+                                    <div class="recur-block__title" id="daily-mode-label"
+                                         data-i18n="recurrenceDailyMode">提醒方式</div>
                                     <div class="segmented segmented--block">
                                         <label class="segmented-item">
                                             <input type="radio" name="daily-mode" value="times"
                                                    id="daily-mode-times" checked>
-                                            <span id="daily-mode-times-text">指定时间点</span>
+                                            <span id="daily-mode-times-text"
+                                                  data-i18n="recurrenceDailyModeTimes">指定时间点</span>
                                         </label>
                                         <label class="segmented-item">
                                             <input type="radio" name="daily-mode" value="interval"
                                                    id="daily-mode-interval">
-                                            <span id="daily-mode-interval-text">时间段 + 间隔</span>
+                                            <span id="daily-mode-interval-text"
+                                                  data-i18n="recurrenceDailyModeInterval">时间段 + 间隔</span>
                                         </label>
                                     </div>
                                 </div>
 
                                 <div class="recur-block recurrence-sub-panel" id="daily-interval-group" style="display: none;">
-                                    <div class="recur-block__title" id="daily-interval-label">时间段与间隔</div>
+                                    <div class="recur-block__title" id="daily-interval-label"
+                                         data-i18n="dailyIntervalLabel">时间段与间隔</div>
                                     <div class="mini-grid mini-grid--3">
                                         <div class="mini-field">
-                                            <span class="mini-field__label" id="daily-interval-start-label">开始</span>
+                                            <span class="mini-field__label" id="daily-interval-start-label"
+                                                  data-i18n="recurrenceIntervalStartShort">开始</span>
                                             <input type="time" id="daily-interval-start" value="09:00" step="60">
                                         </div>
                                         <div class="mini-field">
-                                            <span class="mini-field__label" id="daily-interval-end-label">结束</span>
+                                            <span class="mini-field__label" id="daily-interval-end-label"
+                                                  data-i18n="recurrenceIntervalEndShort">结束</span>
                                             <input type="time" id="daily-interval-end" value="18:00" step="60">
                                         </div>
                                         <div class="mini-field">
-                                            <span class="mini-field__label" id="daily-interval-minutes-label">间隔（分钟）</span>
+                                            <span class="mini-field__label" id="daily-interval-minutes-label"
+                                                  data-i18n="recurrenceIntervalMinutes">间隔（分钟）</span>
                                             <input type="number" id="daily-interval-minutes" min="1" max="1440" value="60">
                                         </div>
                                     </div>
@@ -740,28 +798,35 @@
 
                                 <!-- 每周：星期多选 -->
                                 <div class="recur-block recurrence-sub-panel" id="weekly-group" style="display: none;">
-                                    <div class="recur-block__title" id="weekly-days-label">选择星期</div>
+                                    <div class="recur-block__title" id="weekly-days-label"
+                                         data-i18n="recurrenceWeeklyDays">选择星期</div>
                                     <div class="chip-picker" id="weekly-days"></div>
-                                    <div class="recurrence-hint" id="weekly-days-hint">可多选，不选则不会提醒</div>
+                                    <div class="recurrence-hint" id="weekly-days-hint"
+                                         data-i18n="recurrenceWeeklyDaysHint">可多选，不选则不会提醒</div>
                                 </div>
 
                                 <!-- 每月：日期多选 -->
                                 <div class="recur-block recurrence-sub-panel" id="monthly-group" style="display: none;">
-                                    <div class="recur-block__title" id="monthly-days-label">选择日期</div>
+                                    <div class="recur-block__title" id="monthly-days-label"
+                                         data-i18n="recurrenceMonthlyDays">选择日期</div>
                                     <div class="chip-picker chip-picker--grid" id="monthly-days"></div>
-                                    <div class="recurrence-hint" id="monthly-days-hint">可多选；不存在的日期（如 2 月 30 日）会自动跳过</div>
+                                    <div class="recurrence-hint" id="monthly-days-hint"
+                                         data-i18n="recurrenceMonthlyDaysHint">可多选；不存在的日期（如 2 月 30 日）会自动跳过</div>
                                 </div>
 
                                 <!-- 每年：月 + 日 -->
                                 <div class="recur-block recurrence-sub-panel" id="yearly-group" style="display: none;">
-                                    <div class="recur-block__title" id="yearly-label">每年日期</div>
+                                    <div class="recur-block__title" id="yearly-label"
+                                         data-i18n="recurrenceYearlyLabel">每年日期</div>
                                     <div class="mini-grid mini-grid--2">
                                         <div class="mini-field">
-                                            <span class="mini-field__label" id="yearly-month-label">月份</span>
+                                            <span class="mini-field__label" id="yearly-month-label"
+                                                  data-i18n="recurrenceYearlyMonth">月份</span>
                                             <select id="yearly-month"></select>
                                         </div>
                                         <div class="mini-field">
-                                            <span class="mini-field__label" id="yearly-day-label">日期</span>
+                                            <span class="mini-field__label" id="yearly-day-label"
+                                                  data-i18n="recurrenceYearlyDay">日期</span>
                                             <select id="yearly-day"></select>
                                         </div>
                                     </div>
@@ -769,47 +834,56 @@
 
                                 <!-- 提醒时间点（每天-指定时间点 / 每周 / 每月 / 每年 共用） -->
                                 <div class="recur-block recurrence-sub-panel" id="recurrence-times-group" style="display: none;">
-                                    <div class="recur-block__title" id="recurrence-times-label">提醒时间点</div>
+                                    <div class="recur-block__title" id="recurrence-times-label"
+                                         data-i18n="recurrenceTimes">提醒时间点</div>
                                     <div class="time-chip-list" id="recurrence-times"></div>
                                     <button type="button" class="btn btn--tertiary-color btn--padding-sm"
-                                            id="recurrence-add-time">＋ 添加时间点</button>
+                                            id="recurrence-add-time" data-i18n="recurrenceAddTime"
+                                            data-i18n-prefix="＋ ">添加时间点</button>
                                 </div>
                             </div>
 
                             <!-- Cron 模式 -->
                             <div id="recurrence-cron-panel" class="recur-section recurrence-panel" style="display: none;">
-                                <div class="recur-section__title" id="recurrence-cron-label">Cron 表达式</div>
+                                <div class="recur-section__title" id="recurrence-cron-label"
+                                     data-i18n="recurrenceCron">Cron 表达式</div>
                                 <input type="text" id="recurrence-cron" placeholder="0 9 * * 1-5" autocomplete="off">
-                                <div class="recurrence-hint" id="recurrence-cron-hint">
+                                <div class="recurrence-hint" id="recurrence-cron-hint" data-i18n="recurrenceCronHint">
                                     格式：分 时 日 月 周（如 0 9 * * 1-5 表示工作日 09:00；*/30 9-18 * * * 表示 09:00–18:00 每 30 分钟）
                                 </div>
                             </div>
 
                             <!-- 结束条件（两种模式共用） -->
                             <div class="recur-section">
-                                <div class="recur-section__title" id="recurrence-end-type-label">结束方式</div>
+                                <div class="recur-section__title" id="recurrence-end-type-label"
+                                     data-i18n="recurrenceEndType">结束方式</div>
                                 <select id="recurrence-end-type">
-                                    <option value="habit">习惯</option>
-                                    <option value="count">按次数结束</option>
-                                    <option value="date">按日期结束</option>
+                                    <option value="habit" data-i18n="recurrenceEndHabit">习惯</option>
+                                    <option value="count" data-i18n="recurrenceEndByCount">按次数结束</option>
+                                    <option value="date" data-i18n="recurrenceEndByDate">按日期结束</option>
                                 </select>
-                                <div class="recurrence-hint" id="recurrence-habit-hint">每次只保留一条待办，完成后才按周期生成下一条</div>
+                                <div class="recurrence-hint" id="recurrence-habit-hint"
+                                     data-i18n="recurrenceHabitHint">每次只保留一条待办，完成后才按周期生成下一条</div>
                                 <div class="mini-grid mini-grid--1" id="recurrence-count-group" style="display: none;">
                                     <div class="mini-field">
-                                        <span class="mini-field__label" id="recurrence-count-label">循环次数</span>
+                                        <span class="mini-field__label" id="recurrence-count-label"
+                                              data-i18n="recurrenceCountLabel">循环次数</span>
                                         <input type="number" id="recurrence-count" min="1" max="999"
-                                               placeholder="循环次数不能为空">
+                                               placeholder="循环次数不能为空" data-i18n="recurrenceCountRequired"
+                                               data-i18n-attr="placeholder">
                                     </div>
                                 </div>
                                 <div class="mini-grid mini-grid--1" id="recurrence-end-date-group" style="display: none;">
                                     <div class="mini-field">
-                                        <span class="mini-field__label" id="recurrence-end-date-label">结束日期</span>
+                                        <span class="mini-field__label" id="recurrence-end-date-label"
+                                              data-i18n="recurrenceEndDate">结束日期</span>
                                         <!-- 与单次任务截止日期一致的只读输入框 + 自定义日历，避免原生日期控件的默认外观 -->
                                         <div class="input-wrapper">
                                             <input type="text" id="recurrence-end-date" class="picker-input"
                                                    placeholder="YYYY-MM-DD" readonly>
                                             <button type="button" class="btn btn--colorless btn--font-size-lg"
-                                                    id="clear-recurrence-end-date" title="清空结束日期">×</button>
+                                                    id="clear-recurrence-end-date" title="清空结束日期"
+                                                    data-i18n="clearEndDate" data-i18n-attr="title">×</button>
                                         </div>
                                     </div>
                                 </div>
@@ -817,7 +891,8 @@
 
                             <div class="recur-section">
                                 <button type="button" class="btn btn--tertiary-color btn--padding-sm"
-                                        id="recurrence-preview-btn">预览提醒时间</button>
+                                        id="recurrence-preview-btn"
+                                        data-i18n="recurrencePreviewBtn">预览提醒时间</button>
                                 <div class="recurrence-preview" id="recurrence-preview" style="display: none;"></div>
                             </div>
                         </div>
@@ -827,8 +902,10 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" id="cancel-btn" class="btn btn--tertiary-color btn--padding-md">取消</button>
-            <button type="submit" form="task-form" id="save-btn" class="btn btn--primary-color btn--padding-md">保存</button>
+            <button type="button" id="cancel-btn" class="btn btn--tertiary-color btn--padding-md"
+                    data-i18n="cancel">取消</button>
+            <button type="submit" form="task-form" id="save-btn" class="btn btn--primary-color btn--padding-md"
+                    data-i18n="save">保存</button>
         </div>
     </div>
 </div>
@@ -837,22 +914,29 @@
 <div id="attachment-link-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>添加在线链接</h2>
+            <h2 data-i18n="attachmentAddLinkTitle">添加在线链接</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="attachment-link-close">&times;</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label for="attachment-link-name">链接名称 <span style="color: var(--text-secondary); font-size: 12px;">（可选，默认使用链接地址）</span></label>
-                <input type="text" id="attachment-link-name" maxlength="100" placeholder="请输入链接名称">
+                <label for="attachment-link-name">
+                    <span data-i18n="attachmentLinkName">链接名称</span>
+                    <span style="color: var(--text-secondary); font-size: 12px;"
+                          data-i18n="attachmentLinkNameHint">（可选，默认使用链接地址）</span>
+                </label>
+                <input type="text" id="attachment-link-name" maxlength="100" placeholder="请输入链接名称"
+                       data-i18n="attachmentLinkNamePlaceholder" data-i18n-attr="placeholder">
             </div>
             <div class="form-group">
-                <label for="attachment-link-url">链接地址 *</label>
+                <label for="attachment-link-url" data-i18n="attachmentLinkUrl" data-i18n-suffix=" *">链接地址</label>
                 <input type="text" id="attachment-link-url" placeholder="https://example.com">
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" id="attachment-link-cancel" class="btn btn--tertiary-color btn--padding-md">取消</button>
-            <button type="button" id="attachment-link-save" class="btn btn--primary-color btn--padding-md">添加</button>
+            <button type="button" id="attachment-link-cancel" class="btn btn--tertiary-color btn--padding-md"
+                    data-i18n="cancel">取消</button>
+            <button type="button" id="attachment-link-save" class="btn btn--primary-color btn--padding-md"
+                    data-i18n="attachmentAdd">添加</button>
         </div>
     </div>
 </div>
@@ -868,12 +952,12 @@
         <div class="modal-body">
             <form id="category-form" class="category-form">
                 <div class="form-group">
-                    <label for="category-name">分类名称 *</label>
+                    <label for="category-name" data-i18n="categoryName" data-i18n-suffix=" *">分类名称</label>
                     <input type="text" id="category-name" required maxlength="20">
                 </div>
 
                 <div class="form-group">
-                    <label for="category-color">颜色</label>
+                    <label for="category-color" data-i18n="categoryColor">颜色</label>
                     <div class="color-picker">
                         <input type="color" id="category-color" value="#007bff">
                         <div class="color-presets">
@@ -890,8 +974,10 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" id="category-cancel-btn" class="btn btn--tertiary-color btn--padding-md">取消</button>
-            <button type="submit" form="category-form" id="category-save-btn" class="btn btn--primary-color btn--padding-md">保存</button>
+            <button type="button" id="category-cancel-btn" class="btn btn--tertiary-color btn--padding-md"
+                    data-i18n="cancel">取消</button>
+            <button type="submit" form="category-form" id="category-save-btn"
+                    class="btn btn--primary-color btn--padding-md" data-i18n="save">保存</button>
         </div>
     </div>
 </div>
@@ -900,15 +986,17 @@
 <div id="confirm-dialog" class="modal">
     <div class="modal-content confirm-dialog-content">
         <div class="modal-header">
-            <h2>确认操作</h2>
-            <button class="btn btn--colorless btn--font-size-lg" id="confirm-close" title="关闭">&times;</button>
+            <!-- 标题由 confirmDialog 按调用方传入的文案覆盖；带 data-i18n-key 时表示当前是默认标题，跟随语言刷新 -->
+            <h2 data-i18n-key="confirm">确认操作</h2>
+            <button class="btn btn--colorless btn--font-size-lg" id="confirm-close" title="关闭"
+                    data-i18n="close" data-i18n-attr="title">&times;</button>
         </div>
         <div class="modal-body">
             <p id="confirm-message"></p>
         </div>
         <div class="modal-footer">
-            <button id="confirm-cancel" class="btn btn--tertiary-color btn--width-100">取消</button>
-            <button id="confirm-ok" class="btn btn--danger-color btn--width-100">确认</button>
+            <button id="confirm-cancel" class="btn btn--tertiary-color btn--width-100" data-i18n="cancel">取消</button>
+            <button id="confirm-ok" class="btn btn--danger-color btn--width-100" data-i18n="confirm">确认</button>
         </div>
     </div>
 </div>
@@ -917,19 +1005,20 @@
 <div id="task-columns-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 id="task-columns-title">配置显示列</h2>
+            <h2 id="task-columns-title" data-i18n="columnConfigTitle">配置显示列</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="task-columns-close">&times;</button>
         </div>
         <div class="modal-body">
-            <p class="column-config-desc" id="task-columns-desc">勾选需要在任务列表中展示的列</p>
+            <p class="column-config-desc" id="task-columns-desc"
+               data-i18n="columnConfigDesc">勾选需要在任务列表中展示的列</p>
             <div class="column-config-list" id="task-columns-list">
                 <!-- 列配置项由 JavaScript 动态渲染 -->
             </div>
         </div>
         <div class="modal-footer">
-            <button id="task-columns-reset" class="btn btn--tertiary-color">恢复默认</button>
-            <button id="task-columns-cancel" class="btn btn--tertiary-color">取消</button>
-            <button id="task-columns-save" class="btn btn--primary-color">保存</button>
+            <button id="task-columns-reset" class="btn btn--tertiary-color" data-i18n="columnConfigReset">恢复默认</button>
+            <button id="task-columns-cancel" class="btn btn--tertiary-color" data-i18n="cancel">取消</button>
+            <button id="task-columns-save" class="btn btn--primary-color" data-i18n="save">保存</button>
         </div>
     </div>
 </div>
@@ -938,18 +1027,18 @@
 <div id="settings-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>设置中心</h2>
+            <h2 data-i18n="settings">设置</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="settings-close">&times;</button>
         </div>
 
         <div class="modal-body">
             <div class="setting-section">
-                <h3 data-lang-key="settingsWindow">通用设置</h3>
+                <h3 data-i18n="settingsWindow">通用设置</h3>
                 <!-- 窗口置顶设置 -->
                 <div class="setting-item mobile-unshown-item">
                     <div class="setting-label">
                         <span class="setting-icon">📌</span>
-                        <span class="setting-text">窗口置顶</span>
+                        <span class="setting-text" data-i18n="settingsWindowTop">窗口置顶</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="window-top-toggle">
@@ -961,7 +1050,7 @@
                 <div class="setting-item">
                     <div class="setting-label">
                         <span class="setting-icon">🅰️</span>
-                        <span class="setting-text">语言切换</span>
+                        <span class="setting-text" data-i18n="language">语言切换</span>
                     </div>
                     <label class="switch language-switch">
                         <input type="checkbox" id="language-toggle">
@@ -974,7 +1063,7 @@
                 <div class="setting-item mobile-unshown-item">
                     <div class="setting-label">
                         <span class="setting-icon">🚀</span>
-                        <span class="setting-text">开机启动</span>
+                        <span class="setting-text" data-i18n="settingsAutoStart">开机启动</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="auto-start-toggle">
@@ -986,7 +1075,7 @@
                 <div class="setting-item mobile-unshown-item">
                     <div class="setting-label">
                         <span class="setting-icon">⌨️</span>
-                        <span class="setting-text">快捷配置</span>
+                        <span class="setting-text" data-i18n="settingsShortcut">快捷操作</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="shortcut-toggle" checked>
@@ -996,58 +1085,61 @@
 
                 <div class="setting-item-config mobile-unshown-item shortcut only-windows">
                     <div class="config-item">
-                        <label class="data-label">快捷操作</label>
+                        <label class="data-label" data-i18n="settingsShortcut">快捷操作</label>
                         <button id="smart-key-show" class="setting-config-text">Ctrl+Space</button>
-                        <button id="smart-key-apply" class="btn btn--primary-color setting-config-btn">应用</button>
+                        <button id="smart-key-apply" class="btn btn--primary-color setting-config-btn"
+                                data-i18n="settingsApply">应用</button>
                     </div>
                 </div>
             </div>
 
             <!-- 主题配色：入口行，点击打开二级弹窗 -->
             <div class="setting-section">
-                <h3 data-lang-key="settingsThemeColors">主题配色</h3>
+                <h3 data-i18n="settingsThemeColors">主题配色</h3>
                 <div class="setting-item is-clickable" id="theme-mode-btn">
                     <div class="setting-label">
                         <span class="setting-icon">🎨</span>
-                        <span class="setting-text" data-lang-key="settingsThemeMode">主题模式</span>
+                        <span class="setting-text" data-i18n="settingsThemeMode">主题模式</span>
                     </div>
                     <span class="setting-item-value" id="theme-mode-value">默认模式</span>
                 </div>
             </div>
 
             <div class="setting-section">
-                <h3 data-lang-key="settingsData">数据管理</h3>
+                <h3 data-i18n="settingsData">数据管理</h3>
                 <!-- 数据目录配置 -->
                 <div class="setting-item-config mobile-unshown-item data-storage">
                     <div class="config-item">
-                        <label class="data-label">存储目录</label>
+                        <label class="data-label" data-i18n="dataStoragePath">存储目录</label>
+                        <!-- 该按钮文案会由 JS 替换为当前存储目录路径，不参与静态翻译 -->
                         <button id="data-dir-btn" class="setting-config-text">浏览</button>
-                        <button id="apply-dir-btn" class="btn btn--primary-color setting-config-btn">应用</button>
+                        <button id="apply-dir-btn" class="btn btn--primary-color setting-config-btn"
+                                data-i18n="settingsApply">应用</button>
                     </div>
                 </div>
                 <!-- 数据共享管理 -->
                 <div class="setting-item" id="data-share-btn">
                     <div class="setting-label">
                         <span class="setting-icon">📤</span>
-                        <span class="setting-text">共享数据</span>
+                        <span class="setting-text" data-i18n="settingsDataShare">共享数据</span>
                     </div>
                 </div>
                 <!-- 数据同步管理 -->
                 <div class="setting-item" id="data-sync-btn">
                     <div class="setting-label">
                         <span class="setting-icon">💾</span>
-                        <span class="setting-text">同步数据</span>
+                        <span class="setting-text" data-i18n="settingsDataSync">同步数据</span>
                     </div>
                 </div>
             </div>
 
             <div class="setting-section">
-                <h3 data-lang-key="about">关于</h3>
+                <h3 data-i18n="about">关于</h3>
                 <!-- 仓库地址 -->
                 <div class="setting-item">
                     <div class="setting-label">
                         <span class="setting-icon">🔗</span>
-                        <span class="setting-text">源码地址</span>
+                        <span class="setting-text" data-i18n="sourceCode">源码地址</span>
                     </div>
                     <a href="https://github.com/TangIsLearning/TodoList" target="_blank" class="external-link"
                        style="text-decoration: none;">TodoList</a>
@@ -1056,19 +1148,19 @@
                 <div class="setting-item">
                     <div class="setting-label">
                         <span class="setting-icon">📃</span>
-                        <span class="setting-text">相关文档</span>
+                        <span class="setting-text" data-i18n="document">相关文档</span>
                     </div>
                     <a href="https://tangislearning.github.io/TodoList/features.html" target="_blank" class="external-link"
-                       style="text-decoration: none;">TodoList功能介绍</a>
+                       style="text-decoration: none;" data-i18n="documentText">TodoList功能介绍</a>
                 </div>
                 <!-- 开源协议 -->
                 <div class="setting-item">
                     <div class="setting-label">
                         <span class="setting-icon">💡</span>
-                        <span class="setting-text">开源声明</span>
+                        <span class="setting-text" data-i18n="statement">开源声明</span>
                     </div>
                     <a href="https://github.com/TangIsLearning/TodoList/blob/master/LICENSE" target="_blank"
-                       class="external-link" style="text-decoration: none;">仅供使用，勿商用</a>
+                       class="external-link" style="text-decoration: none;" data-i18n="statementText">仅供使用，勿商用</a>
                 </div>
             </div>
         </div>
@@ -1079,7 +1171,7 @@
 <div id="data-transfer-modal" class="modal">
     <div class="modal-content data-transfer-modal-content">
         <div class="modal-header">
-            <h2>数据传输</h2>
+            <h2 data-i18n="dataTransfer">数据传输</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="data-transfer-close">&times;</button>
         </div>
 
@@ -1088,40 +1180,43 @@
             <div class="transfer-mode-selector">
                 <button id="share-mode-btn" class="btn btn--font-size-lg btn--width-100 active">
                     <span class="mode-icon">📤</span>
-                    <span class="mode-text">共享数据</span>
+                    <span class="mode-text" data-i18n="shareMode">共享数据</span>
                 </button>
                 <button id="receive-mode-btn" class="btn btn--font-size-lg btn--width-100">
                     <span class="mode-icon">📥</span>
-                    <span class="mode-text">接收数据</span>
+                    <span class="mode-text" data-i18n="receiveMode">接收数据</span>
                 </button>
             </div>
 
             <!-- 共享模式 -->
             <div id="share-mode-panel" class="mode-panel active">
                 <div class="panel-section">
-                    <h3>当前数据摘要</h3>
+                    <h3 data-i18n="currentDataSummary">当前数据摘要</h3>
                     <div class="data-summary" id="share-data-summary">
-                        <p>加载中...</p>
+                        <p data-i18n="loading">加载中...</p>
                     </div>
                 </div>
 
                 <div class="panel-section">
-                    <h3>共享设置</h3>
+                    <h3 data-i18n="shareSettings">共享设置</h3>
                     <label class="transfer-option">
                         <input type="checkbox" id="include-attachments-checkbox">
-                        <span class="transfer-option-text" id="include-attachments-text">同时传输附件文件（体积较大，耗时更久）</span>
+                        <span class="transfer-option-text" id="include-attachments-text"
+                              data-i18n="transferIncludeAttachments">同时传输附件文件（体积较大，耗时更久）</span>
                     </label>
-                    <button id="start-share-btn" class="btn btn--primary-color btn--width-100">启动共享</button>
-                    <button id="stop-share-btn" class="btn btn--danger-color btn--width-100" style="display: none;">停止共享</button>
-                    <div class="edit-notice">⚠️ 开启/停止共享涉及配置防火墙，需要管理员权限</div>
+                    <button id="start-share-btn" class="btn btn--primary-color btn--width-100"
+                            data-i18n="startShare">启动共享</button>
+                    <button id="stop-share-btn" class="btn btn--danger-color btn--width-100" style="display: none;"
+                            data-i18n="stopShare">停止共享</button>
+                    <div class="edit-notice" data-i18n="shareFirewallNotice">⚠️ 开启/停止共享涉及配置防火墙，需要管理员权限</div>
                 </div>
 
                 <div class="panel-section" id="share-status" style="display: none;">
-                    <h3>共享状态</h3>
+                    <h3 data-i18n="shareStatus">共享状态</h3>
                     <div class="status-info">
-                        <p><strong>IP地址:</strong> <span id="share-ip">--</span></p>
-                        <p><strong>端口:</strong> <span id="share-port">--</span></p>
-                        <p class="status-active"><span class="status-dot"></span> <strong>正在共享数据</strong></p>
+                        <p><strong data-i18n="ipAddress">IP地址：</strong> <span id="share-ip">--</span></p>
+                        <p><strong data-i18n="port">端口：</strong> <span id="share-port">--</span></p>
+                        <p class="status-active"><span class="status-dot"></span> <strong data-i18n="sharingData">正在共享数据</strong></p>
                     </div>
                 </div>
             </div>
@@ -1129,28 +1224,31 @@
             <!-- 接收模式 -->
             <div id="receive-mode-panel" class="mode-panel">
                 <div class="panel-section">
-                    <h3>扫描设备</h3>
-                    <button id="scan-devices-btn" class="btn btn--primary-color btn--width-100">扫描局域网设备</button>
+                    <h3 data-i18n="scanDevice">扫描设备</h3>
+                    <button id="scan-devices-btn" class="btn btn--primary-color btn--width-100"
+                            data-i18n="scanNetworkDevice">扫描局域网设备</button>
                 </div>
 
                 <div class="panel-section" id="device-list-section" style="display: none;">
-                    <h3>可用设备</h3>
+                    <h3 data-i18n="availableDevices">可用设备</h3>
                     <div class="device-list" id="device-list">
-                        <p>未找到设备</p>
+                        <p data-i18n="noDevicesFound">未找到设备</p>
                     </div>
                 </div>
 
                 <div class="panel-section" id="receive-data-preview-section" style="display: none;">
-                    <h3>接收到的数据预览</h3>
+                    <h3 data-i18n="receivedDataPreview">接收到的数据预览</h3>
                     <div class="data-summary" id="receive-data-summary">
-                        <p>等待接收数据...</p>
+                        <p data-i18n="waitingForData">等待接收数据...</p>
                     </div>
                     <div class="import-warning" id="import-warning" style="display: none;">
-                        <p>⚠️ 注意: 导入数据将覆盖当前所有数据，建议先备份数据！</p>
+                        <p data-i18n="importWarning">⚠️ 注意: 导入数据将覆盖当前所有数据，建议先备份数据！</p>
                     </div>
                     <div class="import-actions">
-                        <button id="cancel-import-btn" class="btn btn--tertiary-color btn--width-100">取消</button>
-                        <button id="confirm-import-btn" class="btn btn--danger-color btn--width-100">确认导入</button>
+                        <button id="cancel-import-btn" class="btn btn--tertiary-color btn--width-100"
+                                data-i18n="cancelImport">取消</button>
+                        <button id="confirm-import-btn" class="btn btn--danger-color btn--width-100"
+                                data-i18n="confirmImport">确认导入</button>
                     </div>
                 </div>
             </div>
@@ -1161,7 +1259,7 @@
 <div id="data-sync-modal" class="modal">
     <div class="modal-content data-sync-modal-content">
         <div class="modal-header">
-            <h2>数据同步</h2>
+            <h2 data-i18n="settingsDataSync">数据同步</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="data-sync-close">&times;</button>
         </div>
 
@@ -1171,7 +1269,7 @@
                 <div class="setting-item">
                     <div class="setting-label">
                         <span class="setting-icon">☁️</span>
-                        <span class="setting-text">数据同步</span>
+                        <span class="setting-text" data-i18n="dataSync">数据云同步</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="webdav-enable-toggle">
@@ -1183,47 +1281,53 @@
                 <div id="webdav-config-panel" class="webdav-config-panel" style="display: none;">
                     <!-- 同步类型选择 -->
                     <div class="config-item">
-                        <label class="data-label">同步类型</label>
+                        <label class="data-label" data-i18n="syncType">同步类型</label>
                         <select id="webdav-sync-type-selector" name="sync-type" class="webdav-select">
-                            <option value="jianguoyun">坚果云</option>
-                            <option value="custom">自定义</option>
+                            <option value="jianguoyun" data-i18n="syncTypeJianguoyun">坚果云</option>
+                            <option value="custom" data-i18n="syncTypeCustom">自定义</option>
                         </select>
                     </div>
 
                     <!-- URL输入框 -->
                     <div class="config-item">
-                        <label class="data-label">地址*</label>
-                        <input type="text" id="webdav-url" class="webdav-input" placeholder="请输入WebDAV服务器地址">
+                        <label class="data-label" data-i18n="url">地址*</label>
+                        <input type="text" id="webdav-url" class="webdav-input" placeholder="请输入WebDAV服务器地址"
+                               data-i18n="webdavUrlPlaceholder" data-i18n-attr="placeholder">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">账号*</label>
-                        <input type="email" id="webdav-username" class="webdav-input" placeholder="请输入邮箱地址">
+                        <label class="data-label" data-i18n="account">账号*</label>
+                        <input type="email" id="webdav-username" class="webdav-input" placeholder="请输入邮箱地址"
+                               data-i18n="webdavAccountPlaceholder" data-i18n-attr="placeholder">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">密码*</label>
-                        <input type="password" id="webdav-password" class="webdav-input" placeholder="请输入授权应用密码">
+                        <label class="data-label" data-i18n="password">密码*</label>
+                        <input type="password" id="webdav-password" class="webdav-input" placeholder="请输入授权应用密码"
+                               data-i18n="webdavPasswordPlaceholder" data-i18n-attr="placeholder">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">同步目录*</label>
-                        <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程同步目录，如 /todolist">
+                        <label class="data-label" data-i18n="filepath">路径*</label>
+                        <input id="webdav-remote-path" class="webdav-input" placeholder="请输入远程同步目录，如 /todolist"
+                               data-i18n="webdavPathPlaceholder" data-i18n-attr="placeholder">
                     </div>
 
                     <div class="config-item">
-                        <label class="data-label">首次同步</label>
+                        <label class="data-label" data-i18n="firstSyncMode">首次同步</label>
                         <select id="webdav-first-sync-mode" class="webdav-select">
-                            <option value="remote_overwrite">远程覆盖本地</option>
-                            <option value="local_overwrite">本地覆盖远程</option>
+                            <option value="remote_overwrite" data-i18n="firstSyncModeRemote">远程覆盖本地</option>
+                            <option value="local_overwrite" data-i18n="firstSyncModeLocal">本地覆盖远程</option>
                         </select>
                     </div>
 
-                    <div class="edit-notice">⚠️ 首次同步外的数据自动同步规则：存在数据更新的端点，15s内会自动同步数据到其他端点</div>
+                    <div class="edit-notice" data-i18n="autoSyncNotice">⚠️ 首次同步外的数据自动同步规则：存在数据更新的端点，15s内会自动同步数据到其他端点</div>
 
                     <div class="webdav-actions">
-                        <button id="webdav-test-btn" class="btn btn--tertiary-color btn--width-100">测试连接</button>
-                        <button id="webdav-save-btn" class="btn btn--primary-color btn--width-100">保存配置</button>
+                        <button id="webdav-test-btn" class="btn btn--tertiary-color btn--width-100"
+                                data-i18n="testConnection">测试连接</button>
+                        <button id="webdav-save-btn" class="btn btn--primary-color btn--width-100"
+                                data-i18n="saveConfiguration">保存配置</button>
                     </div>
 
                     <div id="webdav-status" class="webdav-status" style="display: none;"></div>
@@ -1237,7 +1341,7 @@
 <div id="export-modal" class="modal">
     <div class="modal-content export-modal-content">
         <div class="modal-header">
-            <h2>导出任务</h2>
+            <h2 data-i18n="exportTasks">导出任务</h2>
             <button class="btn btn--colorless btn--font-size-lg" id="export-modal-close">&times;</button>
         </div>
 
@@ -1245,59 +1349,59 @@
             <div class="export-form">
                 <!-- 优先级筛选 -->
                 <div class="form-group">
-                    <label for="export-priority">优先级</label>
+                    <label for="export-priority" data-i18n="taskPriority">优先级</label>
                     <select id="export-priority">
-                        <option value="all">全部</option>
-                        <option value="high">高</option>
-                        <option value="medium">中</option>
-                        <option value="low">低</option>
-                        <option value="none">无</option>
+                        <option value="all" data-i18n="all">全部</option>
+                        <option value="high" data-i18n="priorityShortHigh">高</option>
+                        <option value="medium" data-i18n="priorityShortMedium">中</option>
+                        <option value="low" data-i18n="priorityShortLow">低</option>
+                        <option value="none" data-i18n="none">无</option>
                     </select>
                 </div>
 
                 <!-- 完成状态筛选 -->
                 <div class="form-group">
-                    <label for="export-status">完成状态</label>
+                    <label for="export-status" data-i18n="exportStatusLabel">完成状态</label>
                     <select id="export-status">
-                        <option value="all">全部</option>
-                        <option value="completed">已完成</option>
-                        <option value="uncompleted">未完成</option>
+                        <option value="all" data-i18n="all">全部</option>
+                        <option value="completed" data-i18n="statusCompleted">已完成</option>
+                        <option value="uncompleted" data-i18n="statusUncompleted">未完成</option>
                     </select>
                 </div>
 
                 <!-- 年份筛选 -->
                 <div class="form-group">
-                    <label for="export-year">截止年份</label>
+                    <label for="export-year" data-i18n="exportDueYear">截止年份</label>
                     <select id="export-year">
-                        <option value="">全部年份</option>
+                        <option value="" data-i18n="exportAllYears">全部年份</option>
                     </select>
                 </div>
 
                 <!-- 月份筛选 -->
                 <div class="form-group">
-                    <label for="export-month">截止月份</label>
+                    <label for="export-month" data-i18n="exportDueMonth">截止月份</label>
                     <select id="export-month">
-                        <option value="">全部月份</option>
-                        <option value="1">1月</option>
-                        <option value="2">2月</option>
-                        <option value="3">3月</option>
-                        <option value="4">4月</option>
-                        <option value="5">5月</option>
-                        <option value="6">6月</option>
-                        <option value="7">7月</option>
-                        <option value="8">8月</option>
-                        <option value="9">9月</option>
-                        <option value="10">10月</option>
-                        <option value="11">11月</option>
-                        <option value="12">12月</option>
+                        <option value="" data-i18n="exportAllMonths">全部月份</option>
+                        <option value="1" data-i18n="month1">1月</option>
+                        <option value="2" data-i18n="month2">2月</option>
+                        <option value="3" data-i18n="month3">3月</option>
+                        <option value="4" data-i18n="month4">4月</option>
+                        <option value="5" data-i18n="month5">5月</option>
+                        <option value="6" data-i18n="month6">6月</option>
+                        <option value="7" data-i18n="month7">7月</option>
+                        <option value="8" data-i18n="month8">8月</option>
+                        <option value="9" data-i18n="month9">9月</option>
+                        <option value="10" data-i18n="month10">10月</option>
+                        <option value="11" data-i18n="month11">11月</option>
+                        <option value="12" data-i18n="month12">12月</option>
                     </select>
                 </div>
 
                 <!-- 分类筛选 -->
                 <div class="form-group">
-                    <label for="export-category">分类</label>
+                    <label for="export-category" data-i18n="categories">分类</label>
                     <select id="export-category">
-                        <option value="all">全部分类</option>
+                        <option value="all" data-i18n="allCategoriesOption">全部分类</option>
                     </select>
                 </div>
 
@@ -1310,8 +1414,10 @@
                 </div>
 
                 <div class="export-actions">
-                    <button id="export-cancel-btn" class="btn btn--tertiary-color btn--width-100">取消</button>
-                    <button id="export-confirm-btn" class="btn btn--primary-color btn--width-100">导出Excel</button>
+                    <button id="export-cancel-btn" class="btn btn--tertiary-color btn--width-100"
+                            data-i18n="cancel">取消</button>
+                    <button id="export-confirm-btn" class="btn btn--primary-color btn--width-100"
+                            data-i18n="exportExcel">导出Excel</button>
                 </div>
             </div>
         </div>
@@ -1321,10 +1427,11 @@
 <!-- 联系作者二维码弹窗 -->
 <div id="qr-code-modal" class="qr-code-modal">
     <div class="qr-code-content">
-        <h2 class="qr-code-title">联系作者</h2>
-        <img id="qr-code-image" class="qr-code-image" src="/asset/qr-code.jpg" alt="联系作者二维码">
-        <p class="qr-code-caption">扫描二维码联系作者</p>
-        <button id="qr-code-close" class="btn btn--primary-color">关闭</button>
+        <h2 class="qr-code-title" data-i18n="contactAuthor">联系作者</h2>
+        <img id="qr-code-image" class="qr-code-image" src="/asset/qr-code.jpg"
+             alt="联系作者二维码" data-i18n="contactAuthorQrAlt" data-i18n-attr="alt">
+        <p class="qr-code-caption" data-i18n="qrCodeCaption">扫描二维码联系作者</p>
+        <button id="qr-code-close" class="btn btn--primary-color" data-i18n="close">关闭</button>
     </div>
 </div>
 
@@ -1332,76 +1439,76 @@
 <div id="more-menu-modal" class="more-menu-modal">
     <div class="more-menu-content">
         <div class="more-menu-header">
-            <h3 class="more-menu-title">更多选项</h3>
+            <h3 class="more-menu-title" data-i18n="moreOptions">更多选项</h3>
             <button id="more-menu-close" class="btn btn--colorless btn--font-size-lg">×</button>
         </div>
         <ul class="more-menu-list">
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="switch-view" data-view="list">
                     <span class="more-menu-icon">📋</span>
-                    <span class="more-menu-text" data-view-text="list">列表视图</span>
+                    <span class="more-menu-text" data-view-text="list" data-i18n="listView">列表视图</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="switch-view" data-view="calendar">
                     <span class="more-menu-icon">📅</span>
-                    <span class="more-menu-text" data-view-text="calendar">日历视图</span>
+                    <span class="more-menu-text" data-view-text="calendar" data-i18n="calendarView">日历视图</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="switch-view" data-view="timeline">
                     <span class="more-menu-icon">⌛</span>
-                    <span class="more-menu-text" data-view-text="timeline">时间轴视图</span>
+                    <span class="more-menu-text" data-view-text="timeline" data-i18n="timelineView">时间轴视图</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="switch-view" data-view="stats">
                     <span class="more-menu-icon">📊</span>
-                    <span class="more-menu-text" data-view-text="stats">统计视图</span>
+                    <span class="more-menu-text" data-view-text="stats" data-i18n="statsView">统计视图</span>
                 </a>
             </li>
             <li class="group-divider"></li> <!-- 分割线 -->
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="filter-all">
                     <span class="more-menu-icon">📜</span>
-                    <span class="more-menu-text">显示所有任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuFilterAll">显示所有任务</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="filter-uncompleted">
                     <span class="more-menu-icon">⏳</span>
-                    <span class="more-menu-text">显示未完成任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuFilterUncompleted">显示未完成任务</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="filter-overdue">
                     <span class="more-menu-icon">⚠️</span>
-                    <span class="more-menu-text">显示已逾期任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuFilterOverdue">显示已逾期任务</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="filter-today">
                     <span class="more-menu-icon">☀️</span>
-                    <span class="more-menu-text">仅显示今天任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuFilterToday">仅显示今天任务</span>
                 </a>
             </li>
             <li class="more-menu-item">
                 <a href="#" class="more-menu-link" data-action="filter-tag">
                     <span class="more-menu-icon">🏷️</span>
-                    <span class="more-menu-text">显示含标签任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuFilterTag">显示含标签任务</span>
                 </a>
             </li>
             <li class="group-divider" style="display: none;" id="filter-group-divider"></li> <!-- 分割线 -->
             <li class="more-menu-item" style="display: none;" id="filter-prev-month">
                 <a href="#" class="more-menu-link" data-action="filter-prev-month">
                     <span class="more-menu-icon">◀️</span>
-                    <span class="more-menu-text">上一个月任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuPrevMonthTasks">上一个月任务</span>
                 </a>
             </li>
             <li class="more-menu-item" style="display: none;" id="filter-next-month">
                 <a href="#" class="more-menu-link" data-action="filter-next-month">
                     <span class="more-menu-icon">▶️</span>
-                    <span class="more-menu-text">下一个月任务</span>
+                    <span class="more-menu-text" data-i18n="moreMenuNextMonthTasks">下一个月任务</span>
                 </a>
             </li>
         </ul>
@@ -1412,8 +1519,9 @@
 <div id="theme-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 data-lang-key="settingsThemeColors">主题配色</h2>
-            <button class="btn btn--colorless btn--font-size-lg" id="theme-modal-close" title="关闭">&times;</button>
+            <h2 data-i18n="settingsThemeColors">主题配色</h2>
+            <button class="btn btn--colorless btn--font-size-lg" id="theme-modal-close" title="关闭"
+                    data-i18n="close" data-i18n-attr="title">&times;</button>
         </div>
 
         <div class="modal-body">
@@ -1421,39 +1529,39 @@
             <div class="setting-item theme-mode-item">
                 <div class="setting-label">
                     <span class="setting-icon">🎨</span>
-                    <span class="setting-text" data-lang-key="settingsThemeMode">主题模式</span>
-                </div>
-            </div>
-            <div class="theme-mode-group" id="theme-mode-group">
-                <button type="button" class="theme-mode-option active" data-theme-mode="default"
-                        data-lang-key="settingsThemeModeDefault">默认模式</button>
-                <button type="button" class="theme-mode-option" data-theme-mode="dark"
-                        data-lang-key="settingsThemeModeDark">深色模式</button>
-                <button type="button" class="theme-mode-option" data-theme-mode="custom"
-                        data-lang-key="settingsThemeModeCustom">自定义模式</button>
-            </div>
+                    <span class="setting-text" data-i18n="settingsThemeMode">主题模式</span>
+                    </div>
+                    </div>
+                    <div class="theme-mode-group" id="theme-mode-group">
+                    <button type="button" class="theme-mode-option active" data-theme-mode="default"
+                        data-i18n="settingsThemeModeDefault">默认模式</button>
+                    <button type="button" class="theme-mode-option" data-theme-mode="dark"
+                        data-i18n="settingsThemeModeDark">深色模式</button>
+                    <button type="button" class="theme-mode-option" data-theme-mode="custom"
+                        data-i18n="settingsThemeModeCustom">自定义模式</button>
+                    </div>
 
             <!-- 自定义强调色：仅"自定义模式"下可编辑 -->
             <div class="setting-item-config theme-color-editor is-locked" id="theme-color-editor">
                 <div class="theme-editor-locked-hint" id="theme-editor-locked-hint"
-                     data-lang-key="settingsThemeLockedHint">切换到「自定义模式」后可编辑以下配色</div>
+                     data-i18n="settingsThemeLockedHint">切换到「自定义模式」后可编辑以下配色</div>
 
                 <div class="config-item theme-mode-row">
                     <div class="theme-mode-tabs" id="theme-mode-tabs">
                         <button type="button" class="theme-mode-tab active" data-theme-mode="light"
-                                data-lang-key="settingsThemeBaseLight">浅色</button>
+                                data-i18n="settingsThemeBaseLight">浅色</button>
                         <button type="button" class="theme-mode-tab" data-theme-mode="dark"
-                                data-lang-key="settingsThemeBaseDark">深色</button>
+                                data-i18n="settingsThemeBaseDark">深色</button>
                     </div>
                 </div>
 
                 <div class="config-item theme-preset-row">
-                    <label class="data-label" data-lang-key="settingsThemePreset">预设色板</label>
+                    <label class="data-label" data-i18n="settingsThemePreset">预设色板</label>
                     <div class="theme-preset-list" id="theme-preset-list"></div>
                 </div>
 
                 <div class="config-item theme-link-row">
-                    <label class="data-label" data-lang-key="settingsThemeLinkPriority">优先级跟随语义色</label>
+                    <label class="data-label" data-i18n="settingsThemeLinkPriority">优先级跟随语义色</label>
                     <label class="switch">
                         <input type="checkbox" id="theme-link-priority" checked>
                         <span class="slider"></span>
@@ -1466,9 +1574,9 @@
 
         <div class="modal-footer">
             <button type="button" id="theme-colors-reset" class="btn btn--tertiary-color"
-                    data-lang-key="settingsThemeReset">恢复默认</button>
+                    data-i18n="settingsThemeReset">恢复默认</button>
             <button type="button" id="theme-colors-save" class="btn btn--primary-color"
-                    data-lang-key="settingsThemeSave">保存配色</button>
+                    data-i18n="settingsThemeSave">保存配色</button>
         </div>
     </div>
 </div>
@@ -1476,7 +1584,7 @@
 <!-- 加载提示 -->
 <div id="loading" class="loading-overlay">
     <div class="loading-spinner"></div>
-    <p>加载中...</p>
+    <p data-i18n="loading">加载中...</p>
 </div>
 
 <!-- JavaScript文件 -->

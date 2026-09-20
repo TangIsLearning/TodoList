@@ -252,8 +252,8 @@ class CategoryManager {
         
         categoryForm.reset();
         categoryForm.dataset.editingId = '';
-        modalTitle.textContent = '新建分类';
-        
+        modalTitle.textContent = window.languageManager.getText('newCategory', '新建分类');
+
         // 设置默认颜色：优先取当前主题的强调色，使新建分类默认与主题协调；
         // 主题配色模块未就绪时退回内置色板
         const colors = (window.AccentThemeManager && AccentThemeManager.getAccentHexPalette())
@@ -340,7 +340,7 @@ class CategoryManager {
         
         if (!modal || !modalTitle || !form) return;
         
-        modalTitle.textContent = '编辑分类';
+        modalTitle.textContent = window.languageManager.getText('editCategory', '编辑分类');
         document.getElementById('category-name').value = category.name;
         document.getElementById('category-color').value = category.color;
         

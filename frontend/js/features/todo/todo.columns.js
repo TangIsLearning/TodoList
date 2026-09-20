@@ -126,19 +126,8 @@ Object.assign(TodoManager.prototype, {
 
     // 打开列配置弹窗
     openColumnConfigModal() {
-        this.updateColumnConfigText();
         this.renderColumnConfigForm();
         Utils.ModalManager.show('task-columns-modal');
-    },
-
-    // 刷新列配置弹窗中的静态文案（跟随语言切换）
-    updateColumnConfigText() {
-        if (this.columnConfigTitle) {
-            this.columnConfigTitle.textContent = window.languageManager.getText('columnConfigTitle', '配置显示列');
-        }
-        if (this.columnConfigDesc) {
-            this.columnConfigDesc.textContent = window.languageManager.getText('columnConfigDesc', '勾选需要在任务列表中展示的列');
-        }
     },
 
     // 渲染列勾选列表

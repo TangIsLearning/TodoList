@@ -148,23 +148,30 @@ class LanguageManager {
         });
     }
 
-    // 安全设置文本：元素不存在时静默跳过，避免因个别节点缺失中断整体刷新
-    setText(el, text) {
-        if (el && text !== undefined && text !== null) el.textContent = text;
-    }
+    // 静态文案批量刷新：按 HTML 上的 data-i18n 标注一次性替换，无需逐个取标签
+    // data-i18n="key"                     -> 写入 textContent
+    // data-i18n-attr="title|placeholder"  -> 写入指定属性
+    // data-i18n-prefix / data-i18n-suffix -> emoji、必填星号等固定前后缀（留在 HTML，不由 JS 拼串）
+    applyStaticTranslations(lang) {
+        document.querySelectorAll('[data-i18n]').forEach((element) => {
+            const key = element.dataset.i18n;
+            const text = lang[key];
 
-    // 在指定容器内查找目标节点并设置文本
-    setTextIn(container, selector, text) {
-        if (!container) return;
-        this.setText(container.querySelector(selector), text);
-    }
+            // 语言包缺失时保留原有文案并告警，便于及时发现漏翻译
+            if (text === undefined || text === null) {
+                logger.warning('Missing i18n key:', key);
+                return;
+            }
 
-    // 按 id 取控件，向上找到所属设置项后更新其文本
-    setSettingItemText(id, text, itemSelector = '.setting-item', textSelector = '.setting-text') {
-        const control = document.getElementById(id);
-        if (!control) return;
+            const value = `${element.dataset.i18nPrefix || ''}${text}${element.dataset.i18nSuffix || ''}`;
+            const attr = element.dataset.i18nAttr;
 
-        this.setTextIn(control.closest(itemSelector), textSelector, text);
+            if (attr) {
+                element.setAttribute(attr, value);
+            } else {
+                element.textContent = value;
+            }
+        });
     }
 
     // 应用语言设置到界面
@@ -199,12 +206,12 @@ class LanguageManager {
         // 各区块独立刷新：任一区块因 DOM 未就绪而失败时，不影响其余区块继续刷新
         // （update* 方法定义于 language.views.js）
         const steps = [
+            ['静态文案', () => this.applyStaticTranslations(lang)],
             ['页面标题', () => this.updatePageTitle(lang)],
             ['主界面', () => this.updateMainInterface(lang)],
             ['模态框', () => this.updateModals(lang)],
-            ['日历视图', () => this.updateCalendar(lang)],
             ['设置中心', () => this.updateSettings(lang)],
-            ['日期选择器', () => this.updateDatePicker(language)]
+            ['日期选择器', () => this.updateDatePicker(lang)]
         ];
 
         for (const [name, step] of steps) {

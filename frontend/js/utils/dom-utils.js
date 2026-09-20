@@ -309,10 +309,15 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     if (_confirmDialogCleanup) _confirmDialogCleanup();
 
     // 设置标题（如果提供）
-    if (title && modalTitle) {
-        modalTitle.textContent = title;
-    } else if (modalTitle) {
-        modalTitle.textContent = '确认操作'; // 默认标题
+    // 使用默认标题时打上 i18n 标记，切换语言时才会跟随刷新；调用方传入的自定义标题不覆盖
+    if (modalTitle) {
+        if (title) {
+            modalTitle.textContent = title;
+            delete modalTitle.dataset.i18nKey;
+        } else {
+            modalTitle.textContent = window.languageManager.getText('confirm', '确认操作');
+            modalTitle.dataset.i18nKey = 'confirm';
+        }
     }
 
     // 设置消息（支持HTML内容）

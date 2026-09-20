@@ -45,7 +45,6 @@ class DataTransfer {
         this.shareDataSummary = document.getElementById('share-data-summary');
         this.scanDevicesBtn = document.getElementById('scan-devices-btn');
         this.includeAttachmentsCheckbox = document.getElementById('include-attachments-checkbox');
-        this.includeAttachmentsText = document.getElementById('include-attachments-text');
         this.deviceListSection = document.getElementById('device-list-section');
         this.deviceList = document.getElementById('device-list');
         this.receiveDataPreviewSection = document.getElementById('receive-data-preview-section');
@@ -86,22 +85,12 @@ class DataTransfer {
 
     openModal() {
         if (this.modal) {
-            this.applyLanguage();
             this.modal.classList.remove('is-closing');
             this.modal.style.display = 'flex';
             this.loadDataSummary();
         } else {
             logger.error('模态框未找到！');
             Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
-        }
-    }
-
-    // 应用多语言文案
-    applyLanguage() {
-        if (this.includeAttachmentsText) {
-            this.includeAttachmentsText.textContent = window.languageManager.getText(
-                'transferIncludeAttachments', '同时传输附件文件（体积较大，耗时更久）'
-            );
         }
     }
 

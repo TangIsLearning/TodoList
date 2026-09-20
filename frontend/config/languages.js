@@ -37,6 +37,7 @@ const Languages = {
         taskUpdateTime: "更新时间",
         taskTags: "标签",
         taskTag: "标签",
+        taskTagsHint: "（选择或添加标签）",
         taskStatus: "状态",
 
         // 任务详情
@@ -65,6 +66,7 @@ const Languages = {
         attachmentAddLinkTitle: "添加在线链接",
         attachmentLinkName: "链接名称",
         attachmentLinkNameHint: "（可选，默认使用链接地址）",
+        attachmentLinkNamePlaceholder: "请输入链接名称",
         attachmentLinkUrl: "链接地址",
         attachmentAdd: "添加",
 
@@ -95,11 +97,14 @@ const Languages = {
         statsTodayCompletedTasks: "今日已完成",
         statsOverDueDateTasks: "已逾期",
         statsCategories: "分类数",
+        statsAllTime: "全部时间",
         
         // 分类管理
         categories: "分类",
         allCategories: "📋 全部",
         addCategory: "添加分类",
+        newCategory: "新建分类",
+        editCategory: "编辑分类",
         categoryName: "分类名称",
         categoryColor: "颜色",
         uncategorized: "未分类",
@@ -138,10 +143,58 @@ const Languages = {
         timelineView: "时间轴视图",
         statsView: "统计视图",
         viewSwitched: "视图已切换",
+        viewToggleTip: "切换视图，日历视图不显示无截止日期数据",
+
+        // 任务导入导出
+        exportTasks: "导出任务",
+
+        // 导出任务弹窗
+        exportExcel: "导出Excel",
+        exportStatusLabel: "完成状态",
+        exportDueYear: "截止年份",
+        exportAllYears: "全部年份",
+        exportDueMonth: "截止月份",
+        exportAllMonths: "全部月份",
+        allCategoriesOption: "全部分类",
+        // 下拉里"全部"与优先级的短形式（区别于列表徽章用的"高优先级"等完整说法）
+        all: "全部",
+        priorityShortHigh: "高",
+        priorityShortMedium: "中",
+        priorityShortLow: "低",
+        month1: "1月",
+        month2: "2月",
+        month3: "3月",
+        month4: "4月",
+        month5: "5月",
+        month6: "6月",
+        month7: "7月",
+        month8: "8月",
+        month9: "9月",
+        month10: "10月",
+        month11: "11月",
+        month12: "12月",
+
+        // 联系作者二维码弹窗
+        qrCodeCaption: "扫描二维码联系作者",
+        contactAuthorQrAlt: "联系作者二维码",
 
         // 日历相关
         calendarMonth: "月",
-        calendarWeekdays: ["日", "一", "二", "三", "四", "五", "六"],
+        // 日历表头星期名：HTML 上逐日静态标注，一个 key 对应一天
+        calendarWeekdaySun: "日",
+        calendarWeekdayMon: "一",
+        calendarWeekdayTue: "二",
+        calendarWeekdayWed: "三",
+        calendarWeekdayThu: "四",
+        calendarWeekdayFri: "五",
+        calendarWeekdaySat: "六",
+        // 日期选择器（Pikaday）文案：按整份 i18n 配置给出，新增语言时无需改动 JS
+        calendarPrevMonth: "上个月",
+        calendarNextMonth: "下个月",
+        calendarMonths: ["一月", "二月", "三月", "四月", "五月", "六月",
+            "七月", "八月", "九月", "十月", "十一月", "十二月"],
+        calendarWeekdaysFull: ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
+        calendarWeekdaysShort: ["日", "一", "二", "三", "四", "五", "六"],
 
         // 任务表头
         taskHeaderName: "任务名称",
@@ -176,7 +229,8 @@ const Languages = {
         paginationShowing: "显示",
         paginationOf: "共",
         paginationItems: "条",
-        paginationPage: "页",
+        // 每页条数选项：数值由 data-i18n-prefix 留在 HTML 上
+        paginationPerPage: "条/页",
         paginationFirst: "首页",
         paginationPrev: "上一页", 
         paginationNext: "下一页",
@@ -185,6 +239,30 @@ const Languages = {
         // 空状态
         emptyTasks: "暂无任务",
         emptyTasksMessage: "点击\"新建任务\"按钮创建你的第一个任务",
+
+        // 时间轴视图工具栏
+        timelinePrevWeek: "上一周",
+        timelineNextWeek: "下一周",
+        timelineDecreaseWeeks: "减少显示周数",
+        timelineIncreaseWeeks: "增加显示周数",
+        timelineWeekMinus: "-1周",
+        timelineWeekPlus: "+1周",
+        timelineWeekCount: "{count}周 / 最多4周",
+        timelineDays: "{count}天",
+
+        // 统计视图工具栏
+        statsBasis: "统计口径",
+        statsBasisCreated: "创建时间",
+        statsBasisDue: "截止时间",
+        statsBasisCompleted: "完成时间（仅已完成）",
+        statsScope: "时间范围",
+        statsScopeAll: "全部时间",
+        statsScopeYear: "按年份",
+        statsScopeMonth: "按月份",
+        statsScopeWeek: "按周",
+        statsYear: "年份",
+        statsMonth: "月份",
+        statsWeek: "周",
         
         // 操作提示
         taskCreated: "任务创建成功",
@@ -280,7 +358,7 @@ const Languages = {
         recurrenceIntervalMinutes: "间隔（分钟）",
         // 提醒时间点
         recurrenceTimes: "提醒时间点",
-        recurrenceAddTime: "＋ 添加时间点",
+        recurrenceAddTime: "添加时间点",
         // 每周 / 每月 / 每年
         recurrenceWeeklyDays: "选择星期（可多选）",
         recurrenceMonthlyDays: "选择日期（可多选）",
@@ -410,8 +488,28 @@ const Languages = {
         
         // 更多选项
         moreOptions: "更多选项",
+
+        // 小屏更多菜单的快捷筛选项
+        moreMenuFilterAll: "显示所有任务",
+        moreMenuFilterUncompleted: "显示未完成任务",
+        moreMenuFilterOverdue: "显示已逾期任务",
+        moreMenuFilterToday: "仅显示今天任务",
+        moreMenuFilterTag: "显示含标签任务",
+        moreMenuPrevMonthTasks: "上一个月任务",
+        moreMenuNextMonthTasks: "下一个月任务",
         optional: "可选",
         required: "必填",
+
+        // 父任务选择器
+        parentTask: "父任务",
+        parentTaskPlaceholder: "点击选择或输入搜索未完成的任务",
+        loadMore: "加载更多",
+        noMatchingTasks: "无匹配任务",
+
+        // 日期时间字段的清除按钮
+        clearDate: "清空日期",
+        clearTime: "清空时间",
+        clearEndDate: "清空结束日期",
         
         // 数据传输
         dataTransfer: "数据传输",
@@ -419,6 +517,7 @@ const Languages = {
         receiveMode: "接收数据",
         currentDataSummary: "当前数据摘要",
         shareSettings: "共享设置",
+        shareFirewallNotice: "⚠️ 开启/停止共享涉及配置防火墙，需要管理员权限",
         startShare: "启动共享",
         stopShare: "停止共享",
         shareStatus: "共享状态",
@@ -438,6 +537,8 @@ const Languages = {
         // 数据同步
         dataSync: "数据云同步",
         syncType: "同步类型",
+        syncTypeJianguoyun: "坚果云",
+        syncTypeCustom: "自定义",
         url: "地址*",
         account: "账号*",
         password: "密码*",
@@ -445,6 +546,10 @@ const Languages = {
         firstSyncMode: "首次同步",
         firstSyncModeRemote: "远程覆盖本地",
         firstSyncModeLocal: "本地覆盖远程",
+        webdavUrlPlaceholder: "请输入WebDAV服务器地址",
+        webdavAccountPlaceholder: "请输入邮箱地址",
+        webdavPasswordPlaceholder: "请输入授权应用密码",
+        webdavPathPlaceholder: "请输入远程同步目录，如 /todolist",
         testConnection: "测试连接",
         saveConfiguration: "保存配置",
         autoSyncNotice: "⚠️ 如云路径和本地数据存储路径存在映射关系，请勿开启云同步，避免重复更新数据；首次同步外的数据自动同步规则：存在数据更新的端点，15s内会自动同步数据到其他端点",
@@ -483,6 +588,7 @@ const Languages = {
         taskUpdateTime: "Update Time",
         taskTags: "Tags",
         taskTag: "Tag",
+        taskTagsHint: "(select or add tags)",
         taskStatus: "Status",
 
         // 任务详情
@@ -511,6 +617,7 @@ const Languages = {
         attachmentAddLinkTitle: "Add Link",
         attachmentLinkName: "Link Name",
         attachmentLinkNameHint: "(optional, defaults to the URL)",
+        attachmentLinkNamePlaceholder: "Please enter the link name",
         attachmentLinkUrl: "Link URL",
         attachmentAdd: "Add",
 
@@ -541,11 +648,14 @@ const Languages = {
         statsTodayCompletedTasks: "Today Completed",
         statsOverDueDateTasks: "Over Due Date",
         statsCategories: "Total Categories",
+        statsAllTime: "All time",
         
         // 分类管理
         categories: "Categories",
         allCategories: "📋 All",
         addCategory: "Add Category",
+        newCategory: "New Category",
+        editCategory: "Edit Category",
         categoryName: "Category Name",
         categoryColor: "Color",
         uncategorized: "Uncategorized",
@@ -584,10 +694,58 @@ const Languages = {
         timelineView: "Timeline View",
         statsView: "Stats View",
         viewSwitched: "View switched",
+        viewToggleTip: "Switch view; tasks without a due date are hidden in calendar view",
+
+        // 任务导入导出
+        exportTasks: "Export Tasks",
+
+        // 导出任务弹窗
+        exportExcel: "Export Excel",
+        exportStatusLabel: "Completion Status",
+        exportDueYear: "Due Year",
+        exportAllYears: "All Years",
+        exportDueMonth: "Due Month",
+        exportAllMonths: "All Months",
+        allCategoriesOption: "All Categories",
+        // 下拉里"全部"与优先级的短形式（区别于列表徽章用的"高优先级"等完整说法）
+        all: "All",
+        priorityShortHigh: "High",
+        priorityShortMedium: "Medium",
+        priorityShortLow: "Low",
+        month1: "Jan",
+        month2: "Feb",
+        month3: "Mar",
+        month4: "Apr",
+        month5: "May",
+        month6: "Jun",
+        month7: "Jul",
+        month8: "Aug",
+        month9: "Sep",
+        month10: "Oct",
+        month11: "Nov",
+        month12: "Dec",
+
+        // 联系作者二维码弹窗
+        qrCodeCaption: "Scan the QR code to contact the author",
+        contactAuthorQrAlt: "QR code to contact the author",
         
         // 日历相关
         calendarMonth: "Month",
-        calendarWeekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+        // 日历表头星期名：HTML 上逐日静态标注，一个 key 对应一天
+        calendarWeekdaySun: "Sun",
+        calendarWeekdayMon: "Mon",
+        calendarWeekdayTue: "Tue",
+        calendarWeekdayWed: "Wed",
+        calendarWeekdayThu: "Thu",
+        calendarWeekdayFri: "Fri",
+        calendarWeekdaySat: "Sat",
+        // 日期选择器（Pikaday）文案：按整份 i18n 配置给出，新增语言时无需改动 JS
+        calendarPrevMonth: "Prev",
+        calendarNextMonth: "Next",
+        calendarMonths: ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"],
+        calendarWeekdaysFull: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        calendarWeekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 
         // 任务表头
         taskHeaderName: "Task Name",
@@ -622,7 +780,8 @@ const Languages = {
         paginationShowing: "Showing",
         paginationOf: "of",
         paginationItems: "items",
-        paginationPage: "page",
+        // 每页条数选项：数值由 data-i18n-prefix 留在 HTML 上
+        paginationPerPage: "items/page",
         paginationFirst: "First",
         paginationPrev: "Previous",
         paginationNext: "Next",
@@ -631,6 +790,30 @@ const Languages = {
         // 空状态
         emptyTasks: "No Tasks",
         emptyTasksMessage: "Click the \"New Task\" button to create your first task",
+
+        // 时间轴视图工具栏
+        timelinePrevWeek: "Previous week",
+        timelineNextWeek: "Next week",
+        timelineDecreaseWeeks: "Show one week less",
+        timelineIncreaseWeeks: "Show one week more",
+        timelineWeekMinus: "-1 week",
+        timelineWeekPlus: "+1 week",
+        timelineWeekCount: "{count} weeks / 4 weeks max",
+        timelineDays: "{count} days",
+
+        // 统计视图工具栏
+        statsBasis: "Basis",
+        statsBasisCreated: "Created time",
+        statsBasisDue: "Due date",
+        statsBasisCompleted: "Completed time (completed only)",
+        statsScope: "Time Range",
+        statsScopeAll: "All time",
+        statsScopeYear: "By year",
+        statsScopeMonth: "By month",
+        statsScopeWeek: "By week",
+        statsYear: "Year",
+        statsMonth: "Month",
+        statsWeek: "Week",
         
         // 操作提示
         taskCreated: "Task created successfully",
@@ -726,7 +909,7 @@ const Languages = {
         recurrenceIntervalMinutes: "Interval (minutes)",
         // 提醒时间点
         recurrenceTimes: "Reminder Times",
-        recurrenceAddTime: "＋ Add Time",
+        recurrenceAddTime: "Add Time",
         // 每周 / 每月 / 每年
         recurrenceWeeklyDays: "Select weekdays",
         recurrenceMonthlyDays: "Select days of month",
@@ -856,7 +1039,23 @@ const Languages = {
         
         // 更多选项
         moreOptions: "More Options",
+
+        // 小屏更多菜单的快捷筛选项
+        moreMenuFilterAll: "Show All Tasks",
+        moreMenuFilterUncompleted: "Show Uncompleted Tasks",
+        moreMenuFilterOverdue: "Show Overdue Tasks",
+        moreMenuFilterToday: "Show Today's Tasks Only",
+        moreMenuFilterTag: "Show Tagged Tasks",
+        moreMenuPrevMonthTasks: "Previous Month's Tasks",
+        moreMenuNextMonthTasks: "Next Month's Tasks",
         optional: "Optional",
+        parentTask: "Parent Task",
+        parentTaskPlaceholder: "Click to select or search uncompleted tasks",
+        loadMore: "Load More",
+        noMatchingTasks: "No matching tasks",
+        clearDate: "Clear date",
+        clearTime: "Clear time",
+        clearEndDate: "Clear end date",
         required: "Required",
         
         // 数据传输
@@ -865,6 +1064,7 @@ const Languages = {
         receiveMode: "Receive Data",
         currentDataSummary: "Current Data Summary",
         shareSettings: "Share Settings",
+        shareFirewallNotice: "⚠️ Starting or stopping sharing configures the firewall and requires administrator privileges",
         startShare: "Start Sharing",
         stopShare: "Stop Sharing",
         shareStatus: "Sharing Status",
@@ -884,6 +1084,8 @@ const Languages = {
         // 数据同步
         dataSync: "Data Sync",
         syncType: "Data Sync Type",
+        syncTypeJianguoyun: "JianGuoYun",
+        syncTypeCustom: "Custom",
         url: "Server Url*",
         account: "Account*",
         password: "Password*",
@@ -891,6 +1093,10 @@ const Languages = {
         firstSyncMode: "First Sync Mode",
         firstSyncModeRemote: "Remote Overwrite Local",
         firstSyncModeLocal: "Local Overwrite Remote",
+        webdavUrlPlaceholder: "Please enter the WebDAV server address",
+        webdavAccountPlaceholder: "Please enter your email address",
+        webdavPasswordPlaceholder: "Please enter the app-specific password",
+        webdavPathPlaceholder: "Please enter the remote sync directory, e.g. /todolist",
         testConnection: "Test Connection",
         saveConfiguration: "Save Configuration",
         autoSyncNotice: "⚠️ When there is a mapping relationship between the cloud path and the local data storage path, please do not enable cloud sync to avoid redundant data updates. For automatic sync rules after the initial sync: if there is a data update on any endpoint, the data will be automatically synced to other endpoints within 15 seconds.",

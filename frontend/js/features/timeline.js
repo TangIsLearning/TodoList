@@ -19,6 +19,10 @@ class TimelineManager {
         this._pendingHighlightTaskId = null; // 拖拽落位后需要高亮的卡片
     }
 
+    getText(key, fallback) {
+        return window.languageManager ? window.languageManager.getText(key, fallback) : fallback;
+    }
+
     async init() {
         this.bindEvents();
         this.startDate = this.getStartOfWeek(new Date());
@@ -217,13 +221,17 @@ class TimelineManager {
         // 取数期间先淡出，渲染完成后淡入或按方向滑入
         Utils.beginRefresh(container);
 
-        document.getElementById('weekCountIndicator').innerText = `${this.weekCount}周 / 最多4周`;
+        // 周数与天数单位跟随语言：文案里的 {count} 占位由调用方替换（getText 不做参数插值）
+        const weekCountText = this.getText('timelineWeekCount', '{count}周 / 最多4周')
+            .replace('{count}', String(this.weekCount));
+        document.getElementById('weekCountIndicator').innerText = weekCountText;
         const startDateObj = new Date(this.startDate);
         const endDateObj = new Date(this.startDate);
         endDateObj.setDate(endDateObj.getDate() + (this.weekCount*7) - 1);
         this.tasks = await this.getTasks(startDateObj, endDateObj);
         const formatMD = (d) => `${d.getMonth()+1}/${d.getDate()}`;
-        document.getElementById('dateRangeLabel').innerHTML = `📅 ${formatMD(startDateObj)} - ${formatMD(endDateObj)}  (${this.weekCount*7}天)`;
+        const daysText = this.getText('timelineDays', '{count}天').replace('{count}', String(this.weekCount * 7));
+        document.getElementById('dateRangeLabel').innerHTML = `📅 ${formatMD(startDateObj)} - ${formatMD(endDateObj)}  (${daysText})`;
 
         // 构建左侧列
         let leftColHtml = `<div class="time-axis-col"><div class="time-header-placeholder">⏰ 时间轴</div>`;

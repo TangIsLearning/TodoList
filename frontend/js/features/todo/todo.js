@@ -329,8 +329,6 @@ class TodoManager {
             dateRangeStats: 'stats-date-range',
             // 任务列表显示列配置弹窗
             columnConfigModal: 'task-columns-modal',
-            columnConfigTitle: 'task-columns-title',
-            columnConfigDesc: 'task-columns-desc',
             columnConfigList: 'task-columns-list',
             columnConfigCloseBtn: 'task-columns-close',
             columnConfigResetBtn: 'task-columns-reset',
@@ -777,6 +775,11 @@ class TodoManager {
         const createdTimeLabel = Utils.escapeHtml(window.languageManager.getText('taskCreateTime', '创建时间'));
         const updatedTimeLabel = Utils.escapeHtml(window.languageManager.getText('taskUpdateTime', '更新时间'));
 
+        // 操作按钮的悬浮文案（编辑按钮的提示会在 gesture 模块按任务类型修正为"周期性任务不支持编辑"）
+        const viewTip = Utils.escapeHtml(window.languageManager.getText('taskViewTip', '查看'));
+        const editTip = Utils.escapeHtml(window.languageManager.getText('normalTaskEditTip', '编辑'));
+        const deleteTip = Utils.escapeHtml(window.languageManager.getText('taskDeleteTip', '删除'));
+
         // 渲染标签
         let tagsHtml = '';
         if (task.tags && task.tags.length > 0) {
@@ -799,11 +802,11 @@ class TodoManager {
                     ${cells}
                     <div class="task-actions" data-column="actions">
                         <button class="btn view" data-task-id="${task.id}"
-                                title="查看详情">👁️</button>
+                                title="${viewTip}">👁️</button>
                         <button class="btn edit" data-task-id="${task.id}"
-                                title="编辑">✏️</button>
+                                title="${editTip}">✏️</button>
                         <button class="btn delete" data-task-id="${task.id}"
-                                title="删除">🗑️</button>
+                                title="${deleteTip}">🗑️</button>
                     </div>
                 </div>
             `;
@@ -856,11 +859,11 @@ class TodoManager {
                 </div>
                 <div class="task-actions">
                     <button class="btn view" data-task-id="${task.id}"
-                                title="查看">👁️</button>
+                                title="${viewTip}">👁️</button>
                     <button class="btn edit" data-task-id="${task.id}"
-                            title="编辑">✏️</button>
+                            title="${editTip}">✏️</button>
                     <button class="btn delete" data-task-id="${task.id}"
-                            title="删除">🗑️</button>
+                            title="${deleteTip}">🗑️</button>
                 </div>
             </div>
         `;
