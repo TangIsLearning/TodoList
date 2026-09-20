@@ -86,8 +86,9 @@ class TaskReminder(LogManager):
         """后台线程检查任务到期"""
         while self.running:
             try:
-                # 获取所有未完成的任务
-                tasks = self.db.get_all_tasks()
+                # 到期判定只看截止时间，取轻量候选集即可：
+                # 不必每 30 秒拉一次整份任务（描述 / 周期规则 / 标签 / 附件都用不上）
+                tasks = self.db.get_reminder_candidates()
                 now = datetime.now()
                 
                 for task in tasks:
