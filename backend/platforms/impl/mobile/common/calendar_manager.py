@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from jnius import autoclass, cast
 from datetime import datetime
@@ -12,6 +12,12 @@ from backend.database.todo_database import TodoDatabase
 
 # 日历事件标题前缀，用于识别本应用写入的提醒
 EVENT_TITLE_PREFIX = "【todoList】提醒："
+
+# 读写系统日历所需的权限
+CALENDAR_PERMISSIONS = ["android.permission.READ_CALENDAR", "android.permission.WRITE_CALENDAR"]
+
+# 授权申请的 requestCode，可为任意正整数
+PERMISSION_REQUEST_CODE = 123
 
 
 def _build_event_title(title: str) -> str:
@@ -38,35 +44,85 @@ def _to_timestamp_ms(due_date: Optional[str]) -> Optional[float]:
         return None
 
 
-def check_permission() -> None:
+def has_permission() -> bool:
+    """仅检查日历权限是否已授予，不触发任何系统弹窗"""
     from android import mActivity
-    # 1. 检查权限 (使用原生方法)
-    perms = ["android.permission.READ_CALENDAR", "android.permission.WRITE_CALENDAR"]
-    need_request: List[str] = []
-    for p in perms:
-        # 这里的 checkSelfPermission 在 Activity 环境下是存在的，0 代表 PERMISSION_GRANTED
-        if mActivity.checkSelfPermission(p) != 0:
-            need_request.append(p)
+    # checkSelfPermission 在 Activity 环境下可用，0 代表 PERMISSION_GRANTED
+    return all(mActivity.checkSelfPermission(p) == 0 for p in CALENDAR_PERMISSIONS)
 
-    # 2. 如果需要申请，直接调用 mActivity.requestPermissions
-    if need_request:
-        # 直接将 Python 列表传入，Pyjnius 会尝试自动匹配 String[] 签名
-        # 如果自动匹配失败，我们使用显式的 Java 签名调用
+def request_permission() -> bool:
+    """发起系统授权弹窗（仅申请缺失的权限），返回是否成功发起
+
+    注意：授权是异步的，本函数返回时权限尚未生效，需下次调用 has_permission() 才能观察到结果。
+    """
+    from android import mActivity
+    need_request: List[str] = [p for p in CALENDAR_PERMISSIONS
+                               if mActivity.checkSelfPermission(p) != 0]
+    if not need_request:
+        return True
+
+    # 直接将 Python 列表传入，Pyjnius 会尝试自动匹配 String[] 签名
+    # 如果自动匹配失败，我们使用显式的 Java 签名调用
+    try:
+        mActivity.requestPermissions(need_request, PERMISSION_REQUEST_CODE)
+        return True
+    except Exception:
+        # 备选方案：如果直接传列表报错，手动指定方法签名
         try:
-            # 这里的 123 是 requestCode，可以是任意正整数
-            mActivity.requestPermissions(need_request, 123)
-        except Exception:
-            # 备选方案：如果直接传列表报错，手动指定方法签名
             request_method = mActivity.getClass().getMethod(
                 "requestPermissions",
                 autoclass('[Ljava.lang.String;'),  # 这是 Java 中 String[] 的内部类名表示法
                 autoclass('int')
             )
-            request_method.invoke(mActivity, cast('[Ljava.lang.String;', need_request), 123)
+            request_method.invoke(mActivity, cast('[Ljava.lang.String;', need_request),
+                                  PERMISSION_REQUEST_CODE)
+            return True
+        except Exception:
+            return False
+
+def ensure_permission(platform_service: Any = None) -> bool:
+    """写日历前的权限兜底：已授权返回 True，否则发起申请并返回 False
+
+    所有写入/同步系统日历的入口都应先调用本函数，避免调用方漏检时静默失败。
+    """
+    if has_permission():
+        return True
+
+    if request_permission():
+        _log(platform_service, 'warning',
+             "日历权限缺失，已发起系统授权申请；本次写入跳过，授权后重新操作即可生效")
+    else:
+        _log(platform_service, 'error',
+             "日历权限缺失且申请失败，请在系统设置中手动开启日历权限")
+    return False
+
+def get_permission_status(platform_service: Any = None) -> Dict[str, bool]:
+    """检查日历权限状态，缺失时顺带发起申请（供前端主动触发授权使用）
+
+    返回：
+        granted: 当前是否已具备权限（申请是异步的，本次调用不会立即变为 True）
+        requested: 本次是否成功发起系统授权弹窗；False 表示无法弹窗，需用户去系统设置手动开启
+    """
+    if has_permission():
+        return {'granted': True, 'requested': False}
+    return {'granted': False, 'requested': request_permission()}
+
+def _log(platform_service: Any, level: str, message: str) -> None:
+    """缺少平台服务时静默降级，避免日志环节异常中断权限流程"""
+    if platform_service is None:
+        return
+    try:
+        getattr(platform_service.backend_logger(), level)(message)
+    except Exception:
+        pass
 
 def add_task_reminder_to_calendar(title: str, desc: str, start_time_ms: Union[int, float],
                                   platform_service: Any) -> Optional[str]:
     """新增系统日历提醒，返回日历事件ID（失败返回 None）"""
+    # 权限兜底：无论调用方是否提前申请过，写入前一律确保具备权限
+    if not ensure_permission(platform_service):
+        return None
+
     from android import mActivity
     try:
         # 1. 获取必要的原生类
@@ -208,6 +264,10 @@ def refresh_task_reminder_in_calendar(task_id: str, new_due_date: Optional[str],
 def sync_reminder_to_calendar(sync_start_time: Union[int, float],
                               sync_end_time: Union[int, float],
                               platform_service: Any) -> None:
+    # 权限兜底：同步入口同样不依赖调用方提前申请
+    if not ensure_permission(platform_service):
+        return
+
     db = TodoDatabase()
     result = db.get_tasks_paginated(
         page_size=999,

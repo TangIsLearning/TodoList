@@ -32,9 +32,9 @@ Object.assign(TodoManager.prototype, {
         // 日期变化处理（含权限）
         const onDateChange = async () => {
             updateBtn(this.datePicker, this.clearDateBtn);
-            if (!localStorage.getItem('calendar_permission') && this.isMobileDevice?.()) {
-                await Utils.apiCall({ apiMethod: 'check_calendar_permission', successCheck: () => true });
-                localStorage.setItem('calendar_permission', 'true');
+            // 仅在真正选择了截止日期时申请，做到"用到才申请"；无日期无需惊动用户
+            if (this.datePicker.value && this.isMobileDevice?.()) {
+                await this.ensureCalendarPermission();
             }
             validate();
         };
@@ -51,6 +51,32 @@ Object.assign(TodoManager.prototype, {
         this.datePicker.addEventListener('change', onDateChange);
         this.timeInput.addEventListener('input', onTimeChange);
         this.timeInput.addEventListener('change', onTimeChange);
+    },
+
+    // 确保已获得系统日历权限；缺失时后端会弹出系统授权框
+    // 每次都以后端实时状态为准：用户可能随时在系统设置里撤销授权，前端缓存会失真
+    async ensureCalendarPermission() {
+        let status = { granted: true, requested: false };
+        await Utils.apiCall({
+            apiMethod: 'check_calendar_permission',
+            onSuccess: (result) => {
+                if (result?.data) status = result.data;
+            }
+        });
+
+        if (status.granted) return true;
+
+        // requested 为 true 表示系统授权弹窗已弹出，弹窗本身就是引导，无需重复提示
+        if (!status.requested) {
+            Utils.showToast(
+                window.languageManager?.getText(
+                    'calendarPermissionRequired',
+                    '未获得日历权限，请在系统设置中开启后，到期提醒才能写入系统日历'
+                ),
+                'warning'
+            );
+        }
+        return false;
     },
 
     // 显示添加任务模态框

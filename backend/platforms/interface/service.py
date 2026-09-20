@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from logging import Logger
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 class PlatformService(ABC):
     @abstractmethod
@@ -67,8 +67,11 @@ class PlatformService(ABC):
         pass
 
     @abstractmethod
-    def check_calendar_permission(self) -> None:
-        """校验日历使用权限的统一接口"""
+    def check_calendar_permission(self) -> Dict[str, bool]:
+        """校验（必要时申请）日历使用权限的统一接口
+
+        返回 granted（当前是否已授权）与 requested（本次是否发起过系统授权弹窗）。
+        """
         pass
 
     @abstractmethod

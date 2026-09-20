@@ -3,7 +3,7 @@ PlatformService的公共抽象基类，请勿实例化
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.platforms.interface.service import PlatformService
 
@@ -234,9 +234,12 @@ class DesktopCommonService(PlatformService):
         from backend.platforms.impl.desktop.common.task_reminder import refresh_reminder
         refresh_reminder(task_id, due_date)
 
-    def check_calendar_permission(self) -> None:
-        """校验日历使用权限的统一接口"""
-        pass
+    def check_calendar_permission(self) -> Dict[str, bool]:
+        """校验日历使用权限的统一接口
+
+        桌面端不写入系统日历，视为无需权限。
+        """
+        return {'granted': True, 'requested': False}
 
     def add_task_reminder_to_calendar(self, title: str, desc: str,
                                       start_time_ms: Union[int, float]) -> None:

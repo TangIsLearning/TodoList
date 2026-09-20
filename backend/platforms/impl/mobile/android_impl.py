@@ -1,6 +1,6 @@
 # impl/mobile/android_impl.py
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from backend.platforms.interface.service import PlatformService
 
@@ -56,10 +56,13 @@ class AndroidService(PlatformService):
         from backend.platforms.impl.mobile.common.calendar_manager import refresh_task_reminder_in_calendar
         refresh_task_reminder_in_calendar(task_id, due_date, old_due_date, self)
 
-    def check_calendar_permission(self) -> None:
-        """校验日历使用权限的统一接口"""
-        from backend.platforms.impl.mobile.common.calendar_manager import check_permission
-        check_permission()
+    def check_calendar_permission(self) -> Dict[str, bool]:
+        """校验（必要时申请）日历使用权限的统一接口
+
+        返回 granted / requested 两个状态，供前端决定是否需要引导用户去系统设置开启。
+        """
+        from backend.platforms.impl.mobile.common.calendar_manager import get_permission_status
+        return get_permission_status(self)
 
     def add_task_reminder_to_calendar(self, title: str, desc: str,
                                       start_time_ms: Union[int, float]) -> None:

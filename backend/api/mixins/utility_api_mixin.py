@@ -1,14 +1,18 @@
 # backend/api/mixins/utility_api_mixin.py
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from backend.utils.response_wrapper import api_handler
 
 class UtilityApiMixin:
     """工具方法 Mixin"""
 
     @api_handler
-    def check_calendar_permission(self) -> None:
-        """检查权限"""
-        self.service.check_calendar_permission()
+    def check_calendar_permission(self) -> Dict[str, bool]:
+        """检查（必要时申请）日历权限
+
+        返回 granted（当前是否已授权）与 requested（本次是否发起过系统授权弹窗），
+        前端据此决定是否需要引导用户去系统设置开启。
+        """
+        return self.service.check_calendar_permission()
 
     @api_handler
     def log(self, level: str, message: str, source: str = 'frontend') -> None:
