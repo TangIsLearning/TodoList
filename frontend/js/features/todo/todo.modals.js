@@ -741,7 +741,8 @@ Object.assign(TodoManager.prototype, {
                 // 列表刷新后定位并高亮这条任务
                 this._pendingHighlightTaskId = taskId;
                 this.loadTasks(true);
-                window.timelineManager.renderTimeline();
+                // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
+                window.timelineManager.renderTimelineIfVisible();
 
                 // loadTasks() 内部已经调用了 updateCategoryCounts()，不需要再调用 renderCategories()
                 // renderCategories() 会重新获取所有任务（默认只取前10条），导致数据不准确
@@ -947,7 +948,8 @@ Object.assign(TodoManager.prototype, {
                         this.tasks = [];
                     }
                 }
-                window.timelineManager.renderTimeline();
+                // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
+                window.timelineManager.renderTimelineIfVisible();
                 // loadTasks() 已经包含了 updateStats() 和 updateCategoryCounts() 的调用
                 // 不需要再调用 renderCategories()，否则会导致数据不准确
 

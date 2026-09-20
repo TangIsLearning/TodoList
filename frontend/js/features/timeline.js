@@ -23,12 +23,13 @@ class TimelineManager {
         return window.languageManager ? window.languageManager.getText(key, fallback) : fallback;
     }
 
+    // 模块初始化：与统计模块一致，只准备状态与事件，不做重量级取数。
+    // 时间轴数据改为按需加载：首次进入时间轴视图时由 calendarManager.switchView 触发渲染，
+    // 避免启动时在列表视图里就拉一次全量任务（page_size 999999）。
     async init() {
         this.bindEvents();
         this.startDate = this.getStartOfWeek(new Date());
         this.weekCount = 1;
-        const initDates = this.getDateRange();
-        await this.renderTimeline();
     }
 
     // 当前列表正在生效的搜索条件（标签 chips / 关键词 / 父任务 / 截止时间）。

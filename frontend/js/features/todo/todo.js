@@ -708,7 +708,8 @@ class TodoManager {
             );
         }
 
-        if (window.timelineManager) window.timelineManager.renderTimeline();
+        // 时间轴独立取数：仅在其处于前台时重建，切到时间轴视图时会重新取数
+        window.timelineManager?.renderTimelineIfVisible();
         this.tagManager.loadModule(true);
     }
 

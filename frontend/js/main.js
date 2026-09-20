@@ -286,8 +286,8 @@ class App {
         // 4. 任务列表：内部会同步日历、统计与分类计数
         if (todo) await todo.loadTasks();
 
-        // 5. 时间轴独立取数，需单独重建
-        await window.timelineManager?.renderTimeline();
+        // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
+        await window.timelineManager?.renderTimelineIfVisible();
     }
     
     // 获取应用状态
