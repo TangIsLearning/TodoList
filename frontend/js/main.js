@@ -203,6 +203,8 @@ class App {
     // 初始化模块
     async initModules() {
         const modules = [
+            // 视图状态先就位：其它模块的可见性判断都读 viewManager.currentView
+            { name: 'ViewManager', instance: window.viewManager },
             { name: 'CategoryManager', instance: window.categoryManager },
             { name: 'TodoManager', instance: window.todoManager },
             { name: 'CalendarManager', instance: window.calendarManager },
@@ -304,7 +306,7 @@ class App {
         // 调用方（如分类模块）若已经自己重算过左侧计数，跳过以免重复拉一次全量任务
         if (!skipCategoryCounts) window.categoryManager?.refreshCounts(fromZero);
         // 日历视图的数据来自专用接口（不再跟着列表的分页结果走），数据变更后单独刷新
-        if (window.calendarManager?.currentView === 'calendar') window.calendarManager.loadCalendarTasks();
+        if (window.viewManager?.currentView === 'calendar') window.calendarManager.loadCalendarTasks();
         window.statsManager?.refreshOverviewBar(fromZero);
     }
 
@@ -478,9 +480,10 @@ class App {
     }
     
     // 切换视图（小屏更多菜单、顶部下拉框共用）
+    // 实际切换由 ViewManager 执行，这里只保留 App 门面与提示
     async switchView(viewName) {
-        if (window.calendarManager) {
-            await window.calendarManager.switchView(viewName);
+        if (window.viewManager) {
+            await window.viewManager.switchView(viewName);
             Utils.showToast(window.languageManager?.getText('viewSwitched', '视图已切换'), 'success');
         } else {
             Utils.showToast('切换视图不可用', 'error');
@@ -489,8 +492,8 @@ class App {
 
     // 切换视图（事件入口，兼容旧调用）
     async toggleView(event) {
-        if (window.calendarManager) {
-            await window.calendarManager.toggleView(event);
+        if (window.viewManager) {
+            await window.viewManager.toggleView(event);
         } else {
             Utils.showToast('切换视图不可用', 'error');
         }

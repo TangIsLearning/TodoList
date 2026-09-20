@@ -7,7 +7,7 @@ Object.assign(TodoManager.prototype, {
     // 渲染分页组件
     renderPagination() {
         // 仅列表视图显示分页；日历/时间轴/统计等视图加载任务后隐藏，避免分页错位显示
-        if (window.calendarManager && window.calendarManager.currentView !== 'list') {
+        if (window.viewManager && window.viewManager.currentView !== 'list') {
             this.pagination.style.display = 'none';
             return;
         }

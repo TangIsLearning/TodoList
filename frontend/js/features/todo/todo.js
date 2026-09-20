@@ -725,7 +725,7 @@ class TodoManager {
         // 按当前视图刷新：只有列表视图展示这份分页数据，时间轴与统计各自独立取数，
         // 日历走 get_calendar_tasks，停在其它视图时这一笔更没必要。
         // 切回列表 / 日历时 switchView 会各自重新取数，因此不存在数据陈旧。
-        const view = window.calendarManager?.currentView;
+        const view = window.viewManager?.currentView;
         if (view && view !== 'list') return;
         await this.loadTasks();
     }

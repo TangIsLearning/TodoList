@@ -24,7 +24,7 @@ class TimelineManager {
     }
 
     // 模块初始化：与统计模块一致，只准备状态与事件，不做重量级取数。
-    // 时间轴数据改为按需加载：首次进入时间轴视图时由 calendarManager.switchView 触发渲染，
+    // 时间轴数据改为按需加载：首次进入时间轴视图时由 viewManager.switchView 触发渲染，
     // 避免启动时在列表视图里就拉一次时间轴任务。
     async init() {
         this.bindEvents();
@@ -235,7 +235,7 @@ class TimelineManager {
     // 仅在时间轴视图处于前台时才重建：进入视图时由 calendarManager 负责首次渲染，
     // 其余场景（分类切换等）避免在不可见状态下发起无效取数
     renderTimelineIfVisible() {
-        if (window.calendarManager && window.calendarManager.currentView !== 'timeline') return;
+        if (window.viewManager && window.viewManager.currentView !== 'timeline') return;
         return this.renderTimeline();
     }
 

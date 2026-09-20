@@ -388,8 +388,7 @@ Object.assign(TodoManager.prototype, {
     // 统计视图处于前台时，让统计按当前筛选（分类 + 左侧点选的标签 chips）刷新。
     // 仅刷新统计数据，不改变统计视图已选的时间范围/周期。
     _syncStatsFilterIfVisible() {
-        const cm = window.calendarManager;
-        if (cm && cm.currentView === 'stats' && window.statsManager) {
+        if (window.viewManager?.currentView === 'stats' && window.statsManager) {
             window.statsManager.reloadStatsIfVisible();
         }
     },
@@ -398,7 +397,7 @@ Object.assign(TodoManager.prototype, {
     // 因此搜索条件变化后，若时间轴正处于前台必须单独重建，
     // 否则会出现"列表筛对了、时间轴没变"的现象。
     _syncTimelineFilterIfVisible() {
-        if (window.calendarManager?.currentView !== 'timeline') return;
+        if (window.viewManager?.currentView !== 'timeline') return;
         window.timelineManager?.renderTimeline();
     },
 
