@@ -110,17 +110,15 @@ class CalendarManager {
                 if (prevMonthFilter) prevMonthFilter.style.display = 'block';
                 if (nextMonthFilter) nextMonthFilter.style.display = 'block';
                 if (groupDividerFilter) groupDividerFilter.style.display = 'block';
-                const filterPageSize = 9999; // 假定单月任务最多9999个任务
-                // 通知TodoManager进行筛选
                 if (window.todoManager) {
                     // 日历按整月展示，先丢掉单日条件（截止时间 chip），否则日历只剩那一天
                     window.todoManager.clearDueDateChip();
-                    window.todoManager.currentPage = 1; // 重置到第一页
-                    window.todoManager.pageSize = filterPageSize; // 设置分页数量
                     window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-                    window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-                    await window.todoManager.loadTasks();
                 }
+                // 走日历专用取数：只回月历格需要的字段（标题 / 完成 / 截止时间 / 优先级）。
+                // 此前是 pageSize = 9999 调分页接口，既拉回整份任务（描述、周期规则、
+                // 标签、附件月历都用不上），也会把 9999 残留给列表视图。
+                await this.loadCalendarTasks();
                 break;
             }
             // 切换到时间轴视图
@@ -254,10 +252,34 @@ class CalendarManager {
 
     // 更新任务数据
     updateTasks(tasks) {
-        this.tasks = tasks;
+        // 日历视图的数据源是 get_calendar_tasks（只回月历格所需字段），
+        // 列表的分页结果不能覆盖它，否则月历会退化成列表当前页的那十几条。
+        // 数据变更后的日历刷新由 App.notifyDataChanged 触发 loadCalendarTasks。
         if (this.currentView === 'calendar') {
             this.renderCalendar();
+            return;
         }
+        this.tasks = tasks;
+    }
+
+    // 日历视图专用取数：沿用列表当前生效的筛选（分类 / 优先级 / 状态 / 搜索 chips），
+    // 只拿月历格渲染需要的字段，不带分页。
+    async loadCalendarTasks() {
+        let filter = null;
+        if (window.todoManager) {
+            filter = window.todoManager.buildListFilter();
+            // 月历按整天铺开，单日条件会让月历只剩那一天（进入日历时已清掉 chip）
+            filter.dueDateFilter = null;
+            filter.dueDate = null;
+        }
+        await Utils.apiCall({
+            apiMethod: 'get_calendar_tasks',
+            apiArgs: [filter],
+            onSuccess: (response) => {
+                this.tasks = response.data || [];
+                if (this.currentView === 'calendar') this.renderCalendar();
+            }
+        });
     }
 
     // 渲染日历

@@ -109,6 +109,15 @@ class TaskApiMixin:
         return self.db.get_timeline_tasks(task_filter)
 
     @api_handler
+    def get_calendar_tasks(self, task_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """日历视图取数（不分页，只回传月历格所需字段）。
+
+        筛选语义与 get_todos 一致（分类 / 优先级 / 状态 / 搜索 chips），
+        由前端把当前生效的筛选条件一起传进来，保证月历与列表口径一致。
+        """
+        return self.db.get_calendar_tasks(task_filter)
+
+    @api_handler
     def get_task_due_years(self) -> List[str]:
         """导出年份下拉：有截止时间的任务覆盖的年份，已去重、按降序返回。"""
         return self.db.get_task_due_years()

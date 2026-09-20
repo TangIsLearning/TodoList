@@ -286,7 +286,7 @@ class App {
             await todo.tagManager?.loadModule(true);
         }
 
-        // 4. 任务列表：内部会同步日历数据（分类计数与顶部统计条已解耦到第 6 步）。
+        // 4. 任务列表：只有列表视图需要这份分页数据
         if (todo) await todo.refresh();
 
         // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
@@ -297,12 +297,14 @@ class App {
     }
     
     // 数据发生变更（增删改、完成状态切换、分类变更、切库/导入、页面重新可见）后，
-    // 刷新不随视图切换重建的常驻数据：左侧分类计数 + 顶部统计条。
-    // 两者口径都是全局的（未完成任务数 / 全局 overview），与列表筛选无关，
+    // 刷新不随视图切换重建的常驻数据：左侧分类计数 + 顶部统计条 + 日历（仅当前台时）。
+    // 前两者口径都是全局的（未完成任务数 / 全局 overview），与列表筛选无关，
     // 因此只在数据真正变更时刷新，不再跟着任务列表的每次加载走。
     notifyDataChanged({ fromZero = false, skipCategoryCounts = false } = {}) {
         // 调用方（如分类模块）若已经自己重算过左侧计数，跳过以免重复拉一次全量任务
         if (!skipCategoryCounts) window.categoryManager?.refreshCounts(fromZero);
+        // 日历视图的数据来自专用接口（不再跟着列表的分页结果走），数据变更后单独刷新
+        if (window.calendarManager?.currentView === 'calendar') window.calendarManager.loadCalendarTasks();
         window.statsManager?.refreshOverviewBar(fromZero);
     }
 

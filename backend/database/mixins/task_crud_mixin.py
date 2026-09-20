@@ -32,6 +32,8 @@ _COLUMN_COUNT = len(_TASK_COLUMNS.split(','))
 _TASK_SELECT = f'SELECT {_TASK_COLUMNS} FROM tasks'
 # 时间轴卡片只需要这几个字段，无需带上描述 / 周期规则 / 时间戳
 _TIMELINE_COLUMNS = 'id, title, due_date, completed, is_recurring, parent_task_id'
+# 月历格只需要这几个字段：标题、完成状态、截止时间、优先级（决定指示器配色）
+_CALENDAR_COLUMNS = 'id, title, due_date, completed, priority'
 _INSERT_TASK_SQL = (
     f"INSERT INTO tasks ({_TASK_COLUMNS}) "
     f"VALUES ({', '.join(['?'] * _COLUMN_COUNT)})"
@@ -548,6 +550,60 @@ class TaskCrudMixin:
             'isRecurring': bool(row['is_recurring']) if row['is_recurring'] is not None else False,
             'parentTaskId': row['parent_task_id'],
         }
+
+    def get_calendar_tasks(self, task_filter: Any = None) -> List[Dict[str, Any]]:
+        """日历视图取数：只取月历格渲染所需字段（标题 / 完成状态 / 截止时间 / 优先级）。
+
+        与 get_tasks_paginated / get_timeline_tasks 共用同一套筛选语义
+        （_build_list_where_clauses），保证日历与列表在分类 / 优先级 / 状态 /
+        搜索 chips 上的结果一致。
+
+        此前日历是把 pageSize 撑到 9999 调分页接口：既拿回整份任务（描述、周期规则、
+        标签、附件等月历根本不用的字段），也会把 9999 这个 pageSize 残留给列表视图。
+
+        月历按截止日期归组，因此只取有截止时间的任务——没有截止时间的任务
+        本来也不会落在任何一格上。
+        """
+        where_sql, params = self._build_list_where_clauses(task_filter)
+
+        with self.query() as conn:
+            rows = conn.execute(
+                f'SELECT {_CALENDAR_COLUMNS} FROM tasks '
+                f"WHERE ({where_sql}) AND due_date IS NOT NULL AND due_date <> '' {_TASK_ORDER_BY}",
+                params
+            ).fetchall()
+
+        return [self._row_to_calendar_task(row) for row in rows]
+
+    @staticmethod
+    def _row_to_calendar_task(row: Any) -> Dict[str, Any]:
+        """任务行 → 月历格（字段与前端 createDayElement 的取值一一对应）。"""
+        return {
+            'id': row['id'],
+            'title': row['title'],
+            'dueDate': row['due_date'],
+            'completed': bool(row['completed']),
+            'priority': row['priority'],
+        }
+
+    def get_reminder_candidates(self) -> List[Dict[str, Any]]:
+        """提醒轮询取数：判定到期只需要这几列，字段与月历格一致。
+
+        桌面端提醒线程每 30 秒跑一轮，原本用 get_all_tasks() 拉全量任务
+        （描述、周期规则、标签、附件都用不上），其中标签 / 附件还要各查一次表补齐。
+
+        这里同样取「有截止时间的任务」且**包含已完成的**：清理逻辑
+        （TaskReminder._cleanup_completed_tasks）靠这份 id 集合判断任务是否被删除，
+        若把已完成任务排除掉，它们的提醒记录会被误当成已删除而清掉。
+        无截止时间的任务本来进不了提醒流程，不在集合里不影响判定。
+        """
+        with self.query() as conn:
+            rows = conn.execute(
+                f"SELECT {_CALENDAR_COLUMNS} FROM tasks "
+                "WHERE due_date IS NOT NULL AND due_date <> ''"
+            ).fetchall()
+
+        return [self._row_to_calendar_task(row) for row in rows]
 
     def get_task_due_years(self) -> List[str]:
         """有截止时间的任务覆盖了哪些年份（导出年份下拉专用），按降序返回。
