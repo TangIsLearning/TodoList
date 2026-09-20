@@ -365,8 +365,3 @@ class DataExportManager(LogManager):
         except Exception as e:
             self.get_logger.error(f"获取数据摘要错误: {e}")
             return None
-
-    def has_data(self) -> bool:
-        """检查是否有数据"""
-        summary = self.get_data_summary()
-        return summary is not None and summary['total_tasks'] > 0

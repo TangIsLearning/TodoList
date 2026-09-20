@@ -259,10 +259,11 @@ class DataTransfer {
                     this.displayReceivedData(data);
                     this.receiveDataPreviewSection.style.display = 'block';
 
+                    // 本地已有数据时提示导入会覆盖（复用共享面板使用的摘要接口）
                     Utils.apiCall({
-                        apiMethod: 'p2p_has_data',
+                        apiMethod: 'p2p_get_data_summary',
                         onSuccess: (response) => {
-                            if (response.data) {
+                            if ((response.data?.total_tasks || 0) > 0) {
                                 this.importWarning.style.display = 'flex';
                             }
                         }

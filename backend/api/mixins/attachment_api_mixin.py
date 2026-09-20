@@ -132,7 +132,7 @@ class AttachmentApiMixin:
             'isImage': saved['isImage'],
         })
 
-    def sync_task_attachments(self, task_id: str, attachments: Optional[List[Dict[str, Any]]]) -> None:
+    def _sync_task_attachments(self, task_id: str, attachments: Optional[List[Dict[str, Any]]]) -> None:
         """同步任务附件（用于新增/编辑任务时统一处理）
 
         前端提交的附件列表项：
@@ -171,7 +171,7 @@ class AttachmentApiMixin:
             if att.get('type') == TYPE_FILE:
                 service.delete_file(att.get('filePath'))
 
-    def cleanup_task_attachments(self, task_id: str) -> None:
+    def _cleanup_task_attachments(self, task_id: str) -> None:
         """删除任务的所有附件记录及实体文件"""
         service = get_attachment_service()
         attachments = self.db.delete_task_attachments(task_id)
@@ -179,15 +179,11 @@ class AttachmentApiMixin:
             if att.get('type') == TYPE_FILE:
                 service.delete_file(att.get('filePath'))
 
-    # ==================== 公开 API ====================
-
-    @api_handler
-    def get_task_attachments(self, task_id: str) -> List[Dict[str, Any]]:
+    def _get_task_attachments(self, task_id: str) -> List[Dict[str, Any]]:
         """获取任务的附件列表"""
         return self.db.get_task_attachments(task_id)
 
-    @api_handler
-    def add_task_attachment(self, task_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _add_task_attachment(self, task_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """为任务新增单个附件"""
         task = self.db.get_task(task_id)
         if not task:
@@ -202,8 +198,7 @@ class AttachmentApiMixin:
             raise Exception("附件信息不完整")
         return created
 
-    @api_handler
-    def update_task_attachment(self, attachment_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_task_attachment(self, attachment_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """更新附件信息（名称 / 链接地址）"""
         att = self.db.get_attachment(attachment_id)
         if not att:
@@ -218,8 +213,7 @@ class AttachmentApiMixin:
             raise Exception("更新附件失败")
         return updated
 
-    @api_handler
-    def delete_task_attachment(self, attachment_id: str) -> None:
+    def _delete_task_attachment(self, attachment_id: str) -> None:
         """删除附件（若为实体文件则同时删除本地文件）"""
         att = self.db.get_attachment(attachment_id)
         if not att:
@@ -228,6 +222,8 @@ class AttachmentApiMixin:
         self.db.delete_attachment(attachment_id)
         if att.get('type') == TYPE_FILE:
             get_attachment_service().delete_file(att.get('filePath'))
+
+    # ==================== 公开 API ====================
 
     @api_handler
     def get_attachment_access_mode(self) -> Dict[str, Any]:

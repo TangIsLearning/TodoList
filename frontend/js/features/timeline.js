@@ -402,8 +402,8 @@ class TimelineManager {
             // 拼接为 ISO 日期时间（本地时间，不带时区）
             const dueDateStr = `${currentTask.date}T${endHour}:00:00`;
             await Utils.apiCall({
-                apiMethod: 'update_todo_due_date',
-                apiArgs: [currentTask.id, dueDateStr],
+                apiMethod: 'update_todo',
+                apiArgs: [currentTask.id, { dueDate: dueDateStr }],
                 successCheck: (response) => !response.success,
                 onSuccess: (response) => {
                     Utils.showToast(response.error, 'warning');

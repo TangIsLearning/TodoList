@@ -96,11 +96,6 @@ class P2PApiMixin:
         return summary
 
     @api_handler
-    def p2p_has_data(self) -> bool:
-        """检查是否有数据"""
-        return self._data_manager.has_data()
-
-    @api_handler
     def p2p_import_data(self, data: Any) -> None:
         """导入数据"""
         merged = data if isinstance(data, dict) else {}

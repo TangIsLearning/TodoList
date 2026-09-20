@@ -195,20 +195,6 @@ class DatafileApiMixin:
         raise Exception("用户取消了目录选择")
 
     @api_handler
-    def select_file_dialog(self) -> Tuple[Any, str]:
-        """打开文件选择对话框"""
-        import webview
-        active_window = webview.active_window()
-        selected_path = active_window.create_file_dialog(
-            webview.FileDialog.OPEN,
-            file_types=('All files (*.*)',)
-        )
-        if selected_path:
-            return selected_path, '文件选择成功'
-        else:
-            raise Exception("用户取消了文件选择")
-
-    @api_handler
     def select_attachment_files(self) -> List[dict]:
         """打开附件选择对话框（支持多选）
 

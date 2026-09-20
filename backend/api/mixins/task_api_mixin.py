@@ -71,7 +71,7 @@ class TaskApiMixin:
             self.service.add_task_reminder_to_calendar(task_data['title'], task_data['description'], target_time)
         task = self.db.add_task(task_data)
         # 处理附件（实体文件会被复制到存储目录）
-        self.sync_task_attachments(task.get('id'), task_data.get('attachments'))
+        self._sync_task_attachments(task.get('id'), task_data.get('attachments'))
         return task
 
     @api_handler
@@ -135,20 +135,9 @@ class TaskApiMixin:
         old_task = self.db.get_task(task_id)
         result = self.db.update_task(task_id, task_data)
         # 同步附件（新增/修改/删除）
-        self.sync_task_attachments(task_id, task_data.get('attachments'))
+        self._sync_task_attachments(task_id, task_data.get('attachments'))
         # 截止时间变更后刷新提醒，确保新截止时间到期时能弹窗
         self._refresh_due_date_reminder(task_id, old_task, task_data.get('dueDate'))
-        return result
-
-    @api_handler
-    def update_todo_due_date(self, task_id: str, due_date: str) -> Dict[str, Any]:
-        """更新任务"""
-        validation_result = validate_due_date(due_date)
-        if not validation_result['valid']:
-            raise Exception(f'{validation_result["message"]}')
-        old_task = self.db.get_task(task_id)
-        result = self.db.update_task(task_id, {'dueDate': due_date})
-        self._refresh_due_date_reminder(task_id, old_task, due_date)
         return result
 
     @api_handler
@@ -158,9 +147,9 @@ class TaskApiMixin:
         try:
             if delete_all:
                 for tid in self.db.get_recurring_family_ids(task_id):
-                    self.cleanup_task_attachments(tid)
+                    self._cleanup_task_attachments(tid)
             else:
-                self.cleanup_task_attachments(task_id)
+                self._cleanup_task_attachments(task_id)
         except Exception as e:
             self.get_logger.error(f"清理任务附件失败: {e}")
 
@@ -198,7 +187,7 @@ class TaskApiMixin:
                 self.service.add_task_reminder_to_calendar(task['title'], task['description'], target_time)
         # 附件挂在周期性任务的父任务上
         if result:
-            self.sync_task_attachments(result[0].get('id'), task_data.get('attachments'))
+            self._sync_task_attachments(result[0].get('id'), task_data.get('attachments'))
         return result
 
     @api_handler
