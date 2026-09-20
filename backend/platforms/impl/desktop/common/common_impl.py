@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.platforms.interface.service import PlatformService
+from backend.utils.api_errors import CancelledError
 
 class DesktopCommonService(PlatformService):
     APP_NAME: str = 'TodoList'
@@ -184,9 +185,9 @@ class DesktopCommonService(PlatformService):
                     wb.save(file_path)
                     return
                 else:
-                    raise Exception(f'用户取消了保存')
+                    raise CancelledError('用户取消了保存')
             else:
-                raise Exception(f'用户取消了保存')
+                raise CancelledError('用户取消了保存')
         else:
             raise Exception(f'无法获取活动窗口')
 

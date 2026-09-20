@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from backend.platforms.interface.service import PlatformService
+from backend.utils.api_errors import PermissionDeniedError
 
 class AndroidService(PlatformService):
     def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
@@ -107,7 +108,7 @@ class AndroidService(PlatformService):
                            month: Optional[int] = None, category_id: Optional[str] = None,
                            tag_ids: Optional[List[str]] = None) -> None:
         """后端数据导出的统一接口"""
-        raise Exception(f'当前系统不支持')
+        raise PermissionDeniedError('当前系统不支持')
 
 # 用于给工厂注册的导出变量
 ExportService = AndroidService

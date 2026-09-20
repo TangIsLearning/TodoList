@@ -15,6 +15,7 @@ from typing import Optional, List, Dict, Any
 from webdav3.client import Client
 from datetime import datetime, timezone
 from backend.utils.logger import LogManager
+from backend.utils.api_errors import NotFoundError, ValidationError
 
 # 本地应用数据目录中需要同步的数据库文件名
 DB_FILE_NAME = 'todo.db'
@@ -109,7 +110,7 @@ class WebDAVClient(LogManager):
     def test_connection(self) -> None:
         """测试WebDAV连接，并确保同步目录存在"""
         if not self.client:
-            raise Exception('WebDAV客户端未配置')
+            raise ValidationError('WebDAV客户端未配置')
 
         # 列出根目录，验证账号可用
         self.client.list('/')
@@ -182,9 +183,9 @@ class WebDAVClient(LogManager):
     def upload_file(self, remote_file: str, local_file: str) -> None:
         """上传单个文件到指定远程路径"""
         if not self.client:
-            raise Exception('WebDAV客户端未配置')
+            raise ValidationError('WebDAV客户端未配置')
         if not os.path.exists(local_file):
-            raise Exception(f'本地文件不存在: {local_file}')
+            raise NotFoundError(f'本地文件不存在: {local_file}')
 
         parent = os.path.dirname(remote_file)
         if parent:
@@ -197,7 +198,7 @@ class WebDAVClient(LogManager):
         """将本地应用数据目录（todo.db + attachment）整体上传到远程同步目录"""
         local_path = Path(local_dir)
         if not local_path.exists():
-            raise Exception(f'本地数据目录不存在: {local_dir}')
+            raise NotFoundError(f'本地数据目录不存在: {local_dir}')
 
         if self.remote_dir:
             self._ensure_remote_directory(self.remote_dir)
@@ -222,10 +223,10 @@ class WebDAVClient(LogManager):
             bool: 是否实际执行了下载
         """
         if not self.client:
-            raise Exception('WebDAV客户端未配置')
+            raise ValidationError('WebDAV客户端未配置')
 
         if not self._remote_file_exists(remote_file):
-            raise Exception('远程文件不存在')
+            raise NotFoundError('远程文件不存在')
 
         local_path = Path(local_file)
         local_path.parent.mkdir(parents=True, exist_ok=True)

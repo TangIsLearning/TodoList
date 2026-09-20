@@ -11,6 +11,8 @@ from datetime import datetime
 from backend.features.webdav.webdav_config import get_webdav_config, is_webdav_enabled, set_webdav_config
 from backend.features.webdav.webdav_client import WebDAVClient, get_webdav_client
 from backend.utils.logger import LogManager
+from backend.utils.api_errors import (
+    ConflictError, DatabaseError, NotFoundError, ValidationError)
 
 class DataSyncManager(LogManager):
     """数据同步管理器"""
@@ -70,15 +72,15 @@ class DataSyncManager(LogManager):
     def _prepare_sync(self) -> Tuple[WebDAVClient, str]:
         """准备同步环境，返回 (WebDAV客户端, 本地应用数据目录)"""
         if self.is_syncing:
-            raise Exception('同步正在进行中')
+            raise ConflictError('同步正在进行中')
         if not is_webdav_enabled():
-            raise Exception('WebDAV未启用')
+            raise ValidationError('WebDAV未启用')
 
         client = get_webdav_client()
         config = get_webdav_config()
         url = config.get('url', 'https://dav.jianguoyun.com/dav')
         if not client.configure(config['username'], config['password'], config['remote_path'], url):
-            raise Exception('WebDAV客户端配置失败')
+            raise ValidationError('WebDAV客户端配置失败')
 
         # 本地应用数据目录：<存储目录>/todolist（包含 todo.db 与 attachment）
         from backend.storage.service import get_app_dir
@@ -107,7 +109,7 @@ class DataSyncManager(LogManager):
         try:
             self.get_logger.info("开始上传数据到云端...")
             if not os.path.exists(local_dir):
-                raise Exception(f'本地数据目录不存在: {local_dir}')
+                raise NotFoundError(f'本地数据目录不存在: {local_dir}')
             client.upload_app_dir(local_dir)
             self.last_sync_time = datetime.now()
             self.get_logger.info("数据上传到云端成功")
@@ -122,13 +124,13 @@ class DataSyncManager(LogManager):
             local_file: 本地下载目标路径
         """
         if not is_webdav_enabled():
-            raise Exception('WebDAV未启用')
+            raise ValidationError('WebDAV未启用')
 
         client = get_webdav_client()
         config = get_webdav_config()
         url = config.get('url', 'https://dav.jianguoyun.com/dav')
         if not client.configure(config['username'], config['password'], config['remote_path'], url):
-            raise Exception('WebDAV客户端配置失败')
+            raise ValidationError('WebDAV客户端配置失败')
 
         remote_path = client.build_remote_path(relative_path)
         client.download_file(remote_path, local_file, is_overwrite=True, compare_version=False)
@@ -168,7 +170,7 @@ class DataSyncManager(LogManager):
         success = set_webdav_config(config)
 
         if not success:
-            raise Exception(f'配置保存失败')
+            raise DatabaseError(f'配置保存失败')
 
         # 如果启用了自动同步，重启同步管理器
         if config.get('enabled') and config.get('auto_sync'):
@@ -182,7 +184,7 @@ class DataSyncManager(LogManager):
         # 创建临时客户端进行测试
         client = get_webdav_client()
         if not client.configure(username, password, remote_path, url):
-            raise Exception(f'客户端配置失败')
+            raise ValidationError(f'客户端配置失败')
         client.test_connection()
 
 # 全局同步管理器实例
