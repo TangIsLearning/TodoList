@@ -82,8 +82,7 @@ const Languages = {
         // 状态
         statusCompleted: "已完成",
         statusUncompleted: "未完成",
-        statusPending: "未完成未逾期",
-        statusOverdue: "未完成已逾期",
+        statusOverdue: "已逾期",
         
         // 统计信息
         statsTotalTasks: "总任务",
@@ -612,7 +611,6 @@ const Languages = {
         // 状态
         statusCompleted: "Completed",
         statusUncompleted: "Uncompleted",
-        statusPending: "Pending (Not Overdue)",
         statusOverdue: "Overdue",
         
         // 统计信息

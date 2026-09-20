@@ -48,6 +48,16 @@ def _month_range(ym: str):
     return first, nxt - timedelta(days=1)
 
 
+def _is_overdue(task: Dict[str, Any], due_dt: Optional[datetime], now: datetime) -> bool:
+    """统一的逾期判定：未完成且截止时刻早于"此刻"。
+
+    全项目共用这一个口径（顶部统计条、统计面板 KPI、逾期明细、前端任务列表的
+    红色截止时间），避免出现同一份数据给出两个逾期数：
+    今天上午 9 点到期、现在下午 2 点，算逾期。
+    """
+    return not task.get('completed') and due_dt is not None and due_dt < now
+
+
 class StatisticsCrudMixin:
 
     def _statistics_basis_dt(self, task: Dict[str, Any], date_basis: str) -> Optional[datetime]:
@@ -70,11 +80,7 @@ class StatisticsCrudMixin:
         与 kpi 的区别：kpi 是「按本次筛选（时间口径 / 范围 / 分类 / 标签）过滤后」
         的指标；overview 恒为整个库的口径，因为顶部统计条展示的是总体状态，
         不该随统计视图的筛选变化。两者共用同一份 tasks 列表，不额外全量加载。
-
-        注意 over_due 与 kpi.overdue 的判定口径不同（合并前两者本就如此，此处
-        保持原样以免改动现有数值）：
-            over_due  —— 截止时刻早于"此刻"，今天早些时候到期的任务算逾期
-            kpi.overdue —— 截止日期早于"今天"，今天到期的任务不算逾期
+        逾期判定与 kpi.overdue / 逾期明细共用 _is_overdue，口径一致。
         """
         now = datetime.now()
         total = len(tasks)
@@ -88,8 +94,7 @@ class StatisticsCrudMixin:
                 if updated and updated.date() == now.date():
                     today_completed += 1
                 continue
-            due = _safe_dt(task.get('dueDate'))
-            if due and due < now:
+            if _is_overdue(task, _safe_dt(task.get('dueDate')), now):
                 over_due += 1
 
         return {
@@ -183,7 +188,6 @@ class StatisticsCrudMixin:
 
         # ---- 1. 计算该任务所属统计时间点，并做时间范围筛选 ----
         now = datetime.now()
-        today = now.date()
 
         # 时间范围边界（含首尾）。scope 为 all 时不做限制
         start_day: Optional[date] = None
@@ -251,7 +255,7 @@ class StatisticsCrudMixin:
             due_dt = due_dts[idx]
             if due_dt is None:
                 no_due += 1
-            elif not t.get('completed') and due_dt.date() < today:
+            elif _is_overdue(t, due_dt, now):
                 overdue += 1
 
         # ---- 3. 趋势 ----
@@ -400,10 +404,8 @@ class StatisticsCrudMixin:
         # ---- 9. 逾期未完成任务明细 ----
         overdue_tasks = []
         for idx, t in enumerate(included):
-            if t.get('completed'):
-                continue
             due_dt = due_dts[idx]
-            if due_dt is None or due_dt.date() >= today:
+            if not _is_overdue(t, due_dt, now):
                 continue
             cid = t.get('categoryId')
             key = str(cid) if cid is not None else 'uncategorized'

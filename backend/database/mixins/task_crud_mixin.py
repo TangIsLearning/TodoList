@@ -149,7 +149,8 @@ def _build_base_filter_clauses(category_id: Optional[str], status: Optional[str]
     """
     clauses: List[str] = []
     params: List[Any] = []
-    today = datetime.now().date()
+    now = datetime.now()
+    today = now.date()
 
     # 分类筛选
     if not custom_date:
@@ -169,17 +170,13 @@ def _build_base_filter_clauses(category_id: Optional[str], status: Optional[str]
         clauses.append('completed = 1')
     elif status == 'uncompleted':
         clauses.append('completed = 0')
-    elif status == 'pending':
-        # 未完成且未逾期
-        clauses.append('completed = 0')
-        clauses.append('(due_date IS NULL OR date(due_date) >= ?)')
-        params.append(today.isoformat())
     elif status == 'overdue':
-        # 未完成且已逾期
+        # 已逾期：未完成且截止时刻早于"此刻"，与统计的 _is_overdue 同一口径。
+        # 即今天上午 9 点到期、现在下午 2 点，算逾期。
         clauses.append('completed = 0')
         clauses.append('due_date IS NOT NULL')
-        clauses.append('date(due_date) < ?')
-        params.append(today.isoformat())
+        clauses.append('datetime(due_date) < datetime(?)')
+        params.append(now.isoformat(sep=' ', timespec='seconds'))
 
     # 日期筛选
     if due_date_filter and not custom_date:
