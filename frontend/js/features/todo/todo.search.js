@@ -632,7 +632,7 @@ Object.assign(TodoManager.prototype, {
         return true;
     },
 
-    // 更新搜索清空按钮状态（显隐 + 下一步将清除的内容）
+    // 更新搜索清空按钮状态（按钮常驻可见，这里只切换醒目度 + 下一步将清除的内容提示）
     updateSearchClearButton() {
         const layer = this.getSearchClearLayer();
         if (layer) {

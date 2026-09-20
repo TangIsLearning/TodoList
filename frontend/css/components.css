@@ -479,20 +479,20 @@
     line-height: 1;
 }
 
-/* 隐藏态的清空按钮不接收点击，避免想点日历图标时误清空搜索 */
+/* 清空按钮与日历按钮一样常驻显示：日历按钮旁边若空着一块，会显得孤立。
+   无可清空内容时略微淡化（仍可点击），有内容或悬停时恢复完全不透明。 */
 .search-tag-wrapper #search-clear-btn {
-    pointer-events: none;
+    opacity: 0.8;
+    pointer-events: auto;
 }
 
-/* 有内容可清空时（输入框有字或有 chip）常驻显示，与 hover 显示互补 */
+/* 有内容可清空时（输入框有字或有 chip）提高醒目度 */
 .search-tag-wrapper #search-clear-btn.visible {
     opacity: 1;
-    pointer-events: auto;
 }
 
-.search-tag-wrapper:hover #search-clear-btn,
-.search-tag-wrapper input:focus ~ #search-clear-btn {
-    pointer-events: auto;
+.search-tag-wrapper #search-clear-btn:hover {
+    opacity: 1;
 }
 
 /* 清空按钮下的输入框样式调整 */
