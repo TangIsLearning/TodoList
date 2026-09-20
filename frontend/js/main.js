@@ -286,8 +286,8 @@ class App {
             await todo.tagManager?.loadModule(true);
         }
 
-        // 4. 任务列表：内部会同步日历数据（分类计数与顶部统计条已解耦到第 6 步）
-        if (todo) await todo.loadTasks();
+        // 4. 任务列表：内部会同步日历数据（分类计数与顶部统计条已解耦到第 6 步）。
+        if (todo) await todo.refresh();
 
         // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
         await window.timelineManager?.renderTimelineIfVisible();
