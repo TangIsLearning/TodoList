@@ -1173,7 +1173,7 @@ input:checked + .slider:before {
     text-decoration: inherit;
 }
 
-/* 复制任务图标：紧邻任务名称右侧 */
+/* 复制任务图标 */
 .task-copy-btn {
     flex: 0 0 auto;
     display: inline-flex;

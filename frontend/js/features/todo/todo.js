@@ -823,8 +823,8 @@ class TodoManager {
                             <span class="task-title-text">${Utils.escapeHtml(task.title)}</span>
                             ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
                             ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                            ${this.createTaskCopyButton(task)}
                             <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
+                            ${this.createTaskCopyButton(task)}
                         </h3>
                         <p class="task-description">${task.description ? Utils.escapeHtml(task.description) : ''}</p>
                         <div class="task-meta">
@@ -885,8 +885,8 @@ class TodoManager {
                                 <h3 class="task-title" title="${task.title}">
                                     <span class="task-title-text">${Utils.escapeHtml(task.title)}</span>
                                     ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
-                                    ${this.createTaskCopyButton(task)}
                                     <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
+                                    ${this.createTaskCopyButton(task)}
                                 </h3>
                             </div>
                         </div>
