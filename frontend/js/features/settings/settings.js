@@ -63,13 +63,8 @@ class SettingsUIManager {
 
     async init() {
         try {
-            // 获取DOM元素
             this.initDOM();
-
-            // 绑定事件
             this.bindEvents();
-
-            // 恢复用户设置
             await this.restoreSettings();
 
             this.isInitialized = true;
@@ -87,11 +82,9 @@ class SettingsUIManager {
         this.dataSyncBtn = document.getElementById('data-sync-btn');
         this.exportTasksBtn = document.getElementById('export-tasks-btn');
 
-        // 数据目录配置元素
         this.dataDirBtn = document.getElementById('data-dir-btn');
         this.applyDirBtn = document.getElementById('apply-dir-btn');
 
-        // WebDAV配置元素
         this.webdavEnableToggle = document.getElementById('webdav-enable-toggle');
         this.webdavConfigPanel = document.getElementById('webdav-config-panel');
         this.webdavSyncType = document.getElementById('webdav-sync-type-selector');
@@ -104,10 +97,8 @@ class SettingsUIManager {
         this.webdavSaveBtn = document.getElementById('webdav-save-btn');
         this.webdavStatusDiv = document.getElementById('webdav-status');
 
-        // 开机自启动元素
         this.autoStartToggle = document.getElementById('auto-start-toggle');
 
-        // 快捷按键元素
         this.smartKeyShow = document.getElementById('smart-key-show');
         this.smartKeyApply = document.getElementById('smart-key-apply');
         this.shortcutToggle = document.getElementById('shortcut-toggle');
@@ -121,51 +112,40 @@ class SettingsUIManager {
         this.smartKeyShow.textContent = localStorage.getItem('todolist_shortcut') || this.smartKeyShow.textContent;
         this.currentButtonKey = this.smartKeyShow.textContent;
 
-        // 主题配色编辑器元素
         this.initThemeColorEditor();
     }
 
     bindEvents() {
-        // 打开设置中心
         this.settingsBtn?.addEventListener('click', () => this.openModal());
 
-        // 关闭设置中心
         this.closeBtn?.addEventListener('click', () => this.closeModal());
 
-        // 点击模态框外部关闭（仅在遮罩层本身按下并抬起时触发，避免拖选文本误关闭）
+        // 仅在遮罩层本身按下并抬起时触发，避免拖选文本误关闭
         Utils.bindBackdropClose(this.modal, () => this.closeModal());
 
-        // 窗口置顶开关
         this.windowTopToggle?.addEventListener('change', () => this.toggleWindowOnTop());
 
-        // 语言切换
         const languageToggle = document.getElementById('language-toggle');
         languageToggle?.addEventListener('change', (e) => this.handleLanguageToggle(e));
 
-        // 数据共享按钮
         this.dataShareBtn?.addEventListener('click', () => this.openDataTransfer('share'));
 
-        // 数据同步按钮
         this.dataSyncBtn?.addEventListener('click', () => this.openDataSync());
 
-        // 导出任务按钮
         this.exportTasksBtn?.addEventListener('click', () => this.openExportModal());
 
-        // 数据文件配置事件绑定
         this.dataDirBtn?.addEventListener('click', () => this.browseFile());
         this.applyDirBtn?.addEventListener('click', () => this.applyDataFile());
         this.dataDirBtn?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.applyDataDirectory();
         });
 
-        // WebDAV事件绑定
         this.handleSyncTypeChange();
         this.webdavEnableToggle?.addEventListener('change', () => this.toggleWebDAV());
         this.webdavSyncType?.addEventListener('change', () => this.handleSyncTypeChange());
         this.webdavTestBtn?.addEventListener('click', () => this.testWebDAVConnection());
         this.webdavSaveBtn?.addEventListener('click', () => this.saveWebDAVConfig());
 
-        // 开机自启动事件绑定
         this.autoStartToggle?.addEventListener('change', () => this.toggleAutoStart());
 
         // ESC键关闭：设置中心或其二级弹窗任一处于打开状态，都一次性关闭全部
@@ -174,11 +154,9 @@ class SettingsUIManager {
             if (this.modal.style.display === 'flex' || this.isThemeModalOpen()) this.closeModal();
         });
 
-        // 绑定快捷按键事件
         if (this.smartKeyShow) {
             // ⬇️ 【Mac 适配核心 】：点击时必须强制呼叫 .focus() 夺取系统键盘流
             this.smartKeyShow.addEventListener('click', (e) => this.smartKeyShow.focus());
-            // 绑定具体的按键监听（确保使用我们在第一轮修改过的、适配了 Mac 的最新逻辑）
             this.smartKeyShow.addEventListener('keydown', (e) => this.handleKeyDown(e));
             this.smartKeyShow.addEventListener('keyup', (e) => this.handleKeyUp(e));
         }
@@ -196,10 +174,8 @@ class SettingsUIManager {
             });
         });
 
-        // 快捷操作开关事件绑定
         this.shortcutToggle?.addEventListener('change', () => this.toggleShortcut());
 
-        // 主题配色编辑器事件绑定
         this.bindThemeColorEvents();
     }
 
@@ -210,10 +186,8 @@ class SettingsUIManager {
             this.modal.style.display = 'flex';
             this.modal.classList.add('show');
 
-            // 更新当前状态
             await this.updateCurrentState();
 
-            // 更新数据文件配置
             this.updateDataFileConfig();
         }
     }
@@ -226,29 +200,23 @@ class SettingsUIManager {
     }
 
     async updateCurrentState() {
-        // 更新窗口置顶状态
         await this.updateWindowOnTopState();
 
-        // 同步主题模式选择器（模式由 ThemeManager 统一持有，这里只刷新展示）
+        // 模式由 ThemeManager 统一持有，这里只刷新展示
         BusinessUtils.ThemeManager.updateToggleButton(
             BusinessUtils.ThemeManager.normalizeMode(BusinessUtils.ThemeManager.mode));
 
 
-        // 更新语言状态
         this.updateLanguageSwitchState();
 
-        // 更新开机启动状态
         this.updateAutoStartState();
 
-        // 更新快捷键配置
         this.updateShortcutToggleState();
         this.updateShortcutConfig();
 
-        // 更新主题配色编辑器
         this.loadThemeColorEditor();
     }
 
-    // 更新语言状态
     updateLanguageSwitchState() {
         const currentLanguage = window.languageManager ? window.languageManager.getCurrentLanguage() : 'zh';
         const languageToggle = document.getElementById('language-toggle');

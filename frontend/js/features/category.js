@@ -9,7 +9,6 @@ class CategoryManager {
         this._lastCounts = null;
     }
     
-    // 初始化
     async init() {
         await this.loadCategories();
         this.bindEvents();
@@ -19,9 +18,8 @@ class CategoryManager {
         this.setActiveCategory(window.viewFilter?.categoryId ?? 'all');
     }
     
-    // 绑定事件
     bindEvents() {
-        // 添加分类按钮
+        // 展开/收起分类
         const showMoreCategories = document.getElementById('categories-more');
         if (showMoreCategories) {
             showMoreCategories.addEventListener('click', () => {
@@ -36,21 +34,17 @@ class CategoryManager {
             });
         }
 
-        // 添加分类按钮
         const addCategoryBtn = document.getElementById('add-category-btn');
         addCategoryBtn?.addEventListener('click', () => this.showAddCategoryModal());
 
-        // 分类表单
         const categoryForm = document.getElementById('category-form');
         categoryForm?.addEventListener('submit', (e) => this.handleCategorySubmit(e));
 
-        // 模态框关闭按钮
         const modalClose = document.getElementById('category-modal-close');
         const cancelBtn = document.getElementById('category-cancel-btn');
         modalClose?.addEventListener('click', () => Utils.ModalManager.hide('category-modal'));
         cancelBtn?.addEventListener('click', () => Utils.ModalManager.hide('category-modal'));
 
-        // 颜色预设按钮
         document.querySelectorAll('.color-presets button').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const color = e.target.dataset.color;
@@ -58,9 +52,7 @@ class CategoryManager {
             });
         });
         
-        // 分类筛选、编辑和删除
         document.addEventListener('click', (e) => {
-            // 删除分类按钮
             if (e.target.closest('.category-delete-btn')) {
                 e.stopPropagation();
                 const deleteBtn = e.target.closest('.category-delete-btn');
@@ -70,7 +62,6 @@ class CategoryManager {
                 return;
             }
             
-            // 编辑分类按钮
             if (e.target.closest('.category-edit-btn')) {
                 e.stopPropagation();
                 const editBtn = e.target.closest('.category-edit-btn');
@@ -88,7 +79,7 @@ class CategoryManager {
             }
         });
         
-        // 删除按钮悬停事件 - 隐藏数字
+        // 悬浮删除按钮时隐藏计数
         document.addEventListener('mouseover', (e) => {
             if (e.target.closest('.category-delete-btn')) {
                 const wrapper = e.target.closest('.category-item-wrapper');
@@ -112,7 +103,6 @@ class CategoryManager {
         });
     }
     
-    // 加载分类
     async loadCategories() {
         await Utils.apiCall({
             apiMethod: 'get_categories',
@@ -138,7 +128,6 @@ class CategoryManager {
             this._lastCounts = taskCounts;
         }
         
-        // 生成HTML
         const categoriesHtml = this.generateCategoriesHtml(taskCounts || {}, isShowMore);
         categoryList.innerHTML = categoriesHtml;
 
@@ -155,7 +144,6 @@ class CategoryManager {
             showMoreCategories.style.cursor = 'pointer';
         }
         
-        // 设置当前分类的激活状态
         this.setActiveCategory(window.viewFilter?.categoryId ?? 'all');
     }
     
@@ -171,7 +159,6 @@ class CategoryManager {
         await this.renderCategories(true, isShowMore, false, staleCounts);
     }
 
-    // 生成分类HTML
     generateCategoriesHtml(taskCounts, isShowMore=false) {
         let html = `
             <button class="btn btn--colorless btn--width-100 category-item-btn" data-category="all">
@@ -394,15 +381,13 @@ class CategoryManager {
                 onSuccess: async (response) => {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
 
-                    // 如果当前选中的是被删除的分类，切回"全部"（commitChange 已带列表刷过一次）；
-                    // 否则当前筛选不受影响，交给下面的广播补刷一次
+                    // 删掉的正是当前选中的分类时切回"全部"——那一步已带过一次列表刷新
                     const switchedToAll = window.viewFilter.categoryId === categoryId;
                     if (switchedToAll) {
                         await this.filterByCategory('all');
                     }
-                    // 同上：先重建列表项，再由广播取回计数填进这些节点
                     await this.refresh();
-                    // skipList：切回"全部"时 commitChange 已带列表刷过一次，这里不重复刷
+                    // skipList 承接上面那次刷新，避免重复取一次列表
                     window.App?.notifyDataChanged({ skipList: switchedToAll });
                 },
                 onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),

@@ -31,7 +31,6 @@ function dismissToast(toast) {
     setTimeout(remove, TOAST_LEAVE_DURATION + 150);
 }
 
-// 显示提示信息
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -47,10 +46,8 @@ function showToast(message, type = 'info') {
     }
     stack.appendChild(toast);
 
-    // 3秒后自动移除
     const timer = setTimeout(() => dismissToast(toast), 3000);
 
-    // 点击关闭
     toast.addEventListener('click', () => {
         clearTimeout(timer);
         dismissToast(toast);
@@ -67,7 +64,6 @@ function setLoadingDelay(ms) {
     _loadingDelayOverride = (ms === null || ms === undefined) ? null : ms;
 }
 
-// 显示/隐藏加载状态
 function setLoading(isLoading, message = '加载中...') {
     const loadingEl = document.getElementById('loading');
     if (!loadingEl) return;
@@ -169,25 +165,15 @@ function closeModalWithAnimation(modal, finish) {
     setTimeout(complete, MODAL_CLOSE_DURATION + 60);
 }
 
-// 转义HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-/**
- * 统一的“点击遮罩层关闭弹窗”绑定。
- *
- * 不能直接用 click 事件 + `e.target === overlay` 判断，原因：
- * 当鼠标在遮罩层内部的输入框按下、拖拽选中文字后在遮罩层（弹窗面板之外）松开时，
- * click 事件的 target 会被派发到 mousedown 与 mouseup 目标的公共祖先，
- * 恰好就是遮罩层元素本身，于是被误判为“点击空白处”而关闭弹窗。
- * 鼠标拖选标题/描述文本时极易触发该场景。
- *
- * 解决：只有当“按下”和“抬起”都发生在遮罩层本身（真正的点空白）时才关闭。
- * 同时每个元素只绑定一次，避免重复打开弹窗导致监听器堆积。
- */
+// 不能用 click + e.target === overlay 判断：在遮罩内输入框按下、拖选文字后在遮罩上松开时，
+// click 的 target 会派发到 mousedown/mouseup 的公共祖先（即遮罩本身），被误判为点空白。
+// 故只在按下与抬起都发生在遮罩上时才关闭；每个元素只绑一次，避免监听器堆积。
 const _backdropClosers = new WeakMap();
 
 function bindBackdropClose(overlay, closeFn) {
@@ -213,13 +199,8 @@ function bindBackdropClose(overlay, closeFn) {
     _backdropClosers.set(overlay, { onPointerDown, onClick });
 }
 
-/**
- * 确认对话框（#confirm-dialog）是全局共用的同一个 DOM 节点，
- * 每次 open 都会重新给「确认/取消/关闭」按钮绑定回调，
- * 若上一次弹窗未经按钮关闭就被复用（例如详情弹窗里点击关联任务再次打开详情），
- * 旧回调仍挂在按钮上，点击时会连同历史回调一起触发。
- * 因此这里记录上一次的清理函数与关闭回调，重复打开时先清理，遮罩关闭时调用当前的关闭回调。
- */
+// 确认对话框是全局共用的同一节点，每次 open 都重新绑回调；上次弹窗未经按钮关闭就被复用时
+// 旧回调仍挂在同一按钮上，故记录上次的清理函数与关闭回调，重复打开时先清理。
 let _confirmDialogCleanup = null;
 let _confirmDialogClose = null;
 // 记录本次附加的自定义 class（如详情弹窗的 view-modal），下次打开时移除，避免样式串到别的弹窗
@@ -230,7 +211,6 @@ function isLargeScreen() {
     return window.innerWidth > 480;
 }
 
-// 模态框管理
 const ModalManager = {
     _boundModals: new WeakSet(),
 
@@ -245,7 +225,6 @@ const ModalManager = {
         modal.classList.add('show');
         modal.style.display = 'flex';
 
-        // 聚焦第一个输入框
         const firstInput = modal.querySelector('input, textarea, select');
         if (firstInput) setTimeout(() => firstInput.focus(), 100);
     },
@@ -279,12 +258,7 @@ const ModalManager = {
         });
     },
 
-    /**
-     * 一次性关闭所有已打开的弹窗（同时退场，不做逐层关闭）
-     * @param {Object} [options]
-     * @param {string} [options.except] 需要跳过的弹窗选择器；确认对话框等
-     *        自带回调清理流程的弹窗应跳过，避免强关后监听器残留
-     */
+    // 一次性关闭所有已打开弹窗（同时退场）。confirm 等自带回调清理流程的弹窗用 except 跳过
     hideAll(options = {}) {
         const except = options.except ? document.querySelector(options.except) : null;
         document.querySelectorAll('.modal.show').forEach(modal => {
@@ -297,7 +271,6 @@ const ModalManager = {
     }
 };
 
-// 确认对话框
 function confirmDialog(message, callback, onCancel = null, title = null, className = '') {
     const messageEl = document.getElementById('confirm-message');
     const cancelBtn = document.getElementById('confirm-cancel');
@@ -308,8 +281,7 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     // 复用同一个对话框 DOM：先清理上一次未关闭弹窗遗留的回调，避免历史回调被重复触发
     if (_confirmDialogCleanup) _confirmDialogCleanup();
 
-    // 设置标题（如果提供）
-    // 使用默认标题时打上 i18n 标记，切换语言时才会跟随刷新；调用方传入的自定义标题不覆盖
+    // 默认标题打 i18n 标记以便切语言时跟随刷新；调用方传入的自定义标题不覆盖
     if (modalTitle) {
         if (title) {
             modalTitle.textContent = title;
@@ -320,20 +292,17 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
         }
     }
 
-    // 设置消息（支持HTML内容）
     if (typeof message === 'string' && message.includes('<')) {
         // 如果消息包含HTML，确保父元素可以容纳块级元素
         messageEl.style.display = 'block';
         messageEl.innerHTML = message;
 
-        // 确保单选按钮可以点击
         setTimeout(() => {
             const radios = messageEl.querySelectorAll('input[type="radio"]');
             radios.forEach(radio => {
                 radio.addEventListener('change', (e) => logger.info('单选框选择改变:', e.target.value));
             });
 
-            // 为选项添加点击事件
             const options = messageEl.querySelectorAll('.recurring-delete-option');
             options.forEach(option => {
                 option.addEventListener('click', () => {
@@ -349,7 +318,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
         messageEl.textContent = message;
     }
 
-    // 如果存在设置侧边栏弹窗，则关闭侧边栏
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     const isOpen = sidebar.classList.contains('open');
@@ -358,7 +326,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
         overlay.classList.remove('show');
     }
 
-    // 显示模态框
     const confirmModal = document.getElementById('confirm-dialog');
     confirmModal.classList.remove('is-closing');
     confirmModal.classList.add('show');
@@ -367,7 +334,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     _confirmDialogClass = className || null;
     confirmModal.style.display = 'flex';
 
-    // 关闭：先播放退场动画，动画结束后再真正隐藏
     const closeConfirmModal = () => {
         closeModalWithAnimation(confirmModal, () => {
             confirmModal.classList.remove('show');
@@ -375,7 +341,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
         });
     };
 
-    // 绑定事件
     const handleConfirm = () => {
         closeConfirmModal();
         if (callback) callback();
@@ -399,7 +364,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
 
     okBtn.addEventListener('click', handleConfirm);
     cancelBtn.addEventListener('click', handleCancel);
-    // 右上角关闭按钮，效果等同取消
     if (closeBtn) closeBtn.addEventListener('click', handleCancel);
 
     // 点击弹窗外部区域关闭（bindBackdropClose 内部保证只绑定一次，回调走当前的关闭逻辑）
@@ -410,7 +374,6 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     _confirmDialogClose = handleCancel;
     _confirmDialogCleanup = cleanup;
 
-    // ESC键取消
     const handleEscape = (e) => {
         if (e.key === 'Escape') {
             closeConfirmModal();

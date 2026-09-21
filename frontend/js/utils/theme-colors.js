@@ -1,21 +1,16 @@
 /**
  * 主题配色模块（自定义强调色）
- * ----------------------------------------------------------------------------
- * 职责：
- *   1. ColorUtils           —— 颜色计算（hex/rgb、相对亮度、对比度、明暗调整）
- *   2. AccentThemeManager   —— 强调色令牌的归一化、派生、注入、缓存与持久化
+ *   1. ColorUtils         —— 颜色计算（hex/rgb、相对亮度、对比度、明暗调整）
+ *   2. AccentThemeManager —— 强调色令牌的归一化、派生、注入、缓存与持久化
  *
  * 设计要点：
  *   - 只接管"强调层"令牌（primary/success/warning/danger/info + 4 个优先级色）；
- *     背景/文字/边框等结构层仍由明暗模式（dark-mode.css）负责，避免对比度失控。
- *   - 派生令牌（--*-rgb / --on-* / --primary-hover / --focus-ring）全部由本模块
- *     用 JS 计算，不依赖 color-mix()，以兼容不同平台 WebView 内核。
- *   - 注入方式：动态 upsert <style id="accent-theme">，浅色与深色两套配置
- *     一次性写入，因此切换基底无需重新注入。
- *   - 只在"自定义模式"下生效：其它模式调用 setActive(false) 直接移除注入样式，
- *     回到 global.css 的出厂强调色（模式判定见 business-utils.js 的 ThemeManager）。
- *   - 首屏防闪：本文件在 <head> 中同步加载并调用 restoreFromCache()，
- *     先确定基底 data-theme，再按模式决定是否注入用户配色，保证第一帧即最终外观。
+ *     背景/文字/边框等结构层仍由 dark-mode.css 负责，避免对比度失控。
+ *   - 派生令牌（--*-rgb / --on-* / --primary-hover / --focus-ring）由 JS 计算，
+ *     不依赖 color-mix()，以兼容不同平台 WebView 内核。
+ *   - 注入方式：动态 upsert <style id="accent-theme">，深浅两套一次写入，切基底无需重新注入。
+ *   - 只在"自定义模式"下生效：其它模式 setActive(false) 移除注入样式，回到 global.css 出厂强调色。
+ *   - 首屏防闪：本文件在 <head> 中同步加载并调用 restoreFromCache()，保证第一帧即最终外观。
  *
  * 注意：本文件在 <head> 中加载，早于 logger.js，故不依赖 logger。
  */
@@ -42,11 +37,7 @@
     }
 
     const ColorUtils = {
-        /**
-         * 归一化颜色值为 #rrggbb 小写形式；非法输入返回 null
-         * @param {string} value 形如 #007bff / 007BFF / #0af
-         * @returns {string|null}
-         */
+        // 归一化为 #rrggbb 小写；非法输入返回 null
         normalizeHex(value) {
             if (typeof value !== 'string') return null;
             const input = value.trim().toLowerCase();
@@ -108,12 +99,7 @@
             return (lighter + 0.05) / (darker + 0.05);
         },
 
-        /**
-         * 在有色底上选一个可读的前景色（用于 --on-* 令牌）
-         * @param {string} bgHex 背景色
-         * @param {string} darkText 深色候选
-         * @param {string} lightText 浅色候选
-         */
+        // 在有色底上选可读前景色（--on-* 令牌）
         pickReadableText(bgHex, darkText = '#212529', lightText = '#ffffff') {
             const bg = this.hexToRgb(bgHex);
             const dark = this.hexToRgb(darkText);
@@ -153,11 +139,7 @@
 
     /* ==================== 二、令牌定义 ==================== */
 
-    /**
-     * 可被用户自定义的强调色令牌
-     * - linked   : 优先级联动开启时，该令牌由语义色派生，不可单独编辑
-     * - semantic : 派生来源的语义色；缺省则使用固定的中性灰
-     */
+    // linked：优先级联动时该令牌由语义色派生，不可单独编辑；semantic 缺省则用中性灰
     const TOKENS = [
         { key: 'primary', label: '主体颜色', cssVar: '--primary-color', rgbVar: '--primary-rgb', onVar: '--on-primary' },
         { key: 'success', label: '成功颜色', cssVar: '--success-color', rgbVar: '--success-rgb', onVar: '--on-success' },
@@ -197,9 +179,7 @@
         return palette;
     }
 
-    /**
-     * 把任意外部输入（后端/缓存/UI）整理成合法配置，非法值一律回退出厂值
-     */
+    // 整理任意外部输入（后端/缓存/UI）为合法配置，非法值回退出厂值
     function normalizeConfig(raw) {
         const source = raw && typeof raw === 'object' ? raw : {};
         return {
@@ -213,9 +193,7 @@
         };
     }
 
-    /**
-     * 解析某一模式下最终生效的配色（含优先级联动）
-     */
+    // 解析某模式下最终生效的配色（含优先级联动）
     function resolvePalette(config, mode) {
         const palette = Object.assign({}, DEFAULT_PALETTE, config[mode] || {});
         if (config.linkPriority !== false) {
@@ -350,11 +328,7 @@
             return !!this._active;
         },
 
-        /**
-         * 首屏同步恢复（在 <head> 内联脚本中调用，避免深浅色/配色闪变）：
-         * 先按主题模式确定基底 data-theme，仅"自定义模式"才注入用户配色。
-         * @returns {boolean} 是否应用了自定义配色
-         */
+        // 首屏同步恢复（在 <head> 内联脚本中调用，避免深浅色/配色闪变）；仅自定义模式注入
         restoreFromCache() {
             const mode = readStoredMode();
             if (mode !== MODE_CUSTOM) {
@@ -370,11 +344,7 @@
             return true;
         },
 
-        /**
-         * 开关自定义配色
-         * - true  → 注入样式，并按配置的 baseTheme 设置 data-theme
-         * - false → 移除注入样式；基底 data-theme 交由 ThemeManager 决定
-         */
+        // true → 注入样式并按 baseTheme 设 data-theme；false → 移除样式，基底交回 ThemeManager
         setActive(active) {
             this._active = !!active;
             this._snapshot = null;
@@ -389,11 +359,7 @@
             document.documentElement.setAttribute('data-theme', config.baseTheme);
         },
 
-        /**
-         * 应用配置并写入本地缓存（持久化成功后才调用），同时结束预览态。
-         * 非自定义模式下只更新缓存、不注入样式，
-         * 避免"默认/深色模式"里保存配色后强调色被意外改掉。
-         */
+        // 持久化成功后调用，同时结束预览态。非自定义模式只更新缓存，避免强调色被意外改掉
         apply(rawConfig) {
             const config = normalizeConfig(rawConfig);
             writeCache(config);
@@ -426,11 +392,7 @@
             document.documentElement.setAttribute('data-theme', config.baseTheme);
         },
 
-        /**
-         * 启动期与后端配置对齐。
-         * 仅"自定义模式"下才注入；其它模式只刷新缓存，待切换到自定义模式再生效。
-         * 后端无配置时保留本地缓存，避免多设备/清库场景下配色闪回默认值。
-         */
+        // 启动期与后端对齐：仅自定义模式注入；后端无配置时保留本地缓存，避免配色闪回默认值
         async reconcile() {
             if (!global.Utils || typeof global.Utils.apiCall !== 'function') return;
             await global.Utils.apiCall({

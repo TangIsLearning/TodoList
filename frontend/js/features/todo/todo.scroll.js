@@ -4,7 +4,6 @@
  */
 
 Object.assign(TodoManager.prototype, {
-    // 渲染分页组件
     renderPagination() {
         // 仅列表视图显示分页；日历/时间轴/统计等视图加载任务后隐藏，避免分页错位显示
         if (window.viewManager && window.viewManager.currentView !== 'list') {
@@ -12,7 +11,6 @@ Object.assign(TodoManager.prototype, {
             return;
         }
 
-        // 如果没有任务，隐藏分页
         if (this.totalTasks === 0) {
             this.pagination.style.display = 'none';
             return;
@@ -20,22 +18,18 @@ Object.assign(TodoManager.prototype, {
         
         this.pagination.style.display = 'flex';
         
-        // 更新显示信息
         const start = (this.currentPage - 1) * this.pageSize + 1;
         const end = Math.min(this.currentPage * this.pageSize, this.totalTasks);
         this.paginationShow.textContent =
             `${window.languageManager.getText('paginationShowing', '显示')} ${start}-${end} ${window.languageManager.getText('paginationOf', '共')} ${this.totalTasks} ${window.languageManager.getText('paginationItems', '条')}`;
 
-        // 更新每页数量选择器
         this.pageSizeSelect.value = this.pageSize;
         
-        // 更新按钮状态
         this.firstBtn.disabled = this.currentPage === 1;
         this.prevBtn.disabled = this.currentPage === 1;
         this.nextBtn.disabled = this.currentPage === this.totalPages;
         this.lastBtn.disabled = this.currentPage === this.totalPages;
         
-        // 生成页码按钮
         let pageNumbers = '';
         const maxButtons = 5; // 最多显示5个页码按钮
         
@@ -72,7 +66,6 @@ Object.assign(TodoManager.prototype, {
             }
         }
         
-        // 绑定页码点击事件
         this.paginationNum.innerHTML = pageNumbers;
         this.paginationNum.querySelectorAll('.btn').forEach(btn => {
             btn.onclick = () => {
@@ -82,18 +75,15 @@ Object.assign(TodoManager.prototype, {
         });
     },
 
-    // 跳转到指定页
     async goToPage(page) {
         if (page < 1 || page > this.totalPages || page === this.currentPage) return;
 
         this.currentPage = page;
         await this.loadTasks();
         
-        // 滚动到任务列表顶部
         this.tasksContainer.scrollTop = 0;
     },
 
-    // 更改每页显示数量
     async changePageSize(pageSize) {
         if (pageSize === this.pageSize) return;
         
@@ -102,9 +92,7 @@ Object.assign(TodoManager.prototype, {
         await this.loadTasks();
     },
 
-    // 初始化无限下拉功能
     initInfiniteScroll() {
-        // 移除已存在的监听器
         this.removeScrollListener();
         this.clearAutoFillTimer();
 
@@ -137,11 +125,10 @@ Object.assign(TodoManager.prototype, {
         this.tasksContainer.addEventListener('scroll', this.scrollListener, { passive: true });
         logger.info('Infinite scroll listener attached');
 
-        // 检查是否需要自动加载更多（内容不足以滚动时）
+        // 内容不足以滚动时自动补加载
         this.scheduleAutoFillCheck();
     },
 
-    // 移除滚动监听器
     removeScrollListener() {
         if (this.scrollListener && this.tasksContainer) {
             this.tasksContainer.removeEventListener('scroll', this.scrollListener);
@@ -154,7 +141,6 @@ Object.assign(TodoManager.prototype, {
         }
     },
 
-    // 清除自动填充定时器
     clearAutoFillTimer() {
         if (this.autoFillTimer) {
             clearTimeout(this.autoFillTimer);
@@ -162,7 +148,6 @@ Object.assign(TodoManager.prototype, {
         }
     },
 
-    // 延迟检查是否需要自动加载更多
     scheduleAutoFillCheck() {
         this.clearAutoFillTimer();
         this.autoFillTimer = setTimeout(() => {
@@ -171,7 +156,6 @@ Object.assign(TodoManager.prototype, {
         }, 100);
     },
 
-    // 检查是否需要自动加载更多任务
     checkAndLoadMoreIfNeeded() {
         if (!this.isMobileDevice() || this.isLoadingMore || !this.hasMoreTasks) return;
 
@@ -189,8 +173,7 @@ Object.assign(TodoManager.prototype, {
 
         logger.info('Checking if need to load more - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'currentPage:', this.currentPage, 'totalPages:', this.totalPages);
 
-        // 如果内容高度小于等于容器高度，说明所有任务都在可视范围内，需要加载更多
-        // 同时确保还有更多页面可加载
+        // 内容未超出容器说明任务都在可视范围内，还有余页时继续补加载
         if (scrollHeight <= clientHeight && this.currentPage < this.totalPages) {
             logger.info('Content fits in viewport, auto-loading more tasks');
             this.autoFillCount++;
@@ -201,11 +184,9 @@ Object.assign(TodoManager.prototype, {
         }
     },
 
-    // 加载更多任务（无限下拉）
     async loadMoreTasks() {
         if (this.isLoadingMore || !this.hasMoreTasks) return;
 
-        // 如果已经是最后一页，不再加载
         if (this.currentPage >= this.totalPages) {
             this.hasMoreTasks = false;
             this.showNoMoreTasks();
@@ -215,7 +196,7 @@ Object.assign(TodoManager.prototype, {
         this.isLoadingMore = true;
         this.showLoadingMore();
         const nextPage = this.currentPage + 1;
-        const token = this.listLoadToken; // 记录当前令牌，用于判断结果是否仍然有效
+        const token = this.listLoadToken; // 用于判断本次结果是否仍然有效
         const { apiMethod, apiArgs } = this.buildListQuery(nextPage);
         await Utils.apiCall({
             apiMethod: apiMethod,
@@ -233,14 +214,10 @@ Object.assign(TodoManager.prototype, {
 
                 const newTasks = response.data.tasks || [];
                 if (newTasks.length > 0) {
-                    // 将新任务追加到现有任务列表
                     this.tasks = [...this.tasks, ...newTasks];
                     this.currentPage = nextPage;
-                    // 渲染新增的任务
                     this.appendTasks(newTasks);
-                    // 检查是否还有更多任务
                     this.hasMoreTasks = this.currentPage < this.totalPages;
-                    // 如果是最后一页，显示到底提示
                     if (!this.hasMoreTasks) this.showNoMoreTasks();
                 } else {
                     this.hasMoreTasks = false;
@@ -257,7 +234,6 @@ Object.assign(TodoManager.prototype, {
         });
     },
 
-    // 追加任务到列表
     appendTasks(newTasks) {
         if (!this.tasksList || !Array.isArray(newTasks) || newTasks.length === 0) return;
 
@@ -268,9 +244,8 @@ Object.assign(TodoManager.prototype, {
         const temp = document.createElement('div');
         temp.innerHTML = newTasks.map(task => this.createTaskElement(task)).join('');
 
-        // 绑定新增任务的事件（作用域限定为新增节点，已渲染任务不会被重复绑定）
-        // 注意：不 await —— 下面的搬移必须在同步流程内完成，
-        // 否则 bindTaskEvents 内部 await 之后再用 temp 查询会查不到节点（它只做同步快照，故不受影响）
+        // 作用域限定为新增节点；不 await —— 下面的搬移必须在同步流程内完成，
+        // 否则 bindTaskEvents 内部 await 之后再用 temp 查询会查不到节点
         this.bindTaskEvents(temp);
 
         // 插入到"加载中"指示器之前，保证指示器始终位于列表末尾
@@ -281,19 +256,18 @@ Object.assign(TodoManager.prototype, {
         }
     },
 
-    // 获取"加载更多"指示器（动态创建，需要实时查询）
+    // 动态创建，需实时查询
     getLoadingMoreEl() {
         if (!this.tasksList) return null;
         return this.tasksList.querySelector('#loading-more');
     },
 
-    // 获取"已经到底了"提示（动态创建，需要实时查询）
+    // 动态创建，需实时查询
     getNoMoreTasksEl() {
         if (!this.tasksList) return null;
         return this.tasksList.querySelector('#no-more-tasks');
     },
 
-    // 显示"加载更多"指示器
     showLoadingMore() {
         if (!this.tasksList) return;
         this.hideLoadingMore();
@@ -308,12 +282,10 @@ Object.assign(TodoManager.prototype, {
         this.tasksList.appendChild(loadingMoreDiv);
     },
 
-    // 隐藏"加载更多"指示器
     hideLoadingMore() {
         this.getLoadingMoreEl()?.remove();
     },
 
-    // 显示"已经到底了"提示
     showNoMoreTasks() {
         if (!this.tasksList) return;
         // 已存在则不重复添加
@@ -330,7 +302,6 @@ Object.assign(TodoManager.prototype, {
         this.tasksList.appendChild(noMoreDiv);
     },
 
-    // 隐藏"已经到底了"提示
     hideNoMoreTasks() {
         this.getNoMoreTasksEl()?.remove();
     },

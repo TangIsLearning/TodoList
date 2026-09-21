@@ -164,7 +164,6 @@ class TodoManager {
         });
     }
     
-    // 初始化
     async init() {
         this.bindEvents();
 
@@ -282,7 +281,6 @@ class TodoManager {
         });
     }
 
-    // 绑定事件
     bindEvents() {
         // 监听窗口大小变化，切换分页/无限下拉模式
         let resizeTimeout;
@@ -424,7 +422,6 @@ class TodoManager {
         };
     }
 
-    // 加载任务
     async loadTasks() {
         // 递增令牌：使仍在飞行中的"加载更多"请求结果失效，避免旧数据追加到新列表
         this.listLoadToken++;
@@ -441,19 +438,15 @@ class TodoManager {
                 // 任务数据已更新，父任务缓存需重新拉取，避免展示过期的关联关系
                 this.parentTaskMap = {};
                 if (window.innerWidth > 480) {
-                    // 大屏幕(大于480px)：使用表格分页模式，每页10条
                     this.renderTasks();
                     this.renderPagination();
-                    // 隐藏无限下拉相关
                     this.hideLoadingMore();
                     this.hideNoMoreTasks();
                 } else {
-                    // 小屏幕：使用无限下拉模式
                     this.renderTasks();
                     this.initInfiniteScroll();
                 }
 
-                // 同步分类筛选状态
                 if (window.categoryManager) window.categoryManager.setActiveCategory(window.viewFilter.categoryId);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error'),
@@ -462,7 +455,6 @@ class TodoManager {
 
     }
     
-    // 渲染任务列表
     async renderTasks() {
         // 首帧没有"旧内容"可以淡出，也不该再淡入：否则会看到列表由半透明亮起（表现为启动闪一下）。
         // 之后的刷新（筛选 / 翻页 / 保存）才走淡出→淡入，避免内容瞬间跳变。
@@ -486,7 +478,6 @@ class TodoManager {
         this.tasksList.style.display = isLargeScreen ? 'table' : 'flex';
         this.emptyState.style.display = 'none';
 
-        // 生成HTML
         let html = '';
 
         // 大屏幕添加表头（列由用户配置决定）
@@ -528,7 +519,6 @@ class TodoManager {
         html += this.tasks.map(task => this.createTaskElement(task)).join('');
         this.tasksList.innerHTML = html;
 
-        // 绑定任务事件
         await this.bindTaskEvents();
 
         // 取消淡出并播放入场淡入（首帧不播放，列表直接就位）
@@ -577,8 +567,7 @@ class TodoManager {
     // 自动刷新列表并定位高亮新任务，用户无需手动刷新即可看到结果
     async revealTask(taskId) {
         if (!taskId) {
-            // 没有 id 就没有定位/高亮可言，也不必同步等取数结果——交给通知中心：列表
-            // （前台时）与其它视图一样由路由重建，左侧分类计数等一并刷新
+            // 没有 id 就无从定位/高亮，也不必同步等取数结果——交给通知中心广播即可
             window.App?.notifyDataChanged();
             return;
         }
@@ -644,7 +633,6 @@ class TodoManager {
         return `<button type="button" class="task-copy-btn" data-task-id="${task.id}" title="${tip}">📄</button>`;
     }
 
-    // 创建任务元素
     createTaskElement(task) {
         const priorityInfo = Utils.getPriorityInfo(task.priority);
         // 只有未完成的任务才检查是否逾期
@@ -660,7 +648,6 @@ class TodoManager {
         const editTip = Utils.escapeHtml(window.languageManager.getText('normalTaskEditTip', '编辑'));
         const deleteTip = Utils.escapeHtml(window.languageManager.getText('taskDeleteTip', '删除'));
 
-        // 渲染标签
         let tagsHtml = '';
         if (task.tags && task.tags.length > 0) {
             tagsHtml = task.tags.map(tag =>
@@ -692,7 +679,6 @@ class TodoManager {
             `;
         }
 
-        // 小屏幕卡片式布局(保持原样)
         return `
             <div class="small-screen-task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
                 <div class="task-header">
@@ -845,7 +831,6 @@ class TodoManager {
         `;
     }
 
-    // "关联父项任务"列内容
     createParentTaskContent(task) {
         const parent = this.parentTaskMap[task.id];
         if (!parent) return '<span class="task-cell-empty">-</span>';
@@ -916,9 +901,7 @@ class TodoManager {
             window.languageManager.getText('unknownCategory', '未知分类');
     }
     
-    // 切换任务状态
     async toggleTask(taskId) {
-        // 获取当前任务状态
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
         // 动效播放期间忽略重复点击，避免动画叠加、状态错乱
@@ -956,7 +939,6 @@ class TodoManager {
             apiArgs: [taskId],
             onSuccess: async (response) => {
                 const completed = !!response.data.completed;
-                // 更新本地数据
                 const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
                     task.completed = completed;
@@ -970,8 +952,7 @@ class TodoManager {
 
                 // 先播放完成/重开动效，动画结束后再刷新列表，避免突兀的状态跳变
                 await this.playToggleAnimation(taskId, completed);
-                // 完成状态变化会改变"未完成任务数"：列表（前台时）由路由重建，
-                // 左侧分类计数与顶部统计条一并刷新
+                // 完成状态会改变"未完成任务数"，计数与统计条一并刷新
                 window.App?.notifyDataChanged({ fromZero: true });
             },
             onError: (error) => {
@@ -1030,7 +1011,6 @@ class TodoManager {
                 Utils.popBubble(checkbox, '✓ ' + window.languageManager.getText('statusCompleted', '已完成'));
             }
 
-            // 勾选弹跳 + 删除线扫过 + 高亮闪烁
             await Utils.wait(400);
 
             // 任务会移出当前列表时，先播放离场动画再刷新
@@ -1064,12 +1044,10 @@ class TodoManager {
         return Math.min(width, titleEl.clientWidth);
     }
 
-    // 加载子任务数量并更新显示（scope 用于限定作用域，默认全文档）
+    // scope 可传文档或快照数组
     async loadSubtaskCounts(scope = document) {
         const root = scope || document;
-        // 同样先取快照：scope 可能是游离容器，
-        // 节点在 await 期间就已被搬进文档，回调里再用 root 查询会查不到。
-        // 允许直接传入快照数组（bindTaskEvents 在绑定前已取好）
+        // scope 可能是游离容器，节点在 await 期间就已被搬进文档，回调里再查会查不到
         const subtaskCountEls = Array.isArray(root)
             ? root
             : Array.from(root.querySelectorAll('.subtask-count'));
@@ -1096,10 +1074,8 @@ class TodoManager {
         })));
     }
     
-    // 绑定子任务数量徽章点击事件
     bindSubtaskCountEvents(scope = document) {
         const root = scope || document;
-        // 支持直接传入快照数组，避免游离容器被搬空后查不到节点
         const subtaskCountEls = Array.isArray(root)
             ? root
             : Array.from(root.querySelectorAll('.subtask-count'));
@@ -1126,32 +1102,26 @@ class TodoManager {
         });
     }
 
-    // 判断是否为移动端或小屏幕
     isMobileDevice() {
         return window.innerWidth <= 480;
     }
 
-    // 处理窗口大小变化
     handleResize() {
         const isLargeScreen = window.innerWidth > 480;
 
         if (isLargeScreen) {
-            // 切换到大屏幕：使用分页模式，每页10条
             logger.info('Switching to large screen mode');
 
-            // 设置列表为表格布局
             this.tasksList.style.display = 'table';
 
-            // 移除无限下拉（同时清理加载提示与待执行的自动填充）
+            // 同时清理加载提示与待执行的自动填充
             this.removeScrollListener();
             this.clearAutoFillTimer();
             this.hideLoadingMore();
             this.hideNoMoreTasks();
 
-            // 显示分页
             this.pagination.style.display = 'flex';
 
-            // 如果当前页不是第一页，重置到第一页
             if (this.currentPage > 1) {
                 this.currentPage = 1;
                 this.loadTasks();
@@ -1160,10 +1130,8 @@ class TodoManager {
                 this.renderPagination();
             }
         } else {
-            // 切换到小屏幕：使用无限下拉模式
             logger.info('Switching to small screen mode');
 
-            // 设置列表为flex布局
             this.tasksList.style.display = 'flex';
 
             if (this.currentPage > 1) {
@@ -1173,14 +1141,11 @@ class TodoManager {
                 this.renderTasks();
             }
 
-            // 隐藏分页
             this.pagination.style.display = 'none';
 
-            // 初始化无限下拉
             this.initInfiniteScroll();
         }
     }
 }
 
-// 创建全局实例
 window.todoManager = new TodoManager();

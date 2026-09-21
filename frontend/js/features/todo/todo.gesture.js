@@ -17,7 +17,6 @@ Object.assign(TodoManager.prototype, {
         const deleteButtons = Array.from(scope.querySelectorAll('.btn.delete'));
         const copyButtons = Array.from(scope.querySelectorAll('.task-copy-btn'));
 
-        // 复选框点击
         scope.querySelectorAll('.task-checkbox').forEach(checkbox => {
             checkbox.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
@@ -25,7 +24,6 @@ Object.assign(TodoManager.prototype, {
             };
         });
 
-        // 查看详情按钮(仅大屏幕)
         scope.querySelectorAll('.btn.view').forEach(btn => {
             btn.onclick = (e) => {
                 const taskId = e.target.dataset.taskId;
@@ -33,7 +31,7 @@ Object.assign(TodoManager.prototype, {
             };
         });
 
-        // 复制按钮：位于任务名称右侧，默认隐藏、鼠标悬浮任务行时显现
+        // 默认隐藏、悬浮任务行时显现
         copyButtons.forEach(btn => {
             btn.onclick = async (e) => {
                 e.preventDefault();
@@ -54,7 +52,6 @@ Object.assign(TodoManager.prototype, {
         Array.from(itemsToBind).forEach(item => {
             const content = item.querySelector('.task-header');
             if (content) {
-                // 重置所有样式到初始状态
                 content.style.left = '0px';
                 content.style.transition = 'left 0.2s ease';
                 content._isOpen = false;
@@ -94,46 +91,39 @@ Object.assign(TodoManager.prototype, {
                 return width > 0 ? width : 80;
             };
 
-            // 确保初始状态正确
             content.style.left = '0px';
             content.style.position = 'relative';
             content._isOpen = false;
 
-            // 为每个item创建独立的状态
             const state = {
                 isDragging: false,
                 startX: 0,
                 currentX: 0,
                 currentLeft: 0,
                 isOpen: false,
-                startClientX: 0, // 用于存储触摸或鼠标的起始X坐标
-                startClientY: 0  // 用于存储触摸或鼠标的起始Y坐标
+                startClientX: 0,
+                startClientY: 0
             };
 
-            // 获取客户端X坐标的统一函数
             const getClientX = (e) => {
                 if (e.type.startsWith('touch')) return e.touches[0] ? e.touches[0].clientX : 0;
                 return e.clientX;
             };
 
-            // 阻止默认行为的统一函数
             const preventDefault = (e) => {
                 if (e.cancelable) e.preventDefault();
             };
 
-            // 创建事件处理函数
             const dragStartHandler = (e) => {
                 // 如果点击的是操作按钮区域或复选框，不触发拖拽
                 if (e.target.closest('.task-actions') || e.target.closest('.task-checkbox')) return;
 
                 // 如果当前是打开状态，只关闭但不开始拖拽
                 if (content._isOpen) {
-                    // 关闭当前项
                     content._isOpen = false;
                     content.style.left = '0px';
                     content.style.transition = 'left 0.2s ease';
 
-                    // 从实例数组中移除
                     const index = this.instances.indexOf(content);
                     if (index > -1) this.instances.splice(index, 1);
 
@@ -142,7 +132,6 @@ Object.assign(TodoManager.prototype, {
                     return;
                 }
 
-                // 开始拖拽
                 state.isDragging = true;
                 state.startClientX = getClientX(e);
                 state.startClientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
@@ -190,7 +179,6 @@ Object.assign(TodoManager.prototype, {
 
                 const actionsWidth = getActionsWidth();
 
-                // 判断是否打开
                 if (state.currentX < -actionsWidth / 2) {
                     // 打开前关闭其他所有项
                     this.instances.forEach(instance => {
@@ -201,35 +189,28 @@ Object.assign(TodoManager.prototype, {
                         }
                     });
 
-                    // 打开当前项
                     content._isOpen = true;
                     content.style.left = -actionsWidth + 'px';
 
-                    // 更新实例数组
                     this.instances = [content];
                 } else {
-                    // 关闭当前项
                     content._isOpen = false;
                     content.style.left = '0px';
 
-                    // 从实例数组中移除
                     const index = this.instances.indexOf(content);
                     if (index > -1) this.instances.splice(index, 1);
                 }
 
-                // 重置拖拽状态
                 state.currentX = 0;
                 state.currentLeft = 0;
 
                 preventDefault(e);
             };
 
-            // 点击处理函数
             const clickHandler = (e) => {
-                // 如果点击的是操作按钮区域或复选框，不处理
                 if (e.target.closest('.task-actions') || e.target.closest('.task-checkbox')) return;
 
-                // 如果当前是打开状态，阻止点击事件
+                // 打开状态下吞掉点击
                 if (content._isOpen) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -237,24 +218,20 @@ Object.assign(TodoManager.prototype, {
                 }
             };
 
-            // 存储事件处理函数
             item._dragStartHandler = dragStartHandler;
             item._dragMoveHandler = dragMoveHandler;
             item._dragEndHandler = dragEndHandler;
             item._clickHandler = clickHandler;
 
-            // 绑定鼠标事件
             item.addEventListener('mousedown', dragStartHandler);
             item.addEventListener('mousemove', dragMoveHandler);
             item.addEventListener('mouseup', dragEndHandler);
 
-            // 绑定触摸事件（移动端）
             item.addEventListener('touchstart', dragStartHandler);
             item.addEventListener('touchmove', dragMoveHandler, { passive: false });
             item.addEventListener('touchend', dragEndHandler);
             item.addEventListener('touchcancel', dragEndHandler);
 
-            // 点击和原生拖拽阻止
             item.addEventListener('click', clickHandler);
             item.addEventListener('dragstart', (e) => e.preventDefault());
         });
@@ -275,7 +252,7 @@ Object.assign(TodoManager.prototype, {
             };
 
             document.addEventListener('click', closeAllHandler);
-            document.addEventListener('touchstart', closeAllHandler); // 添加触摸支持
+            document.addEventListener('touchstart', closeAllHandler);
             this._globalCloseHandlerBound = true;
         }
 
@@ -295,16 +272,13 @@ Object.assign(TodoManager.prototype, {
                 user-select: none;
                 -webkit-user-select: none;
             }
-            /* 注意：不要再给 .task-header 加 will-change: transform。
-               它会被提升为独立合成层，合成层的绘制边界按设备像素对齐，
-               而外层操作区仍按精确的小数坐标绘制，于是部分任务项（高度取整后不凑巧的那些）
-               会在卡片下边沿露出约 1px 的操作按钮颜色。
-               这里滑动用的是 left（布局属性），will-change: transform 本来也不会带来任何性能收益。 */
+            /* 不要给 .task-header 加 will-change: transform：合成层按设备像素对齐绘制，
+               而外层操作区按小数坐标绘制，部分任务项会在卡片下边沿露出约 1px 操作按钮色。
+               这里滑动用的是 left，will-change 也带不来性能收益。 */
         `;
             document.head.appendChild(style);
         }
 
-        // 编辑按钮
         editButtons.forEach(btn => {
             const taskId = btn.dataset.taskId;
             const task = this.tasks.find(t => t.id === taskId);
@@ -316,7 +290,6 @@ Object.assign(TodoManager.prototype, {
                 btn.style.opacity = '0.5';
                 btn.style.cursor = 'not-allowed';
 
-                // 设置点击事件处理，显示提示信息
                 btn.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -328,7 +301,6 @@ Object.assign(TodoManager.prototype, {
                 btn.style.opacity = '';
                 btn.style.cursor = '';
 
-                // 设置编辑功能
                 btn.onclick = (e) => {
                     const taskId = e.target.dataset.taskId;
                     this.editTask(taskId);
@@ -336,7 +308,6 @@ Object.assign(TodoManager.prototype, {
             }
         });
 
-        // 删除按钮
         deleteButtons.forEach(btn => {
             btn.onclick = async (e) => {
                 const taskId = e.target.dataset.taskId;

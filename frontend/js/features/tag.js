@@ -45,7 +45,6 @@ class TagManager {
         this.cacheDomRefs();
     }
 
-    // 统一缓存标签相关的 DOM 节点
     cacheDomRefs() {
         const dom = {
             tagsSection: 'tags-section',
@@ -81,7 +80,7 @@ class TagManager {
 
     // ===== 标签数据 =====
 
-    // 标签唯一数据源的写入入口
+    // 唯一数据源的写入入口
     setTags(tags) {
         this.tags = Array.isArray(tags) ? tags : [];
         // 标签数量未超过限定个数时回到收缩态，避免出现无意义的展开状态
@@ -94,9 +93,8 @@ class TagManager {
         return this.tags;
     }
 
-    // 拉取标签列表：标签的唯一加载入口
-    // 左侧标签模块与弹窗标签选择器共用同一次请求，避免两者各拉一次并互相覆盖数据源。
-    // 只做并发去重（同一时刻的重复请求合并），不做长期缓存——标签计数随任务增删频繁变化，缓存易读到脏数据。
+    // 唯一加载入口：两个视图共用同一次请求，避免各拉一次并互相覆盖数据源。
+    // 只做并发去重，不做长期缓存——标签计数随任务增删频繁变化，缓存易读到脏数据
     fetchTags() {
         if (this._fetching) return this._fetching;
         this._fetching = Utils.apiCall({
@@ -107,13 +105,11 @@ class TagManager {
         return this._fetching;
     }
 
-    // 加载左侧标签模块
     async loadModule(fromZero = false) {
         await this.fetchTags();
         this.renderModule(fromZero);
     }
 
-    // 加载弹窗内的标签选择器
     async loadSelector() {
         await this.fetchTags();
         this.renderSelector();
@@ -169,7 +165,6 @@ class TagManager {
 
     // ===== 左侧标签模块 =====
 
-    // 渲染左侧标签模块
     // 选中态以列表筛选为唯一数据源（由 hooks.getFilterTagIds 提供）
     renderModule(fromZero = false) {
         if (this.tags.length <= 0) {
@@ -206,7 +201,6 @@ class TagManager {
 
         this.tagsList.innerHTML = html;
 
-        // 渲染"展开更多/更少"标识（位于最后一个标签之后）
         this.renderMoreIndicator();
 
         // 事件为容器级委托，渲染时无需重新绑定

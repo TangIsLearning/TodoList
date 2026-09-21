@@ -1,13 +1,7 @@
-/**
- * 全局搜索栏：chips、结构化查询、子任务搜索建议（ViewFilter 的 mixin）
- * 依赖：view-filter.js（ViewFilter 类），须在其之后加载
- *
- * 搜索框写在全局工具栏、与视图切换器同层，四个视图共用同一份 searchQuery，
- * 所以归 ViewFilter 而不是列表——和全局筛选栏的下拉框同理。
- *
- * 边界：这里只负责「产出与呈现搜索条件」。条件定稿后一律交给 commitChange()，
- * 由它统一做分页归位与按前台视图分发；本模块不碰 currentPage，也不直接取数。
- */
+// 全局搜索栏：chips、结构化查询、子任务搜索建议（ViewFilter 的 mixin，须在 view-filter.js 之后加载）。
+// 搜索框写在全局工具栏、与视图切换器同层，四个视图共用同一份 searchQuery，故归 ViewFilter。
+// 边界：只负责「产出与呈现搜索条件」，定稿后交给 commitChange() 统一分页归位与分发，
+// 本模块不碰 currentPage，也不直接取数。
 
 // 截止时间搜索的输入前缀：'@2026-09-19'
 const DUE_DATE_PREFIX = '@';
@@ -70,7 +64,7 @@ Object.assign(ViewFilter.prototype, {
     },
 
     // ===== 搜索标签 chips 相关 =====
-    // 初始化搜索标签输入框
+
     initSearchTagInput() {
         // 键盘交互：空格提交 #标签、退格删除最后一个 chip、回车提交/搜索
         this.searchInput.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
@@ -80,8 +74,7 @@ Object.assign(ViewFilter.prototype, {
         this.searchInput.addEventListener('input', () => {
             this.updateSearchClearButton();
             if (this.isSubtaskSuggestMode(this.searchInput.value)) {
-                // 仍以 ">" 开头但文本已被改写时，之前选中的父任务精确ID不再可信，
-                // 清除后自动回退为按名称解析
+                // 文本被改写后已选中的父任务 id 不再可信，清掉回退为按名称解析
                 if (this.subtaskParent.title
                     && this.searchInput.value.trim() !== `>${this.subtaskParent.title}`) {
                     this.setSubtaskParent(null, null);
@@ -122,7 +115,6 @@ Object.assign(ViewFilter.prototype, {
 
         this.initSearchDueDatePicker();
 
-        // 初始渲染（空）
         this.renderSearchChips();
     },
 
@@ -143,7 +135,6 @@ Object.assign(ViewFilter.prototype, {
         });
     },
 
-    // 处理搜索输入框的键盘事件
     handleSearchKeydown(e) {
         const searchInput = e.target;
         const val = searchInput.value;
@@ -220,7 +211,6 @@ Object.assign(ViewFilter.prototype, {
         return false;
     },
 
-    // 创建一个 chip DOM 元素
     createChipElement(chip) {
         const el = document.createElement('span');
         el.className = 'search-chip';
@@ -255,13 +245,9 @@ Object.assign(ViewFilter.prototype, {
         return chip.value;
     },
 
-    // 全量重建所有 chips（插入到输入框之前）
-    // 仅用于批量替换（如保存任务后整体重建标签筛选、外部模块清空筛选）；
-    // 单个 chip 的增删走 addSearchChip / removeSearchChip 的增量路径，避免整排重绘
+    // 全量重建；单个 chip 的增删走 add/remove 的增量路径，避免整排重绘
     renderSearchChips() {
-        // 清除旧 chips
         this.searchTagWrapper.querySelectorAll('.search-chip').forEach(el => el.remove());
-        // 在输入框前依次插入
         this.searchChips.forEach(chip => {
             this.searchTagWrapper.insertBefore(this.createChipElement(chip), this.searchInput);
         });
@@ -293,7 +279,6 @@ Object.assign(ViewFilter.prototype, {
         return true;
     },
 
-    // 移除指定索引的 chip
     removeSearchChip(index) {
         if (index < 0 || index >= this.searchChips.length) return false;
         const [chip] = this.searchChips.splice(index, 1);
@@ -329,7 +314,7 @@ Object.assign(ViewFilter.prototype, {
         this.syncSearchQuery(0);
     },
 
-    // 将 chips + 输入框文本转换为后端 query 解析层支持的结构化查询对象。
+    // 把 chips + 输入框文本转成后端 query 解析层支持的结构化查询对象，
     // 四种搜索语义在这里一次性确定，后端不再需要猜测字符串格式：
     //   tags     - 标签 chips（有 tagId 时带精确 id，否则按名称匹配）
     //   keywords - 文本 chips + 输入框文本
@@ -370,8 +355,7 @@ Object.assign(ViewFilter.prototype, {
         return chip ? chip.value : null;
     },
 
-    // 清除截止时间筛选 chip（只改状态与视图，不触发重新加载，由调用方决定何时取数）。
-    // 日历视图按整月展示，带着单日条件会让日历只剩一天，进入该视图前需要清掉。
+    // 日历按整月展示，带单日条件会让日历只剩一天，进入该视图前清掉
     clearDueDateChip() {
         const idx = this.searchChips.findIndex(c => c.type === 'due');
         if (idx === -1) return false;
@@ -381,8 +365,7 @@ Object.assign(ViewFilter.prototype, {
         return true;
     },
 
-    // 设置（替换）截止时间筛选 chip 并立即按新条件重新加载。
-    // 供日历视图点击具体日期、搜索栏日期选择器回显使用；传 null / 非法值表示清除。
+    // 供日历点日期与搜索栏日期选择器回显；传 null / 非法值表示清除
     setDueDateChip(dateStr) {
         const dueDate = normalizeDueDateText(dateStr);
         const existing = this.searchChips.findIndex(c => c.type === 'due');
@@ -393,7 +376,6 @@ Object.assign(ViewFilter.prototype, {
         return !!dueDate;
     },
 
-    // 同步 searchQuery、清空按钮、标签模块选中态，并触发搜索
     syncSearchQuery(delay = 0) {
         this.searchQuery = this.buildSearchQuery();
         this.updateSearchClearButton();
@@ -401,8 +383,7 @@ Object.assign(ViewFilter.prototype, {
         this.scheduleSearch(delay);
     },
 
-    // 防抖触发搜索：条件定稿后交给 commitChange() 统一处置——
-    // 分页归位与"按前台视图取数"都不是搜索栏该操心的事，那里已经做过了。
+    // 分页归位与"按前台视图取数"都交给 commitChange()，搜索栏不操心
     scheduleSearch(delay = 300) {
         if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
         this._searchDebounceTimer = setTimeout(async () => {
@@ -413,16 +394,14 @@ Object.assign(ViewFilter.prototype, {
     },
 
     // ===== 子任务搜索建议下拉（输入 ">" 触发） =====
-    // 判断当前是否处于子任务建议模式：输入以 ">" 开头。
-    // 仅输入 ">" 时关键字为空，后端返回"有子任务的父任务"列表供选择，因此不能要求后面必须有内容。
-    // 标签 chips 允许与父任务条件并存（后端按 AND 组合），因此不再要求 chips 为空。
+    // 仅输入 ">" 时关键字为空，后端返回"有子任务的父任务"列表供选择，故不要求后面必须有内容；
+    // 标签 chips 可与父任务条件并存（后端按 AND 组合），故也不要求 chips 为空
     isSubtaskSuggestMode(value) {
         const v = (value || '').trim();
         return v.startsWith('>');
     },
 
-    // 防抖拉取「有子任务的父任务」建议
-    // 调用后端前，自动将搜索内容 ">" 转换为后端支持的关键字（剥离 ">" 前缀并 trim）
+    // 防抖拉取「有子任务的父任务」建议，调用前把 ">" 前缀剥离成后端支持的关键字
     scheduleSubtaskSuggestions(delay = 250) {
         if (this._subtaskSuggestTimer) clearTimeout(this._subtaskSuggestTimer);
         this._subtaskSuggestTimer = setTimeout(async () => {
@@ -432,7 +411,6 @@ Object.assign(ViewFilter.prototype, {
                 this.hideSubtaskSuggestions();
                 return;
             }
-            // 转换：剥离 ">" 前缀并 trim，得到后端支持的关键字
             const keyword = this.searchInput.value.trim().substring(1).trim();
             await Utils.apiCall({
                 apiMethod: 'search_tasks_with_subtasks',
@@ -460,8 +438,7 @@ Object.assign(ViewFilter.prototype, {
             dropdown.className = 'subtask-suggestions';
             this.searchTagWrapper.appendChild(dropdown);
         }
-        // 缓存引用：否则 hideSubtaskSuggestions/_highlightSubtaskSuggestion 拿到的是 null，
-        // 下拉会一直停在那里关不掉、键盘上下选择也会报错
+        // 不缓存则 hide/_highlight 拿到 null：下拉关不掉、键盘上下选也会报错
         this.dropdown = dropdown;
         dropdown.innerHTML = '';
         this._subtaskSuggestItems = (tasks || []).slice(0, 5);
@@ -507,7 +484,6 @@ Object.assign(ViewFilter.prototype, {
         dropdown.classList.add('visible');
     },
 
-    // 高亮当前选中的建议项并滚动到可见
     _highlightSubtaskSuggestion() {
         const dropdown = this._getSubtaskDropdown();
         if (!dropdown) return;
@@ -517,8 +493,7 @@ Object.assign(ViewFilter.prototype, {
         if (active) active.scrollIntoView({ block: 'nearest' });
     },
 
-    // 搜索框当前是否处于"按父任务查子任务"模式，且已确定到具体的父任务。
-    // 返回 { id, title }；仅输入 ">" 但未选中具体父任务（无 id），或文本已被改写时返回 null。
+    // 已确定到具体父任务时返回 { id, title }；仅输入 ">"（无 id）或文本已被改写时返回 null
     getSubtaskParentFilter() {
         const inputText = this.searchInput ? this.searchInput.value.trim() : '';
         if (!this.isSubtaskSuggestMode(inputText)) return null;
@@ -541,8 +516,7 @@ Object.assign(ViewFilter.prototype, {
         };
     },
 
-    // 选中某条建议：填充 ">+精确标题" 并触发现有子任务搜索流程
-    // id 为父任务精确ID，用于避免同名任务导致按标题解析到错误的父任务
+    // id 为父任务精确 ID，避免同名任务按标题解析到错误的父任务
     selectSubtaskSuggestion(title, id = null) {
         this.setSubtaskParent(id, title);
         this.searchInput.value = '>' + title;
@@ -550,7 +524,6 @@ Object.assign(ViewFilter.prototype, {
         this.syncSearchQuery(0);
     },
 
-    // 隐藏建议下拉并清理状态
     hideSubtaskSuggestions() {
         if (this._subtaskSuggestTimer) {
             clearTimeout(this._subtaskSuggestTimer);
@@ -565,8 +538,7 @@ Object.assign(ViewFilter.prototype, {
 
     // ===== 搜索条件的分层清空 =====
 
-    // 当前可被清空按钮清除的搜索条件层级，按「文本 → 截止时间 → 标签」的顺序取第一个非空层级。
-    // 全部条件都清空后返回 null，此时再点按钮即为空删除。
+    // 按「文本 → 截止时间 → 标签」取第一个非空层级；全部清空后返回 null
     getSearchClearLayer() {
         if (this.searchInput.value.trim()) return 'text';
         if (this.searchChips.some(chip => chip.type === 'due' && chip.value)) return 'due';
@@ -599,7 +571,6 @@ Object.assign(ViewFilter.prototype, {
         return removed;
     },
 
-    // 清空按钮的提示文案：随下一个会被清除的层级变化
     getSearchClearButtonTitle(layer) {
         const keyMap = {
             text: ['searchClearKeyword', '清除搜索文本'],
@@ -613,8 +584,7 @@ Object.assign(ViewFilter.prototype, {
             : fallback;
     },
 
-    // 分层清空搜索：每次点击只清除一层（文本 → 截止时间 → 标签），
-    // 每一层都会即时重查；全部清除后再继续点击，等于空删除。
+    // 每次点击只清除一层，每层即时重查；全部清除后再点即空删除
     async clearSearch() {
         const layer = this.getSearchClearLayer();
         if (!layer) return false;

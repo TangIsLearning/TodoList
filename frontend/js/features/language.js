@@ -1,10 +1,6 @@
-/**
- * 语言管理器（核心）
- * 负责：语言设置的加载/保存/切换、翻译查询、观察者通知
- *
- * 各业务界面的 DOM 文案刷新在同目录 language.views.js 中以 mixin 方式挂载，
- * 本文件必须先加载；init 经 waitForLanguagesConfig 异步触发，视图方法在调用前必然已挂载。
- */
+// 语言管理器（核心）：语言设置的加载/保存/切换、翻译查询、观察者通知。
+// 各业务界面的 DOM 文案刷新在同目录 language.views.js 中以 mixin 方式挂载，本文件必须先加载；
+// init 经 waitForLanguagesConfig 异步触发，视图方法在调用前必然已挂载。
 
 class LanguageManager {
     constructor() {
@@ -19,37 +15,31 @@ class LanguageManager {
         this.waitForLanguagesConfig().then(() => this.init());
     }
 
-    // 初始化（幂等，避免并发重复执行）
+    // 幂等：避免并发重复执行
     init() {
         if (this.initPromise) return this.initPromise;
 
         this.initPromise = this.doInit().catch((error) => {
             logger.error('Failed to initialize LanguageManager:', error);
-            // 使用默认语言
             this.currentLanguage = this.currentLanguage || 'zh';
         });
 
         return this.initPromise;
     }
 
-    // 初始化
     async doInit() {
         try {
-            // 从存储中恢复语言设置
             await this.initLanguageSetting();
 
-            // 应用当前语言设置
             await this.applyLanguage(this.currentLanguage);
 
             this.isInitialized = true;
         } catch (error) {
             logger.error('Failed to initialize LanguageManager:', error);
-            // 使用默认语言
             this.currentLanguage = 'zh';
         }
     }
 
-    // 恢复语言设置
     async initLanguageSetting() {
         let language = localStorage.getItem('todolist_language');
         if (language) {
@@ -71,7 +61,7 @@ class LanguageManager {
         });
     }
 
-    // 保存语言设置（后端写入失败会抛出，交由调用方判定为切换失败）
+    // 后端写入失败会抛出，交由调用方判定为切换失败
     async saveLanguageSetting(language) {
         await Utils.apiCall({
             apiMethod: 'set_config',
@@ -84,7 +74,6 @@ class LanguageManager {
         });
     }
 
-    // 切换语言
     switchLanguage(language) {
         // 串行化切换请求，避免快速连点导致并发写入与界面错乱
         if (this.switchingPromise) {
@@ -98,7 +87,6 @@ class LanguageManager {
         return this.switchingPromise;
     }
 
-    // 切换语言实现
     async doSwitchLanguage(language) {
         if (!window.Languages || !window.Languages[language]) {
             logger.error('Language not supported:', language);
@@ -106,11 +94,11 @@ class LanguageManager {
         }
 
         if (this.currentLanguage === language) {
-            return true; // 已经是目标语言
+            return true;
         }
 
         try {
-            // 保存设置（持久化失败才是真正的切换失败）
+            // 持久化失败才是真正的切换失败
             await this.saveLanguageSetting(language);
         } catch (error) {
             logger.error('Failed to switch language:', error);
@@ -121,20 +109,16 @@ class LanguageManager {
         this.currentLanguage = language;
 
         try {
-            // 应用语言设置
             await this.applyLanguage(language);
         } catch (error) {
             logger.error('Failed to apply language to UI, keeping language setting:', error);
         }
 
-        // 通知观察者
         this.notifyObservers();
 
-        // 持久化已生效，界面也已按新语言刷新，判定为成功
         return true;
     }
 
-    // 等待语言配置文件加载完成
     async waitForLanguagesConfig() {
         return new Promise((resolve) => {
             const checkConfig = () => {
@@ -174,24 +158,18 @@ class LanguageManager {
         });
     }
 
-    // 应用语言设置到界面
     async applyLanguage(language) {
-        // 检查语言配置是否可用
         if (!window.Languages || !window.Languages.zh || !window.Languages.en) {
             logger.warning('Languages config not fully loaded yet, waiting...');
-            // 等待配置加载完成
             await this.waitForLanguagesConfig();
         }
 
-        // 重置重试计数器
         this.retryCount = 0;
 
         if (!window.Languages[language]) {
             logger.warning('Language not available:', language, 'falling back to zh');
-            // 如果请求的语言不可用，回退到中文
             language = 'zh';
 
-            // 再次检查中文是否可用
             if (!window.Languages[language]) {
                 logger.error('Fallback language zh also not available');
                 return;
@@ -200,7 +178,6 @@ class LanguageManager {
 
         const lang = window.Languages[language];
 
-        // 更新HTML lang属性
         document.documentElement.lang = language;
 
         // 各区块独立刷新：任一区块因 DOM 未就绪而失败时，不影响其余区块继续刷新
@@ -223,7 +200,6 @@ class LanguageManager {
         }
     }
 
-    // 获取翻译文本
     getText(key, defaultValue = '') {
         if (!window.Languages || !window.Languages[this.currentLanguage]) return defaultValue;
 
@@ -242,18 +218,15 @@ class LanguageManager {
         return value || defaultValue;
     }
 
-    // 添加观察者
     addObserver(observer) {
         if (typeof observer === 'function') this.observers.push(observer);
     }
 
-    // 移除观察者
     removeObserver(observer) {
         const index = this.observers.indexOf(observer);
         if (index > -1) this.observers.splice(index, 1);
     }
 
-    // 通知观察者
     notifyObservers() {
         this.observers.forEach(observer => {
             try {
@@ -264,34 +237,28 @@ class LanguageManager {
         });
     }
 
-    // 获取当前语言
     getCurrentLanguage() {
         return this.currentLanguage;
     }
 
-    // 获取支持的语言列表
     getSupportedLanguages() {
         return window.Languages ? Object.keys(window.Languages) : ['zh'];
     }
 
-    // 获取语言显示名称
     getLanguageDisplayName(languageCode) {
         const lang = window.Languages && window.Languages[languageCode];
         return lang ? lang[`language${languageCode === 'zh' ? 'Chinese' : 'English'}`] : languageCode;
     }
 }
 
-// 创建全局实例
 window.languageManager = new LanguageManager();
 
-// 简化的翻译函数（用于动态文本）
 window.t = function(key, defaultValue = '') {
     return window.languageManager ? window.languageManager.getText(key, defaultValue) : defaultValue;
 };
 
-// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 延迟初始化，确保语言配置文件已加载
+    // 兜底：语言配置文件加载较慢时再触发一次
     setTimeout(() => {
         if (window.languageManager && !window.languageManager.isInitialized) {
             window.languageManager.init();
