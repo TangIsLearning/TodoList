@@ -149,6 +149,8 @@ class StatsManager {
         // 顶部统计条（全局 overview）独立的防抖状态，与统计视图的加载互不干扰
         this._overviewTimer = null;
         this._overviewFromZero = false;
+        // 登记到刷新路由：数据/筛选变更时的重绘由它统一分发。
+        window.refreshRouter?.register('stats', () => this.loadStats());
     }
 
     // 模块初始化（统计视图数据仍按需加载；顶部统计条常驻可见，这里刷一次）
@@ -165,11 +167,6 @@ class StatsManager {
         if (content && !content.dataset.loaded) {
             content.innerHTML = '<div class="stats-loading">加载统计数据中...</div>';
         }
-        this.ensureReady();
-    }
-
-    refresh() {
-        if (window.viewManager?.currentView !== 'stats') return;
         this.ensureReady();
     }
 
@@ -253,9 +250,9 @@ class StatsManager {
         });
     }
 
-    // 当前统计使用的分类：跟随左侧菜单「分类」的点击选择
+    // 当前统计使用的分类：跟随左侧菜单「分类」的点击选择。
     _currentCategoryId() {
-        return (window.categoryManager && window.categoryManager.currentCategory) || 'all';
+        return window.viewFilter?.categoryId || 'all';
     }
 
     // 当前选中分类的展示名
@@ -268,26 +265,9 @@ class StatsManager {
     }
 
     // 当前列表筛选中的标签 id 集合，用于统计过滤。
-    // 统一从 todoManager 的查询状态读取，避免跨模块访问 chips 私有结构。
+    // 统一从共享的 ViewFilter 读取（走公开方法，不碰 chips / searchQuery 私有结构）。
     _currentTagIds() {
-        const tm = window.todoManager;
-        const tags = (tm && tm.searchQuery && Array.isArray(tm.searchQuery.tags))
-            ? tm.searchQuery.tags
-            : [];
-        return tags.map(t => (t && t.id) || null).filter(Boolean);
-    }
-
-    // 左侧已点选标签的名称列表（用于提示文案）
-    _currentTagNames() {
-        const tm = window.todoManager;
-        if (!tm || typeof tm.getTagFilterNames !== 'function') return [];
-        return tm.getTagFilterNames();
-    }
-
-    // 统计视图下统一刷新数据入口
-    refreshIfVisible() {
-        if (window.viewManager?.currentView !== 'stats') return;
-        return this.loadStats();
+        return window.viewFilter?.getTagFilterIds() ?? [];
     }
 
     // 统一走后端调用封装 window.Utils.apiCall（内部等待 pywebview 就绪、统一错误处理）
@@ -529,7 +509,8 @@ class StatsManager {
         const hint = document.getElementById('stats-toolbar-hint');
         if (!hint) return;
         const basis = STATS_BASIS_LABELS[this.state.basis] || this.state.basis;
-        const tagNames = this._currentTagNames();
+        // 标签筛选是共享条件，直接问 ViewFilter，不再绕道列表模块
+        const tagNames = window.viewFilter?.getTagFilterNames() ?? [];
         const tagText = tagNames.length
             ? ` · 标签：${tagNames.map(n => `#${n}`).join('、')}`
             : '';

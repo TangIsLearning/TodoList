@@ -3,11 +3,9 @@
 class CategoryManager {
     constructor() {
         this.categories = [];
-        this.currentCategory = 'all';
         this.defaultShowCategories = 3; // 默认只展示4个分类项，超出则隐藏
         this._statsDebounceTimer = null;
         this._pendingFromZero = false;
-        // 最近一次分类计数结果，供 renderCategories 复用，避免每次重渲染都拉一次全量任务
         this._lastCounts = null;
     }
     
@@ -17,8 +15,8 @@ class CategoryManager {
         this.bindEvents();
         this.renderCategories();
         
-        // 设置初始筛选状态为"全部"
-        this.setActiveCategory('all');
+        // 初始高亮跟随共享筛选条件，而非假定一定落在"全部"
+        this.setActiveCategory(window.viewFilter?.categoryId ?? 'all');
     }
     
     // 绑定事件
@@ -158,21 +156,19 @@ class CategoryManager {
         }
         
         // 设置当前分类的激活状态
-        this.setActiveCategory(this.currentCategory);
+        this.setActiveCategory(window.viewFilter?.categoryId ?? 'all');
     }
     
-    // 分类集合发生变化（新建 / 编辑 / 删除）后的完整刷新。
-    // 必须串行：先等最新分类数据回来，再重建列表。
-    // 之前 loadCategories() 与 renderCategories() 都是"发完就不管"，渲染跑在取数前面，
-    // 用的是旧 categories —— 删掉的分类会被重新渲染回页面，新建的也不会出现。
-    async refreshAfterCategoryChange() {
+    // 刷新分类数据并重建左侧列表项。
+    async refresh() {
         // 保留"更多"的展开状态，避免刷新后列表被莫名收起
         const showMoreBtn = document.getElementById('categories-more');
         const isShowMore = !!showMoreBtn?.classList.contains('selected');
 
-        this._lastCounts = null;       // 分类集合变了，旧的计数缓存失效，必须重新取数
+        const staleCounts = this._lastCounts;
+        this._lastCounts = null;       // 分类集合变了，旧计数已过期，不能继续当缓存用
         await this.loadCategories();
-        await this.renderCategories(true, isShowMore); // 缓存已清空 → 重新拉全量未完成并重算计数
+        await this.renderCategories(true, isShowMore, false, staleCounts);
     }
 
     // 生成分类HTML
@@ -263,17 +259,10 @@ class CategoryManager {
     
     // 按分类筛选
     async filterByCategory(categoryId) {
-        this.currentCategory = categoryId;
         this.setActiveCategory(categoryId);
-        
-        // 通知TodoManager进行筛选
-        if (window.todoManager) {
-            window.todoManager.currentFilter = categoryId;
-            window.todoManager.currentPage = 1; // 重置到第一页
-            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-            await window.todoManager.loadTasks();
-        }
+        // 重置「结果集从头开始」的状态与后续的取数/重绘都交给 ViewFilter 统一分发
+        window.viewFilter.categoryId = categoryId;
+        await window.viewFilter.commitChange();
     }
     
     // 设置激活的分类
@@ -352,14 +341,9 @@ class CategoryManager {
                     window.languageManager.getText('categoryCreated', '分类创建成功'), 'success');
                 Utils.ModalManager.hide('category-modal');
 
-                // 串行刷新：拿最新分类 → 重算计数 → 重建列表
-                await this.refreshAfterCategoryChange();
-
-                // 重新加载任务列表以更新分类信息
-                window.todoManager?.loadTasks();
-                // 左侧计数已由 refreshAfterCategoryChange 重算，这里只补刷顶部统计条
-                window.App?.notifyDataChanged({ skipCategoryCounts: true });
-                // 云端同步已由后端写操作 API 上的 @auto_sync 统一触发，前端无需再手工调用
+                // 重建列表项 → 广播，顺序有依赖
+                await this.refresh();
+                window.App?.notifyDataChanged();
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
@@ -410,21 +394,16 @@ class CategoryManager {
                 onSuccess: async (response) => {
                     Utils.showToast(window.languageManager.getText('categoryDeleted', '分类删除成功'), 'success');
 
-                    // 如果当前选中的是被删除的分类，切回"全部"（内部已重新加载列表）；
-                    // 否则当前筛选不受影响，下面再补刷一次
-                    const switchedToAll = this.currentCategory === categoryId;
+                    // 如果当前选中的是被删除的分类，切回"全部"（commitChange 已带列表刷过一次）；
+                    // 否则当前筛选不受影响，交给下面的广播补刷一次
+                    const switchedToAll = window.viewFilter.categoryId === categoryId;
                     if (switchedToAll) {
                         await this.filterByCategory('all');
                     }
-
-                    // 串行刷新：拿最新分类 → 重算计数 → 重建列表
-                    await this.refreshAfterCategoryChange();
-
-                    // 重新加载任务列表
-                    if (!switchedToAll) window.todoManager?.loadTasks();
-                    // 左侧计数已由 refreshAfterCategoryChange 重算，这里只补刷顶部统计条
-                    window.App?.notifyDataChanged({ skipCategoryCounts: true });
-                    // 云端同步已由后端写操作 API 上的 @auto_sync 统一触发，前端无需再手工调用
+                    // 同上：先重建列表项，再由广播取回计数填进这些节点
+                    await this.refresh();
+                    // skipList：切回"全部"时 commitChange 已带列表刷过一次，这里不重复刷
+                    window.App?.notifyDataChanged({ skipList: switchedToAll });
                 },
                 onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
                 onFinally: () => Utils.setLoading(false)
@@ -500,18 +479,6 @@ class CategoryManager {
         }, 200);
     }
     
-    // 重新加载数据（切库 / 导入 / 页面重新可见等"数据可能整体换了一批"的场景）
-    async refresh() {
-        // 计数不在这里取：两个调用方（App.refreshData / App.reloadAfterDataReplaced）
-        // 之后都会走 notifyDataChanged → refreshCounts，这里再取一次等于同一轮刷新取两遍。
-        // 所以缓存立即失效，上一次的计数只作为占位显示值沿用（避免先闪 0），
-        // 等 refreshCounts 取到新值后再由动画覆盖；万一后续 notifyDataChanged 没跑到，
-        // 缓存为空也会让下一次渲染重新取数，不会把过期值一直当缓存用。
-        const staleCounts = this._lastCounts;
-        this._lastCounts = null;
-        await this.loadCategories();
-        await this.renderCategories(false, false, false, staleCounts);
-    }
 }
 
 // 创建全局实例

@@ -5,6 +5,8 @@ class CalendarManager {
         this.currentDate = new Date();
         this.tasks = [];
         this.currentMonth = null;
+        // 登记到刷新路由：数据/筛选变更时由它判断是否在前台，这里不再自判
+        window.refreshRouter?.register('calendar', () => this.loadCalendarTasks());
     }
 
     // 初始化
@@ -41,22 +43,12 @@ class CalendarManager {
         this.renderCalendar();
     }
 
-    // 分类视图下统一刷新任务入口
-    refreshIfVisible() {
-        if (window.viewManager?.currentView !== 'calendar') return;
-        return this.loadCalendarTasks();
-    }
-
-    // 日历视图专用取数：沿用列表当前生效的筛选（分类 / 优先级 / 状态 / 搜索 chips），
+    // 日历视图专用取数：沿用当前生效的筛选（分类 / 优先级 / 状态 / 搜索 chips），
     // 只拿月历格渲染需要的字段，不带分页。
     async loadCalendarTasks() {
-        let filter = null;
-        if (window.todoManager) {
-            filter = window.todoManager.buildListFilter();
-            // 月历按整天铺开，单日条件会让月历只剩那一天（进入日历时已清掉 chip）
-            filter.dueDateFilter = null;
-            filter.dueDate = null;
-        }
+        const filter = window.viewFilter.build();
+        // 月历按整天铺开，单日条件会让月历只剩那一天（进入日历时已清掉 chip）
+        filter.dueDateFilter = null;
         await Utils.apiCall({
             apiMethod: 'get_calendar_tasks',
             apiArgs: [filter],
@@ -246,11 +238,10 @@ class CalendarManager {
         if (dueDateFilter) dueDateFilter.value = 'all';
 
         if (window.todoManager) {
-            // 旧的自定义日期筛选不再使用，避免与 chip 重复表达同一条件
-            window.todoManager.customDateFilter = null;
-            window.todoManager.dueDateFilter = 'all';
+            // 单日条件统一由下面的 chip 承载，快捷筛选拨回"全部"以免两者叠加
+            window.viewFilter.dueDateFilter = 'all';
             // 回显到搜索栏：生成一个"截止 YYYY-MM-DD" chip，可单独点 × 移除
-            window.todoManager.setDueDateChip(dateStr);
+            window.viewFilter.setDueDateChip(dateStr);
 
             // 显示提示信息
             Utils.showToast(`${window.languageManager.getText('showTaskFor', '当前任务日期：')} ${dateStr}`, 'info');

@@ -419,3 +419,34 @@ function confirmDialog(message, callback, onCancel = null, title = null, classNa
     };
     document.addEventListener('keydown', handleEscape);
 }
+
+// 统一的日期选择器：返回一个绑定在指定输入框上的日历实例。
+function createDatePicker(field, { onChange, trigger } = {}) {
+    if (!field) return null;
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    return new Pikaday({
+        field,
+        trigger,
+        format: 'YYYY-MM-DD',
+        showDaysInNextAndPreviousMonths: true,
+        firstDay: 1,
+        toString: (date) => formatDate(date),
+        i18n: {
+            previousMonth: 'Prev',
+            nextMonth: 'Next',
+            months: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+            weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            weekdaysShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        },
+        onSelect: (selectedDate) => {
+            if (!selectedDate) return;
+            field.value = formatDate(selectedDate);
+            onChange?.();
+        }
+    });
+}

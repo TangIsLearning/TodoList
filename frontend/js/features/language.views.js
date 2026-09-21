@@ -20,14 +20,12 @@ Object.assign(LanguageManager.prototype, {
     // 更新主界面文本
     updateMainInterface(lang) {
         // 重建搜索 chips：截止时间 chip 的"截止/Due"前缀需要跟随语言
-        if (window.todoManager?.searchChips?.length > 0) {
-            window.todoManager.renderSearchChips();
+        if (window.viewFilter?.searchChips?.length > 0) {
+            window.viewFilter.renderSearchChips();
         }
 
         // 搜索清空按钮提示会随当前可分层的搜索条件变化，交回搜索模块按当前语言重算
-        if (window.todoManager?.updateSearchClearButton) {
-            window.todoManager.updateSearchClearButton();
-        }
+        window.viewFilter?.updateSearchClearButton?.();
 
         // 任务列表由 JS 渲染（表头列名、优先级徽章、操作按钮提示都在渲染时按当前语言生成），
         // 切换语言后必须重渲染一次，否则已渲染的列表仍是旧语言。

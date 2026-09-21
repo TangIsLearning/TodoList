@@ -111,8 +111,7 @@ class ViewManager {
                 if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 if (window.todoManager) {
                     // 日历按整月展示，先丢掉单日条件（截止时间 chip），否则日历只剩那一天
-                    window.todoManager.clearDueDateChip();
-                    window.todoManager.customDateFilter = null; // 清除自定义日期筛选
+                    window.viewFilter.clearDueDateChip();
                 }
                 // 走日历专用取数：只回月历格需要的字段（标题 / 完成 / 截止时间 / 优先级）。
                 // 此前是 pageSize = 9999 调分页接口，既拉回整份任务（描述、周期规则、
@@ -158,10 +157,8 @@ class ViewManager {
                 const filterPageSize = 10;
                 // 通知TodoManager进行筛选
                 if (window.todoManager) {
-                    window.todoManager.currentPage = 1; // 重置到第一页
                     window.todoManager.pageSize = filterPageSize; // 设置分页数量
-                    window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-                    window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
+                    window.todoManager.resetForNewResult(); // 结果集从头开始
                     await window.todoManager.loadTasks();
                 }
                 break;

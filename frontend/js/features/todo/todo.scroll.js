@@ -98,8 +98,7 @@ Object.assign(TodoManager.prototype, {
         if (pageSize === this.pageSize) return;
         
         this.pageSize = parseInt(pageSize);
-        this.currentPage = 1; // 重置到第一页
-        this.resetInfiniteScroll(); // 重置无限下拉状态
+        this.resetForNewResult(); // 回到第一页
         await this.loadTasks();
     },
 
@@ -336,8 +335,8 @@ Object.assign(TodoManager.prototype, {
         this.getNoMoreTasksEl()?.remove();
     },
 
-    // 重置无限下拉状态（仅重置状态，加载由调用方负责，避免重复请求）
-    resetInfiniteScroll() {
+    // 结果集将要从头开始：回到第一页，并清掉无限下拉已加载的游标。
+    resetForNewResult() {
         // 使飞行中的"加载更多"结果失效
         this.listLoadToken++;
         this.isLoadingMore = false;

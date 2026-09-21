@@ -439,7 +439,7 @@ class SmartTaskInput(LogManager):
                             if (window.todoManager && typeof window.todoManager.revealTask === 'function') {{
                                 window.todoManager.revealTask({js_task_id});
                             }} else if (window.todoManager && typeof window.todoManager.loadTasks === 'function') {{
-                                window.todoManager.loadTasks(true);
+                                window.todoManager.loadTasks();
                             }}
                             if (window.timelineManager && typeof window.timelineManager.renderTimeline === 'function') {{
                                 window.timelineManager.renderTimeline();

@@ -219,8 +219,8 @@ class App {
     // 初始化模块
     async initModules() {
         const modules = [
-            // 视图状态先就位：其它模块的可见性判断都读 viewManager.currentView
             { name: 'ViewManager', instance: window.viewManager },
+            { name: 'ViewFilter', instance: window.viewFilter },
             { name: 'CategoryManager', instance: window.categoryManager },
             { name: 'TodoManager', instance: window.todoManager },
             { name: 'CalendarManager', instance: window.calendarManager },
@@ -254,7 +254,7 @@ class App {
         try {
             Utils.setLoading(true, '刷新数据...');
             
-            // 并行刷新所有模块数据
+            // 并行刷新各模块的常驻基础数据，不包含视图取数。
             const refreshPromises = this.modules.map(module => {
                 if (module.instance && typeof module.instance.refresh === 'function') {
                     return module.instance.refresh();
@@ -281,20 +281,13 @@ class App {
 
         // 1. 清理内存中与旧库相关的数据，避免旧筛选条件/旧搜索 chip 命中不存在的数据
         if (todo) {
-            todo.currentPage = 1;
-            todo.customDateFilter = null;
-            todo.currentFilter = 'all';
-            todo.clearSearchChips();
-            todo.searchInput.value = '';
-            todo.searchQuery = null;
-            todo.updateSearchClearButton();
-            todo.resetInfiniteScroll();
+            window.viewFilter.clearDataScopedFilters();
+            todo.resetForNewResult();
             todo.tagManager?.clearPending?.();
         }
 
         // 2. 分类列表重新拉取并回到"全部"
         if (window.categoryManager) {
-            window.categoryManager.currentCategory = 'all';
             await window.categoryManager.refresh();
         }
 
@@ -304,38 +297,20 @@ class App {
             await todo.tagManager?.loadModule(true);
         }
 
-        // 4. 任务列表：只有列表视图需要这份分页数据
-        if (todo) await todo.refresh();
-
-        // 5. 时间轴独立取数，需单独重建（不在前台时跳过，切到该视图时会重新取数）
-        await window.timelineManager?.refreshIfVisible();
-
-        // 6. 常驻数据：数据整体被替换，分类计数与顶部统计条从 0 重新计数更直观
+        // 4. 前台视图（含列表）与常驻数据一并重建。
         this.notifyDataChanged({ fromZero: true });
     }
 
     // 数据发生变更（增删改、完成状态切换、分类变更、切库/导入、页面重新可见）后统一通知。
-    // 左侧分类计数与顶部统计条的口径都是全局的（未完成任务数 / 全局 overview），
-    // 与列表筛选无关，因此只在数据真正变更时刷新，不再跟着任务列表的每次加载走；
-    // 日历与时间轴则只在各自处于前台时重建，不在前台时由进入视图的 switchView 负责取数。
-    // 调用方只声明"数据变了"，不必知道有哪些视图、谁在前台。
-    notifyDataChanged({ fromZero = false, skipCategoryCounts = false } = {}) {
-        // 调用方（如分类模块）若已经自己重算过左侧计数，跳过以免重复拉一次全量任务
-        if (!skipCategoryCounts) window.categoryManager?.refreshCounts(fromZero);
-        // 以下视图各自判断是否在前台，不在前台时直接跳过
-        window.calendarManager?.refreshIfVisible();
+    notifyDataChanged({ fromZero = false, skipList = false } = {}) {
+        // 左侧分类计数：口径固定为全局未完成任务数，与当前视图/筛选无关，数据变更即重取。
+        // 分类模块只重建列表项（categoryManager.refresh），取数一律收敛在这里，
+        // 避免同一轮刷新里取两遍。
+        window.categoryManager?.refreshCounts(fromZero);
+        // 顶部统计条数据刷新
         window.statsManager?.refreshOverviewBar(fromZero);
-        window.timelineManager?.refreshIfVisible();
-    }
-
-    // 筛选条件（分类 / 优先级 / 状态 / 搜索 chips / 标签）发生变化后统一通知。
-    // 与 notifyDataChanged 的区别：数据本身没变，变的是查询条件，
-    // 因此不重算左侧分类计数、也不重播顶部统计条动画（两者口径与筛选无关）。
-    // 同样由各视图自行判断是否前台，调用方不点名任何具体视图。
-    notifyFilterChanged() {
-        window.calendarManager?.refreshIfVisible();
-        window.timelineManager?.refreshIfVisible();
-        window.statsManager?.refreshIfVisible();
+        // 前台视图的一次重建交由刷新路由统一下发：由路由按当前视图挑对应的重建入口。
+        window.refreshRouter?.refreshIfVisible({ skipList });
     }
 
     // 获取应用状态
@@ -351,27 +326,8 @@ class App {
     // 重置应用状态
     async reset() {
         try {
-            // 重置筛选器
-            if (window.todoManager) {
-                window.todoManager.currentFilter = 'all';
-                window.todoManager.searchQuery = null;
-                window.todoManager.priorityFilter = 'all';
-                window.todoManager.statusFilter = 'all';
-                
-                // 重置搜索框
-                const searchInput = document.getElementById('search-input');
-                if (searchInput) {
-                    searchInput.value = '';
-                }
-                // 清空搜索标签 chips 并同步左侧标签选中态
-                window.todoManager.clearSearchChips();
-
-                // 重置筛选器
-                const priorityFilter = document.getElementById('priority-filter');
-                const statusFilter = document.getElementById('status-filter');
-                if (priorityFilter) priorityFilter.value = 'all';
-                if (statusFilter) statusFilter.value = 'all';
-            }
+            // 重置筛选器：条件与全局筛选栏控件都归 ViewFilter，这里不再逐项改字段
+            window.viewFilter.resetFilters();
             
             // 重置分类选择
             window.categoryManager?.filterByCategory('all');
@@ -527,40 +483,16 @@ class App {
         }
     }
 
-    //  筛选任务
+    //  筛选任务（顶部快捷筛选：状态 / 日期 / 标签）
+    //  条件改写、结构化查询构建、控件回写都是共享筛选条件自身的事，归 ViewFilter；
+    //  这里只做命令分发与结果提示
     async filterTasks(statusValue, dueDateValue, tagValue, toastMsg) {
-        if (window.todoManager) {
-            // 快捷筛选会重置搜索标签 chips，避免残留 chip 与新筛选条件冲突
-            window.todoManager.clearSearchChips();
-
-            window.todoManager.statusFilter = statusValue;
-            window.todoManager.dueDateFilter = dueDateValue;
-            // tagValue 为 '#' 表示快捷筛选"含标签任务"，其余按普通关键词处理；
-            // 与搜索框 chips 一样转成结构化查询对象交给后端解析
-            if (tagValue === '#') {
-                window.todoManager.searchQuery = { tags: [], keywords: [], parent: null, anyTag: true };
-            } else if (tagValue) {
-                window.todoManager.searchQuery = { tags: [], keywords: [tagValue], parent: null };
-            } else {
-                window.todoManager.searchQuery = null;
-            }
-            window.todoManager.priorityFilter = 'all';
-            window.todoManager.currentPage = 1;
-            window.todoManager.customDateFilter = null; // 清除自定义日期筛选
-            window.todoManager.resetInfiniteScroll(); // 重置无限下拉状态
-            await window.todoManager.loadTasks();
-
-            // 触发筛选更新
-            Utils.showToast(toastMsg, 'success');
-
-            // 刷新UI
-            const statusFilter = document.getElementById('status-filter');
-            const dueDateFilter = document.getElementById('due-date-filter');
-            const searchInput = document.getElementById('search-input');
-            if (statusFilter) statusFilter.value = statusValue;
-            if (dueDateFilter) dueDateFilter.value = dueDateValue;
-            if (searchInput) searchInput.value = tagValue;
-        }
+        await window.viewFilter.applyQuickFilter({
+            status: statusValue,
+            dueDateFilter: dueDateValue,
+            tag: tagValue
+        });
+        Utils.showToast(toastMsg, 'success');
     }
 }
 

@@ -120,16 +120,17 @@ Object.assign(TodoManager.prototype, {
 
         // 复制任务：沿用源任务的父任务；普通新建：搜索框正处于"按父任务查子任务"时挂到该父任务下
         const sourceParent = sourceTask ? await this.getParentOfTask(sourceTask.id) : null;
-        const subtaskParentFilter = sourceTask ? null : this.getSubtaskParentFilter();
+        const subtaskParentFilter = sourceTask ? null : window.viewFilter.getSubtaskParentFilter();
         const parentPrefill = sourceTask ? sourceParent : subtaskParentFilter;
 
         // 记录打开弹窗时的列表筛选快照（分类 + 标签 + 父任务），提交后据此决定是否同步或清除筛选
+        const { categoryId: viewCategoryId } = window.viewFilter;
         const currentCategory = sourceTask
             ? (sourceTask.categoryId || '')
-            : (this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '');
+            : (viewCategoryId && viewCategoryId !== 'all' ? viewCategoryId : '');
         const currentTagIds = sourceTask
             ? (sourceTask.tags || []).map(tag => tag.id)
-            : this.getTagFilterIds();
+            : window.viewFilter.getTagFilterIds();
         // 新建模式下表单初始值即列表筛选值，因此"是否已筛选"与初始值一致
         this.taskFilterSnapshot = {
             categoryId: currentCategory,
@@ -477,8 +478,9 @@ Object.assign(TodoManager.prototype, {
         this.tagManager.beginForm(task.tags ? task.tags.map(t => t.id) : []);
 
         // 记录打开弹窗时的任务原分类/原标签与列表筛选状态，提交后据此决定是否同步筛选
-        const filterCategoryId = this.currentFilter && this.currentFilter !== 'all' ? this.currentFilter : '';
-        const filterTagIds = this.getTagFilterIds();
+        const { categoryId: filterCategory } = window.viewFilter;
+        const filterCategoryId = filterCategory && filterCategory !== 'all' ? filterCategory : '';
+        const filterTagIds = window.viewFilter.getTagFilterIds();
         this.taskFilterSnapshot = {
             categoryId: task.categoryId || '',
             tagIds: this.tagManager.getFormSelectedTagIds(),
@@ -488,7 +490,7 @@ Object.assign(TodoManager.prototype, {
             hasCategoryFilter: !!filterCategoryId,
             hasTagFilter: filterTagIds.length > 0,
             // 编辑模式下以搜索框是否处于父任务查询为准，与任务自身是否有父任务无关
-            hasParentFilter: !!this.getSubtaskParentFilter()
+            hasParentFilter: !!window.viewFilter.getSubtaskParentFilter()
         };
 
         // 如果有截止日期，自动展开更多选项
@@ -727,8 +729,8 @@ Object.assign(TodoManager.prototype, {
                 Utils.showToast(message, 'success');
                 Utils.ModalManager.hide('task-modal');
 
-                // 移动端调整：如果当前页不是第一页，重置到第一页
-                if (this.isMobileDevice()) this.resetInfiniteScroll(); // 重置无限下拉状态
+                // 移动端是无限下拉模式，没有"上一页"可退，只能从头开始
+                if (this.isMobileDevice()) this.resetForNewResult();
 
                 // 按表单中最终选择的分类/标签同步列表筛选
                 const tagsModuleRefreshed = await this.syncFiltersAfterSave(
@@ -738,11 +740,10 @@ Object.assign(TodoManager.prototype, {
                 // 标签已随任务落库，清掉弹窗内的临时标签，避免与后端返回的真实标签重复
                 this.tagManager.clearPending();
 
-                // 列表刷新后定位并高亮这条任务
+                // 列表刷新后定位并高亮这条任务：id 先挂上，随后由广播经路由取数、渲染时消费
                 this._pendingHighlightTaskId = taskId;
-                this.loadTasks(true);
-                // 数据变更：左侧分类计数 / 顶部统计条，以及处于前台的时间轴等视图，
-                // 全部由通知中心统一广播，这里不再逐个点名
+                // 数据变更：列表（前台时）由路由重建，左侧分类计数 / 顶部统计条 /
+                // 时间轴等前台视图一并刷新，全部交给通知中心，这里不再逐个点名、也不再自取一次
                 window.App?.notifyDataChanged({ fromZero: true });
 
                 if (!tagsModuleRefreshed) this.tagManager.loadModule(true);
@@ -772,11 +773,8 @@ Object.assign(TodoManager.prototype, {
         if (chosenCategoryId !== snapshot.categoryId && snapshot.hasCategoryFilter) {
             // 选择"未分类"时清除分类筛选
             const nextFilter = chosenCategoryId || 'all';
-            this.currentFilter = nextFilter;
-            if (window.categoryManager) {
-                window.categoryManager.currentCategory = nextFilter;
-                window.categoryManager.setActiveCategory(nextFilter);
-            }
+            window.viewFilter.categoryId = nextFilter;
+            window.categoryManager?.setActiveCategory(nextFilter);
             filterChanged = true;
         }
 
@@ -794,8 +792,9 @@ Object.assign(TodoManager.prototype, {
                 .map(tag => ({ type: 'tag', value: tag.name, tagId: tag.id || null, color: tag.color }));
 
             // 保留非标签类型的搜索 chip（如文本搜索），仅替换标签筛选部分
-            this.searchChips = this.searchChips.filter(chip => chip.type !== 'tag').concat(chosenTagChips);
-            this.renderSearchChips();
+            window.viewFilter.searchChips = window.viewFilter.searchChips
+                .filter(chip => chip.type !== 'tag').concat(chosenTagChips);
+            window.viewFilter.renderSearchChips();
 
             // 表单中可能包含新建的标签，刷新左侧标签模块以纳入新标签与新计数；
             // 此时 chips 已更新，模块渲染会直接带上正确的选中态
@@ -808,28 +807,27 @@ Object.assign(TodoManager.prototype, {
         // chosenParentId 为表单中最终选择的父任务；搜索框本身没有父任务查询时不联动
         const chosenParentId = this.taskParent.value || null;
         if (snapshot.hasParentFilter && chosenParentId !== snapshot.parentTaskId) {
-            this.hideSubtaskSuggestions();
+            window.viewFilter.hideSubtaskSuggestions();
             if (chosenParentId) {
                 // 改为其他父任务：搜索框同步为新的父任务查询
                 const parentTitle = (this.parentTaskState.selectedTitle || '').trim() ||
                     (this.taskParentInput.value || '').trim();
-                this.setSubtaskParent(chosenParentId, parentTitle || null);
-                this.searchInput.value = parentTitle ? `>${parentTitle}` : '';
+                window.viewFilter.setSubtaskParent(chosenParentId, parentTitle || null);
+                window.viewFilter.searchInput.value = parentTitle ? `>${parentTitle}` : '';
             } else {
                 // 移除父任务：同步移除搜索框的父任务查询
-                this.setSubtaskParent(null, null);
-                this.searchInput.value = '';
+                window.viewFilter.setSubtaskParent(null, null);
+                window.viewFilter.searchInput.value = '';
             }
             filterChanged = true;
         }
 
         if (filterChanged) {
             // 重新计算提交给后端的查询对象
-            this.searchQuery = this.buildSearchQuery();
-            this.updateSearchClearButton();
-            // 筛选条件已变化，回到第一页重新加载
-            this.currentPage = 1;
-            this.resetInfiniteScroll();
+            window.viewFilter.searchQuery = window.viewFilter.buildSearchQuery();
+            window.viewFilter.updateSearchClearButton();
+            // 筛选条件已变化，结果集从头开始
+            this.resetForNewResult();
         }
 
         return tagsModuleRefreshed;
@@ -931,9 +929,10 @@ Object.assign(TodoManager.prototype, {
                     window.languageManager.getText('taskDeleted', '任务删除成功');
                 Utils.showToast(message, 'success');
 
-                // 移动端调整：如果当前页不是第一页，重置到第一页
+                // 移动端是无限下拉模式，没有"上一页"可退，只能从头开始；
+                // 桌面端是分页模式，退一页即可（见 else）
                 if (this.isMobileDevice()) {
-                    this.resetInfiniteScroll(); // 重置无限下拉状态
+                    this.resetForNewResult();
                 } else {
                     // 安全检查：确保任务列表存在
                     if (Array.isArray(this.tasks)) {
@@ -953,9 +952,7 @@ Object.assign(TodoManager.prototype, {
             },
             onFinally: () => {
                 Utils.setLoading(false);
-                // 重新加载任务以确保数据一致性
-                this.loadTasks(true);
-                // 数据变更：刷新左侧分类计数与顶部统计条
+                // 数据变更：列表（前台时）由路由重建，左侧分类计数与顶部统计条一并刷新
                 window.App?.notifyDataChanged({ fromZero: true });
             }
         });

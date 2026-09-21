@@ -58,16 +58,8 @@ class TodoManager {
     constructor() {
         this.instances = [];
         this.tasks = [];
-        this.currentFilter = 'all';
-        // 结构化查询对象：
-        // { tags: [{id?, name}], keywords: [...], parent: {id?, name?} | null, dueDate: 'YYYY-MM-DD' | null }
-        this.searchQuery = null;
-        this.priorityFilter = 'all';
-        this.statusFilter = 'uncompleted';
-        this.dueDateFilter = 'all';
         this.sortBy = 'created_at'; // 使用默认排序逻辑
         this.sortOrder = 'desc';
-        this.customDateFilter = null; // 自定义日期筛选（用于日历视图）
         // 父任务选择器状态
         this.parentTaskState = {
             currentPage: 1,
@@ -99,12 +91,8 @@ class TodoManager {
         this._completingTasks = new Set(); // 正在播放完成/重开动效的任务 id，用于忽略重复点击
         this._pendingHighlightTaskId = null; // 保存后需要在列表中定位并高亮的任务 id
         // 标签的数据与两个视图（左侧标签模块、弹窗标签选择器）全部由 TagManager 承载，
-        // 这里只保留列表筛选态（chips）与两者之间的联动回调
+        // 这里只保留两者之间的联动回调；标签筛选态（chips）归 ViewFilter
         this.tagManager = window.tagManager;
-        // 搜索标签 chips：{ type: 'tag'|'text', value, tagId?, color? }
-        this.searchChips = [];
-        this._chipEls = new WeakMap(); // chip 对象 → 其 DOM 元素，用于增删时做增量更新
-        this._searchDebounceTimer = null;
         // 任务弹窗打开时的筛选快照：{ categoryId, tagIds, hasCategoryFilter, hasTagFilter }
         // categoryId/tagIds 为表单初始值（新建时为列表筛选值，编辑时为任务原值），
         // hasCategoryFilter/hasTagFilter 标记弹窗打开时列表是否已存在对应筛选
@@ -113,12 +101,6 @@ class TodoManager {
         this.categoryMap = new Map();
         // 任务列表是否已完成首帧渲染：首帧没有旧内容可言，不播淡出/淡入动画避免启动闪动
         this._listRenderedOnce = false;
-        // 子任务搜索建议下拉（输入 ">" 触发）
-        this._subtaskSuggestTimer = null;
-        this._subtaskSuggestItems = [];
-        this._subtaskSuggestIndex = -1;
-        // 当前子任务搜索对应的父任务（存在同名任务时用于精确传递父任务ID）
-        this.subtaskParent = { id: null, title: null };
         // 编辑弹窗中父任务的异步回显状态：
         // _parentEditToken   递增令牌，用于丢弃上一次编辑迟到的回显结果，避免写脏当前表单
         // _parentInitPromise 回显 Promise，保存前需等待它结束，否则会把"尚未回显"误判为"用户移除了父任务"
@@ -137,76 +119,47 @@ class TodoManager {
         // 附件管理（表单中的附件选择/展示/移除、详情中的附件展示）
         this.attachmentManager = new AttachmentManager(this);
         // 设置日期组件：单次任务截止日期 / 周期性任务结束日期共用同一套日历
-        this.pikaday = this.createDatePicker(this.datePicker);
-        this.recurrenceEndPikaday = this.createDatePicker(this.recurrenceEndDate, {
+        this.pikaday = createDatePicker(this.datePicker);
+        this.recurrenceEndPikaday = createDatePicker(this.recurrenceEndDate, {
             onChange: () => this.clearRecurrencePreview()
         });
 
         this.configureTagManager();
-    }
-
-    // 统一的日期选择器：返回一个绑定在指定输入框上的日历实例。
-    // 输入框是只读文本框（配合自定义日历弹出），避免 `<input type="date">`
-    // 在各浏览器下的原生默认外观与其它输入框不一致。
-    // trigger 非空时由它触发弹出（如搜索栏的 📅 按钮），输入框可以是不参与布局的隐藏框。
-    createDatePicker(field, { onChange, trigger } = {}) {
-        if (!field) return null;
-        const formatDate = (date) => {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-        return new Pikaday({
-            field,
-            trigger,
-            format: 'YYYY-MM-DD',
-            showDaysInNextAndPreviousMonths: true,
-            firstDay: 1,
-            toString: (date) => formatDate(date),
-            i18n: {
-                previousMonth: 'Prev',
-                nextMonth: 'Next',
-                months: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-                weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                weekdaysShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-            },
-            onSelect: (selectedDate) => {
-                if (!selectedDate) return;
-                field.value = formatDate(selectedDate);
-                onChange?.();
-            }
-        });
+        // 登记到刷新路由：数据/筛选变更时的取数由它统一分发，调用方不必再自判前台。
+        window.refreshRouter?.register('list', () => this.loadTasks());
     }
 
     // 注入 TagManager 的联动回调：保持 TodoManager → TagManager 的单向依赖，
-    // 标签模块只通过回调驱动"筛选 chips 变更 / 任务列表刷新"
+    // 标签模块只通过回调驱动"筛选 chips 变更 / 任务列表刷新"。
+    // chips 本身归 ViewFilter（搜索条件是共享的），这里只把它们接过来。
     configureTagManager() {
+        const filter = window.viewFilter;
         this.tagManager.configure({
-            // 左侧标签模块的选中态数据源：列表筛选中的标签 id
-            getFilterTagIds: () => this.getTagFilterIds(),
+            // 左侧标签模块的选中态数据源：当前筛选中的标签 id
+            getFilterTagIds: () => filter.getTagFilterIds(),
             // 点击左侧标签：切换对应的标签 chip
-            onToggleFilterTag: (tagId) => this.toggleTagChip(tagId),
+            onToggleFilterTag: (tagId) => filter.toggleTagChip(tagId),
             // 标签重命名：同步筛选 chip 的显示文本，返回该标签是否正处于筛选中
             onTagRenamed: (tagId, newName) => {
                 let chipRenamed = false;
-                this.searchChips.forEach(chip => {
+                filter.searchChips.forEach(chip => {
                     if (chip.type === 'tag' && chip.tagId === tagId) {
                         chip.value = newName;
                         chipRenamed = true;
                     }
                 });
-                if (chipRenamed) this.renderSearchChips();
+                if (chipRenamed) filter.renderSearchChips();
                 return chipRenamed;
             },
-            // 标签删除：移除对应筛选 chip 并重新搜索
+            // 标签删除：若该标签正处于筛选中，移除对应 chip 并重新搜索
             onTagDeleted: (tagId) => {
-                if (this.removeSearchChipByTagId(tagId)) this.syncSearchQuery(0);
+                if (filter.removeSearchChipByTagId(tagId)) filter.syncSearchQuery(0);
+                else window.App?.notifyDataChanged();
             },
-            // 标签数据变化：刷新任务列表；resyncSearch 为真时连搜索条件一起重算
+            // 标签数据变化；resyncSearch 为真时连搜索条件一起重算
             onTagsChanged: ({ resyncSearch } = {}) => {
-                if (resyncSearch) this.syncSearchQuery(0);
-                else this.loadTasks();
+                if (resyncSearch) filter.syncSearchQuery(0);
+                else window.App?.notifyDataChanged();
             }
         });
     }
@@ -219,10 +172,10 @@ class TodoManager {
         await this.loadColumnConfig();
 
         // 设置默认筛选为"全部"
-        this.currentFilter = 'all';
+        window.viewFilter.categoryId = 'all';
         
         // 初始化搜索清空按钮状态
-        this.updateSearchClearButton();
+        window.viewFilter.updateSearchClearButton();
         
         await this.loadTasks();
         
@@ -244,10 +197,6 @@ class TodoManager {
             nextBtn: 'pagination-next',
             lastBtn: 'pagination-last',
             pageSizeSelect: 'page-size-select',
-            dropdown: 'subtask-suggestions',
-            searchInput: 'search-input',
-            searchTagWrapper: 'search-tag-wrapper',
-            searchClearBtn: 'search-clear-btn',
             recurringOptions: 'recurring-options',
             // 时间设置：单次任务 / 周期性任务（并列）
             scheduleModeOnce: 'schedule-mode-once',
@@ -305,10 +254,6 @@ class TodoManager {
             taskParentDropdown: 'parent-task-dropdown',
             moreOptionsToggle: 'more-options-toggle',
             moreOptionsContent: 'more-options-content',
-            searchBtn: 'search-btn',
-            priorityFilterSelect: 'priority-filter',
-            statusFilterSelect: 'status-filter',
-            dueDateFilterSelect: 'due-date-filter',
             addTaskBtn: 'add-task-btn',
             addTaskFab: 'add-task-fab',
             taskModalClose: 'modal-close',
@@ -347,23 +292,6 @@ class TodoManager {
                 this.handleResize();
             }, 300);
         });
-
-        // 搜索（标签 chips 输入模式）
-        this.initSearchTagInput();
-
-        this.searchBtn?.addEventListener('click', () => {
-            // 若输入框中是完整的 #标签 / @截止日期，先提交为 chip
-            this.commitInputAsChip();
-            this.syncSearchQuery(0);
-        });
-
-        // 清空搜索按钮
-        this.searchClearBtn?.addEventListener('click', () => this.clearSearch());
-
-        // 筛选器
-        this.priorityFilterSelect?.addEventListener('change', (e) => this.onFilterChange('priorityFilter', e.target.value));
-        this.statusFilterSelect?.addEventListener('change', (e) => this.onFilterChange('statusFilter', e.target.value));
-        this.dueDateFilterSelect?.addEventListener('change', (e) => this.onFilterChange('dueDateFilter', e.target.value));
 
         // 添加任务按钮
         this.addTaskBtn?.addEventListener('click', () => this.showAddTaskModal());
@@ -459,15 +387,6 @@ class TodoManager {
         if (attachment) this.attachmentManager?.openAttachment(attachment);
     }
 
-    // 通用筛选器处理
-    async onFilterChange(filterType, value) {
-        this[filterType] = value;
-        this.currentPage = 1;
-        this.customDateFilter = null;
-        this.resetInfiniteScroll();
-        await this.loadTasks();
-    }
-    
     // 展开/收起更多选项
     toggleMoreOptions() {
         if (this.moreOptionsContent.style.display === 'none' || this.moreOptionsContent.style.display === '') {
@@ -497,47 +416,16 @@ class TodoManager {
         this.resetRecurrenceConfig();
     }
 
-    // 构建列表筛选条件对象（键名与后端 TaskFilter 一致）。
-    // 分页查询（get_todos）与定位查询（get_task_page）共用这一份条件，
-    // 避免两处各自维护一串位置参数、新增筛选维度时改漏其中一处。
-    buildListFilter() {
-        return {
-            categoryId: this.currentFilter === 'all' ? null : this.currentFilter,
-            status: this.statusFilter === 'all' ? null : this.statusFilter,
-            priority: this.priorityFilter === 'all' ? null : this.priorityFilter,
-            dueDateFilter: this.dueDateFilter === 'all' ? null : this.dueDateFilter,
-            searchQuery: this.searchQuery || null,
-            dueDate: this.customDateFilter || null
-        };
-    }
-
-    // 筛选条件签名：用于区分"这一轮取数是因为筛选变了"还是"只是数据变了/翻页了"。
-    // 直接复用 buildListFilter 的归一化结果（'all' 已折算成 null）；
-    // 分页位置不属于筛选，不计入，因此翻页不会触发广播。
-    _filterSignature() {
-        return JSON.stringify(this.buildListFilter());
-    }
-
-    // 仅在筛选条件真的发生变化时才广播筛选变化。
-    // 增删改这类数据变更同样会走 loadTasks，但它们属于 notifyDataChanged 的范畴；
-    // 若不加以区分地再广播一次，处于前台的视图会在同一次操作里被要求取数两遍。
-    _notifyFilterChangedIfChanged() {
-        const signature = this._filterSignature();
-        if (signature === this._lastFilterSignature) return;
-        this._lastFilterSignature = signature;
-        window.App?.notifyFilterChanged();
-    }
-
     // 构建任务列表查询参数：[筛选条件, 页码, 每页数量]
     buildListQuery(page) {
         return {
             apiMethod: 'get_todos',
-            apiArgs: [this.buildListFilter(), page, this.pageSize]
+            apiArgs: [window.viewFilter.build(), page, this.pageSize]
         };
     }
 
     // 加载任务
-    async loadTasks(fromZero = false) {
+    async loadTasks() {
         // 递增令牌：使仍在飞行中的"加载更多"请求结果失效，避免旧数据追加到新列表
         this.listLoadToken++;
         this.autoFillCount = 0; // 重新加载后允许再次自动填充
@@ -565,15 +453,8 @@ class TodoManager {
                     this.initInfiniteScroll();
                 }
 
-                // 分类计数与顶部统计条口径均为全局，与列表筛选无关，
-                // 已各自收敛到 category / stats 模块，由 App.notifyDataChanged 在数据变更时刷新
-
                 // 同步分类筛选状态
-                if (window.categoryManager) window.categoryManager.setActiveCategory(this.currentFilter);
-
-                // 筛选条件若发生变化，交由通知中心广播；由各视图自行判断是否处于前台
-                // 并决定是否取数，这里不点名任何具体视图（翻页与纯数据变更不会触发）
-                this._notifyFilterChangedIfChanged();
+                if (window.categoryManager) window.categoryManager.setActiveCategory(window.viewFilter.categoryId);
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('loadingTaskFailed', '加载任务失败'), 'error'),
             onFinally: () => Utils.setLoading(false)
@@ -696,13 +577,15 @@ class TodoManager {
     // 自动刷新列表并定位高亮新任务，用户无需手动刷新即可看到结果
     async revealTask(taskId) {
         if (!taskId) {
-            await this.loadTasks(true);
+            // 没有 id 就没有定位/高亮可言，也不必同步等取数结果——交给通知中心：列表
+            // （前台时）与其它视图一样由路由重建，左侧分类计数等一并刷新
+            window.App?.notifyDataChanged();
             return;
         }
 
         // loadTasks() 结束后 renderTasks() 会消费该 id 并滚动高亮
         this._pendingHighlightTaskId = taskId;
-        await this.loadTasks(true);
+        await this.loadTasks();
 
         // 新任务可能落在其它分页（排序按截止时间/优先级，不一定在第一页）
         const isVisible = () => this.tasks.some(task => task.id === taskId);
@@ -711,7 +594,7 @@ class TodoManager {
             if (targetPage && targetPage !== this.currentPage) {
                 this.currentPage = targetPage;
                 this._pendingHighlightTaskId = taskId;
-                await this.loadTasks(true);
+                await this.loadTasks();
             }
         }
 
@@ -723,10 +606,9 @@ class TodoManager {
             );
         }
 
-        // 新建/编辑任务属于数据变更，交由通知中心广播：
-        // 时间轴等视图会在各自前台时自行重建（此前这里只点名了时间轴，
-        // 漏掉了左侧分类计数与顶部统计条）
-        window.App?.notifyDataChanged();
+        // 新建/编辑任务属于数据变更，交由通知中心广播：其它视图会在各自前台时自行重建
+        // skipList：列表这一次上面已经同步取过了，路由不必再取一遍。
+        window.App?.notifyDataChanged({ skipList: true });
         this.tagManager.loadModule(true);
     }
 
@@ -735,21 +617,11 @@ class TodoManager {
         let page = null;
         await Utils.apiCall({
             apiMethod: 'get_task_page',
-            apiArgs: [taskId, this.buildListFilter(), this.pageSize],
+            apiArgs: [taskId, window.viewFilter.build(), this.pageSize],
             successCheck: (result) => !!result && result.success !== false,
             onSuccess: (response) => { page = response?.data ?? null; }
         });
         return page;
-    }
-
-    // 供 App.refreshData() 统一调用（主窗口重新可见时同步任务列表）
-    async refresh() {
-        // 按当前视图刷新：只有列表视图展示这份分页数据，时间轴与统计各自独立取数，
-        // 日历走 get_calendar_tasks，停在其它视图时这一笔更没必要。
-        // 切回列表 / 日历时 switchView 会各自重新取数，因此不存在数据陈旧。
-        const view = window.viewManager?.currentView;
-        if (view && view !== 'list') return;
-        await this.loadTasks();
     }
 
     // 删除前播放任务离场动画，避免任务从列表中瞬间消失
@@ -1098,8 +970,8 @@ class TodoManager {
 
                 // 先播放完成/重开动效，动画结束后再刷新列表，避免突兀的状态跳变
                 await this.playToggleAnimation(taskId, completed);
-                this.loadTasks(true);
-                // 完成状态变化会改变"未完成任务数"，同步刷新分类计数与顶部统计条
+                // 完成状态变化会改变"未完成任务数"：列表（前台时）由路由重建，
+                // 左侧分类计数与顶部统计条一并刷新
                 window.App?.notifyDataChanged({ fromZero: true });
             },
             onError: (error) => {
@@ -1120,12 +992,13 @@ class TodoManager {
 
     // 状态变化后，该任务是否会从当前筛选的列表中移除
     willLeaveCurrentList(completed) {
+        const { status } = window.viewFilter;
         if (completed) {
             // 除"全部/已完成"外，其余筛选只包含未完成任务，完成后会移出列表
-            return this.statusFilter !== 'all' && this.statusFilter !== 'completed';
+            return status !== 'all' && status !== 'completed';
         }
         // 重新开启后只会在"已完成"筛选下移出列表
-        return this.statusFilter === 'completed';
+        return status === 'completed';
     }
 
     // 播放任务完成/重开动效：勾选弹跳 → 删除线扫过 → 高亮闪烁 →（必要时）离场
@@ -1244,9 +1117,9 @@ class TodoManager {
                     if (taskTitle) {
                         // 进入子任务搜索模式：填充 ">父任务名"
                         // 已有的标签 chips 会保留，与父任务条件在后端按 AND 组合
-                        this.setSubtaskParent(taskId, taskTitle);
-                        this.searchInput.value = `>${taskTitle}`;
-                        this.syncSearchQuery(0);
+                        window.viewFilter.setSubtaskParent(taskId, taskTitle);
+                        window.viewFilter.searchInput.value = `>${taskTitle}`;
+                        window.viewFilter.syncSearchQuery(0);
                     }
                 }
             });

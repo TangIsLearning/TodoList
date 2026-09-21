@@ -1,6 +1,12 @@
 /**
- * 任务管理 - 搜索 chips 与子任务搜索建议（mixin）
- * 依赖：todo.js（TodoManager 类），须在 todo.js 之后加载
+ * 全局搜索栏：chips、结构化查询、子任务搜索建议（ViewFilter 的 mixin）
+ * 依赖：view-filter.js（ViewFilter 类），须在其之后加载
+ *
+ * 搜索框写在全局工具栏、与视图切换器同层，四个视图共用同一份 searchQuery，
+ * 所以归 ViewFilter 而不是列表——和全局筛选栏的下拉框同理。
+ *
+ * 边界：这里只负责「产出与呈现搜索条件」。条件定稿后一律交给 commitChange()，
+ * 由它统一做分页归位与按前台视图分发；本模块不碰 currentPage，也不直接取数。
  */
 
 // 截止时间搜索的输入前缀：'@2026-09-19'
@@ -29,7 +35,7 @@ function normalizeDueDateText(text, { requirePrefix = false } = {}) {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-Object.assign(TodoManager.prototype, {
+Object.assign(ViewFilter.prototype, {
     // ===== 标签筛选状态访问（对标签模块与统计模块的统一出口） =====
 
     // 列表筛选中的标签 chips（含仅按名称匹配、尚无 id 的 chip）
@@ -50,15 +56,15 @@ Object.assign(TodoManager.prototype, {
     },
 
     // 清空全部搜索 chips 并同步视图（左侧标签选中态 + 清空按钮显隐）。
-    // 只负责视图与状态，不触发重新加载，由调用方决定何时 loadTasks。
+    // 只负责视图与状态，不触发重新加载，由调用方决定何时取数。
     clearSearchChips() {
         if (this.searchChips.length === 0) {
-            this.tagManager.refreshSelection();
+            window.tagManager?.refreshSelection();
             return false;
         }
         this.searchChips = [];
         this.renderSearchChips();
-        this.tagManager.refreshSelection();
+        window.tagManager?.refreshSelection();
         this.updateSearchClearButton();
         return true;
     },
@@ -104,6 +110,16 @@ Object.assign(TodoManager.prototype, {
             this.searchInput.focus();
         });
 
+        // 搜索按钮：提交输入框中待定的 #标签 / @日期，然后立即搜索
+        this.searchBtn?.addEventListener('click', () => {
+            this.commitInputAsChip();
+            this.hideSubtaskSuggestions();
+            this.syncSearchQuery(0);
+        });
+
+        // 清空按钮：分层清除（文本 → 截止时间 → 标签）
+        this.searchClearBtn?.addEventListener('click', () => this.clearSearch());
+
         this.initSearchDueDatePicker();
 
         // 初始渲染（空）
@@ -116,7 +132,7 @@ Object.assign(TodoManager.prototype, {
         const field = document.getElementById('search-due-input');
         const trigger = document.getElementById('search-due-btn');
         if (!field || !trigger) return;
-        this.searchDuePicker = this.createDatePicker(field, {
+        this.searchDuePicker = createDatePicker(field, {
             trigger,
             onChange: () => {
                 const dateStr = normalizeDueDateText(field.value);
@@ -261,7 +277,7 @@ Object.assign(TodoManager.prototype, {
         }
         // 标签类型：若没有 tagId，尝试按名称匹配已加载的标签
         if (chip.type === 'tag' && !chip.tagId) {
-            const match = this.tagManager.getTags().find(t => t.name.toLowerCase() === chip.value.toLowerCase());
+            const match = window.tagManager?.getTags().find(t => t.name.toLowerCase() === chip.value.toLowerCase());
             if (match) {
                 chip.tagId = match.id;
                 chip.color = chip.color || match.color;
@@ -302,7 +318,7 @@ Object.assign(TodoManager.prototype, {
 
     // 切换左侧标签的 chip 选择状态
     toggleTagChip(tagId) {
-        const tag = this.tagManager.getTags().find(t => t.id === tagId);
+        const tag = window.tagManager?.getTags().find(t => t.id === tagId);
         if (!tag) return;
         const existing = this.searchChips.findIndex(c => c.type === 'tag' && c.tagId === tagId);
         if (existing !== -1) {
@@ -354,7 +370,7 @@ Object.assign(TodoManager.prototype, {
         return chip ? chip.value : null;
     },
 
-    // 清除截止时间筛选 chip（只改状态与视图，不触发重新加载，由调用方决定何时 loadTasks）。
+    // 清除截止时间筛选 chip（只改状态与视图，不触发重新加载，由调用方决定何时取数）。
     // 日历视图按整月展示，带着单日条件会让日历只剩一天，进入该视图前需要清掉。
     clearDueDateChip() {
         const idx = this.searchChips.findIndex(c => c.type === 'due');
@@ -365,7 +381,7 @@ Object.assign(TodoManager.prototype, {
         return true;
     },
 
-    // 设置（替换）截止时间筛选 chip 并立即按新条件重新加载列表。
+    // 设置（替换）截止时间筛选 chip 并立即按新条件重新加载。
     // 供日历视图点击具体日期、搜索栏日期选择器回显使用；传 null / 非法值表示清除。
     setDueDateChip(dateStr) {
         const dueDate = normalizeDueDateText(dateStr);
@@ -381,20 +397,18 @@ Object.assign(TodoManager.prototype, {
     syncSearchQuery(delay = 0) {
         this.searchQuery = this.buildSearchQuery();
         this.updateSearchClearButton();
-        this.tagManager.refreshSelection();
+        window.tagManager?.refreshSelection();
         this.scheduleSearch(delay);
     },
 
-    // 防抖触发搜索任务加载
+    // 防抖触发搜索：条件定稿后交给 commitChange() 统一处置——
+    // 分页归位与"按前台视图取数"都不是搜索栏该操心的事，那里已经做过了。
     scheduleSearch(delay = 300) {
         if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
         this._searchDebounceTimer = setTimeout(async () => {
             this._searchDebounceTimer = null;
             this.searchQuery = this.buildSearchQuery();
-            this.currentPage = 1;
-            this.customDateFilter = null; // 清除自定义日期筛选
-            this.resetInfiniteScroll(); // 重置无限下拉状态
-            await this.loadTasks();
+            await this.commitChange();
         }, delay);
     },
 
@@ -600,7 +614,7 @@ Object.assign(TodoManager.prototype, {
     },
 
     // 分层清空搜索：每次点击只清除一层（文本 → 截止时间 → 标签），
-    // 每一层都会即时重查列表；全部清除后再继续点击，等于空删除。
+    // 每一层都会即时重查；全部清除后再继续点击，等于空删除。
     async clearSearch() {
         const layer = this.getSearchClearLayer();
         if (!layer) return false;
@@ -614,12 +628,9 @@ Object.assign(TodoManager.prototype, {
 
         const remains = this.searchChips.length > 0 || this.searchInput.value.trim().length > 0;
         this.searchQuery = remains ? this.buildSearchQuery() : null;
-        this.currentPage = 1;
-        this.customDateFilter = null;
-        this.resetInfiniteScroll(); // 重置无限下拉状态
         this.updateSearchClearButton();
-        this.tagManager.refreshSelection();
-        await this.loadTasks();
+        window.tagManager?.refreshSelection();
+        await this.commitChange();
         return true;
     },
 
