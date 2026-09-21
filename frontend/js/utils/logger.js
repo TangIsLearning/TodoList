@@ -45,10 +45,10 @@ class Logger {
     debug(...args) {
         if (this.level === 'debug') {
             const message = args
-            .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
-            .join(' ');
-            this.sendToBackend('debug', message, source);
-            console.debug(`[DEBUG] [${source}] ${message}`);
+                .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+                .join(' ');
+            this.sendToBackend('debug', message);
+            console.debug(`[DEBUG] ${message}`);
         }
     }
 
