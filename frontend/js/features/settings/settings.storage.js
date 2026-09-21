@@ -78,11 +78,13 @@ Object.assign(SettingsUIManager.prototype, {
         let isValidateFailed = false;
         await Utils.apiCall({
             apiMethod: 'validate_storage_dir',
-            successCheck: (response) => !response.success,
             apiArgs: [newFile],
-            onSuccess: (response) => {
+            onError: (error) => {
+                // 校验不通过是预期内的分支，走 onError 而不是反转 successCheck，
+                // 否则校验通过时会被当成失败，日志里刷出 'Error: undefined'
                 isValidateFailed = true;
-                Utils.showToast(response.error, 'error');
+                const reason = String(error?.message || '').trim();
+                Utils.showToast(reason || this.t('settingsFailed', '设置失败'), 'error');
             },
         });
         if (isValidateFailed) {

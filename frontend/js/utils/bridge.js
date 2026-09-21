@@ -30,6 +30,16 @@ async function loadPywebviewApi(maxRetries = 20, interval = 300) {
     return false; // 超时未加载
 }
 
+// 取后端失败响应里的可读文案
+// error_response 一定会带 error 字段，但桥接异常或旧版后端可能不带；
+// 此时若直接 JSON.stringify(undefined) 会拼出 "Error: undefined"，日志里无从排查
+function resolveApiErrorMessage(result) {
+    const raw = result?.error;
+    if (typeof raw === 'string' && raw.trim()) return raw;
+    if (raw && typeof raw === 'object') return JSON.stringify(raw);
+    return result?.code ? `后端返回失败（${result.code}）` : '后端返回失败，未提供错误信息';
+}
+
 async function apiCall({
     apiMethod,
     apiArgs = [],
@@ -50,7 +60,7 @@ async function apiCall({
         } else {
             // 透传后端错误码（VALIDATION_ERROR / NOT_FOUND / CANCELLED ...），
             // 让上层可以按类型分支，而不是去匹配错误文案
-            const apiError = new Error(`${JSON.stringify(result?.error)}`);
+            const apiError = new Error(resolveApiErrorMessage(result));
             apiError.code = result?.code;
             throw apiError;
         }

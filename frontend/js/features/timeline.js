@@ -354,9 +354,8 @@ class TimelineManager {
             await Utils.apiCall({
                 apiMethod: 'update_todo',
                 apiArgs: [currentTask.id, { dueDate: dueDateStr }],
-                successCheck: (response) => !response.success,
-                onSuccess: (response) => {
-                    Utils.showToast(response.error, 'warning');
+                onError: (error) => {
+                    Utils.showToast(String(error?.message || '').trim(), 'warning');
                 }
             });
         }
