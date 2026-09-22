@@ -52,11 +52,12 @@ Object.assign(ViewFilter.prototype, {
     // 清空全部搜索 chips 并同步视图（左侧标签选中态 + 清空按钮显隐）。
     // 只负责视图与状态，不触发重新加载，由调用方决定何时取数。
     clearSearchChips() {
-        if (this.searchChips.length === 0) {
+        const kept = this.searchChips.filter(chip => chip.type === 'category');
+        if (kept.length === this.searchChips.length) {
             window.tagManager?.refreshSelection();
             return false;
         }
-        this.searchChips = [];
+        this.searchChips = kept;
         this.renderSearchChips();
         window.tagManager?.refreshSelection();
         this.updateSearchClearButton();
@@ -178,8 +179,11 @@ Object.assign(ViewFilter.prototype, {
         // 退格：输入框为空时删除最后一个 chip
         if (e.key === 'Backspace' && val === '' && this.searchChips.length > 0) {
             e.preventDefault();
+            const last = this.searchChips[this.searchChips.length - 1];
             this.removeSearchChip(this.searchChips.length - 1);
-            this.syncSearchQuery(0);
+            // 分类 chip 在队首，退格轮到它时说明前面已清空，即取消分类筛选
+            if (last.type === 'category') this.setCategoryFilter('all');
+            else this.syncSearchQuery(0);
             return;
         }
 
@@ -215,6 +219,14 @@ Object.assign(ViewFilter.prototype, {
         const el = document.createElement('span');
         el.className = 'search-chip';
         if (chip.type === 'due') el.classList.add('search-chip--due');
+        if (chip.type === 'category') {
+            el.classList.add('search-chip--category');
+            // 分类色是动态的，只能内联；浅底用 color-mix，不支持时退化为纯边框
+            if (chip.color) {
+                el.style.borderColor = chip.color;
+                el.style.backgroundColor = `color-mix(in srgb, ${chip.color} 14%, transparent)`;
+            }
+        }
         const label = this.getChipLabel(chip);
         el.innerHTML = `
             <span class="search-chip-label"></span>
@@ -224,22 +236,29 @@ Object.assign(ViewFilter.prototype, {
         el.querySelector('.search-chip-remove').addEventListener('click', (e) => {
             e.stopPropagation();
             const idx = this.searchChips.indexOf(chip);
-            if (idx !== -1) {
-                this.removeSearchChip(idx);
-                this.syncSearchQuery(0);
-            }
+            if (idx === -1) return;
+            this.removeSearchChip(idx);
+            // 分类 chip 只是 categoryId 的镜像，摘掉它即取消分类筛选
+            if (chip.type === 'category') this.setCategoryFilter('all');
+            else this.syncSearchQuery(0);
         });
         this._chipEls.set(chip, el);
         return el;
     },
 
-    // chip 的展示文案：标签带 '#' 前缀，截止时间带"截止"前缀以便区分
+    // chip 的展示文案：标签带 '#' 前缀，截止与分类各带语义前缀以便区分
     getChipLabel(chip) {
         if (chip.type === 'tag') return '#' + chip.value;
         if (chip.type === 'due') {
             const prefix = window.languageManager
                 ? window.languageManager.getText('searchDuePrefix', '截止')
                 : '截止';
+            return `${prefix} ${chip.value}`;
+        }
+        if (chip.type === 'category') {
+            const prefix = window.languageManager
+                ? window.languageManager.getText('searchCategoryPrefix', '分类')
+                : '分类';
             return `${prefix} ${chip.value}`;
         }
         return chip.value;
@@ -333,8 +352,9 @@ Object.assign(ViewFilter.prototype, {
         const isAnyTag = inputText === '#';
 
         // 父任务模式下，输入框文本已被父任务消费，不再作为普通关键词
+        // 分类 chip 是 categoryId 的镜像而非搜索关键词，绝不能混进 keywords
         const keywords = this.searchChips
-            .filter(chip => chip.type !== 'tag' && chip.type !== 'due' && chip.value)
+            .filter(chip => chip.type !== 'tag' && chip.type !== 'due' && chip.type !== 'category' && chip.value)
             .map(chip => chip.value);
         if (!isParentMode && !isAnyTag && inputText) keywords.push(inputText);
 
@@ -374,6 +394,37 @@ Object.assign(ViewFilter.prototype, {
         this.updateSearchClearButton();
         this.syncSearchQuery(0);
         return !!dueDate;
+    },
+
+    // ===== 分类筛选 chip（categoryId 在搜索框里的镜像） =====
+
+    // 分类筛选本身走 TaskFilter.categoryId，这里只负责把它显示成 chip，
+    // 让"当前还挂着分类条件"这件事在搜索框里看得见。
+    getCategoryChip() {
+        return this.searchChips.find(c => c.type === 'category') || null;
+    },
+
+    // 把 categoryId 同步成 chip（新增 / 替换 / 移除）。
+    // 插在队首：清空按钮按「文本 → 截止时间 → 标签 → 分类」分层清，退格又是从末尾往前
+    // 删，排在队首才能保证分类始终是最后一个被清掉的条件。
+    syncCategoryChip() {
+        const idx = this.searchChips.findIndex(c => c.type === 'category');
+        if (idx !== -1) this.removeSearchChip(idx);
+        if (!this.categoryId || this.categoryId === 'all') return false;
+        const category = window.categoryManager?.getCategoryById(this.categoryId);
+        if (!category) return false;
+
+        const chip = {
+            type: 'category',
+            value: category.name,
+            categoryId: category.id,
+            color: window.categoryManager.getCategoryColor(category.id)
+        };
+        this.searchChips.unshift(chip);
+        if (!this.searchTagWrapper) return true;
+        const first = this.searchTagWrapper.querySelector('.search-chip');
+        this.searchTagWrapper.insertBefore(this.createChipElement(chip), first || this.searchInput);
+        return true;
     },
 
     syncSearchQuery(delay = 0) {
@@ -538,13 +589,15 @@ Object.assign(ViewFilter.prototype, {
 
     // ===== 搜索条件的分层清空 =====
 
-    // 按「文本 → 截止时间 → 标签」取第一个非空层级；全部清空后返回 null
+    // 按「文本 → 截止时间 → 标签 → 分类」取第一个非空层级；全部清空后返回 null。
+    // 分类排最后：它是最基础的一层筛选，前面几种都清完才轮到它。
     getSearchClearLayer() {
         if (this.searchInput.value.trim()) return 'text';
         if (this.searchChips.some(chip => chip.type === 'due' && chip.value)) return 'due';
         if (this.searchChips.some(chip => chip.type === 'tag' && chip.value)) return 'tag';
         // 兜底：既非标签也非截止时间的 chips（如自由关键词 chip）
-        if (this.searchChips.length > 0) return 'other';
+        if (this.searchChips.some(chip => chip.type !== 'tag' && chip.type !== 'due' && chip.type !== 'category')) return 'other';
+        if (this.searchChips.some(chip => chip.type === 'category')) return 'category';
         return null;
     },
 
@@ -556,12 +609,17 @@ Object.assign(ViewFilter.prototype, {
             this.setSubtaskParent(null, null);
             return true;
         }
+        if (layer === 'category') {
+            this.clearCategoryFilter();
+            return true;
+        }
         let removed = false;
         // 倒序遍历，保证 removeSearchChip 的索引在删除过程中始终有效
         for (let i = this.searchChips.length - 1; i >= 0; i--) {
             const chip = this.searchChips[i];
+            // other 是兜底层，须排除分类：分类有自己独立的层级，不能被兜底层顺手带走
             const hit = layer === 'other'
-                ? chip.type !== 'tag' && chip.type !== 'due'
+                ? chip.type !== 'tag' && chip.type !== 'due' && chip.type !== 'category'
                 : chip.type === layer;
             if (hit) {
                 this.removeSearchChip(i);
@@ -576,6 +634,7 @@ Object.assign(ViewFilter.prototype, {
             text: ['searchClearKeyword', '清除搜索文本'],
             due: ['searchClearDueDate', '清除截止时间筛选'],
             tag: ['searchClearTags', '清除标签筛选'],
+            category: ['searchClearCategory', '清除分类筛选'],
             other: ['searchClear', '清空搜索']
         };
         const [key, fallback] = keyMap[layer] || keyMap.other;
@@ -596,7 +655,9 @@ Object.assign(ViewFilter.prototype, {
         this.hideSubtaskSuggestions();
         this.removeSearchLayer(layer);
 
-        const remains = this.searchChips.length > 0 || this.searchInput.value.trim().length > 0;
+        // 只剩分类 chip 不算"还有搜索条件"：它不进 searchQuery，筛选由 categoryId 承载
+        const remains = this.searchInput.value.trim().length > 0
+            || this.searchChips.some(chip => chip.type !== 'category');
         this.searchQuery = remains ? this.buildSearchQuery() : null;
         this.updateSearchClearButton();
         window.tagManager?.refreshSelection();

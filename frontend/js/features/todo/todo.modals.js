@@ -774,6 +774,7 @@ Object.assign(TodoManager.prototype, {
             // 选择"未分类"时清除分类筛选
             const nextFilter = chosenCategoryId || 'all';
             window.viewFilter.categoryId = nextFilter;
+            window.viewFilter.syncCategoryChip();
             window.categoryManager?.setActiveCategory(nextFilter);
             filterChanged = true;
         }

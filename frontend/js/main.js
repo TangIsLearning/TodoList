@@ -288,13 +288,8 @@ class App {
         try {
             // 条件与控件都归 ViewFilter 管，这里不再逐项改字段
             window.viewFilter.resetFilters();
-            
-            window.categoryManager?.filterByCategory('all');
-
             this.refreshData();
-            
             Utils.showToast(window.languageManager.getText('resetStateSuccess', '应用状态已重置'), 'success');
-            
         } catch (error) {
             logger.error('Failed to reset app:', error);
             Utils.showToast(window.languageManager.getText('resetStateFailed', '重置失败'), 'error');

@@ -17,7 +17,7 @@ class ViewFilter {
         this.searchQuery = null;      // 结构化查询对象（chips 构建结果）
 
         // 搜索栏交互实现见 view-filter.search.js
-        this.searchChips = [];        // chips：{ type: 'tag'|'text'|'due', value, tagId?, color? }
+        this.searchChips = [];        // chips：{ type: 'tag'|'text'|'due'|'category', value, tagId?, color? }
         this._chipEls = new WeakMap(); // chip 对象 → 其 DOM 元素，用于增删时做增量更新
         this._searchDebounceTimer = null;
         this._subtaskSuggestTimer = null;
@@ -65,6 +65,22 @@ class ViewFilter {
         await this.commitChange();
     }
 
+    // 分类筛选的统一入口：搜索框里的分类 chip 只是 categoryId 的镜像，真源仍在这里。
+    // 改完一并同步镜像与左侧高亮，再交给 commitChange 分发取数。
+    async setCategoryFilter(categoryId) {
+        this.categoryId = categoryId || 'all';
+        this.syncCategoryChip();
+        window.categoryManager?.setActiveCategory(this.categoryId);
+        await this.commitChange();
+    }
+
+    // 拨回"全部"但不取数，供清除链路自己决定何时刷
+    clearCategoryFilter() {
+        this.categoryId = 'all';
+        this.syncCategoryChip();
+        window.categoryManager?.setActiveCategory('all');
+    }
+
     // 回写控件：下拉框的用户操作本就与状态一致，只有程序化改条件才需要这一步
     syncFilterControls() {
         const statusFilter = document.getElementById('status-filter');
@@ -80,6 +96,8 @@ class ViewFilter {
     // 必须清；status / priority / dueDateFilter 是固定枚举，换库后依然有效，刻意保留。
     clearDataScopedFilters() {
         this.categoryId = 'all';
+        this.syncCategoryChip(); // 旧分类 id 已失效，镜像随之一起清掉
+        window.categoryManager?.setActiveCategory('all'); // 左侧高亮一并回位，调用方不必各自补
         this.clearSearchChips();
         if (this.searchInput) this.searchInput.value = '';
         this.searchQuery = null;

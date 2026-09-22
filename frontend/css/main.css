@@ -721,6 +721,12 @@ input:checked + .slider:before {
     color: var(--text-primary);
 }
 
+/* 分类 chip：与标签 chip 同形，边框与浅底用分类自身颜色（内联设置）区分语义 */
+.search-chip--category .search-chip-label {
+    /* 分类色深浅不定，文字保持正文色以保证对比度 */
+    color: var(--text-primary);
+}
+
 /* 搜索栏的截止时间筛选按钮（弹出日历选择日期） */
 /* 提高选择器权重以覆盖 components.css 里"按钮默认透明、hover 才显示"的规则 */
 .search-tag-wrapper .search-due-btn {

@@ -75,7 +75,7 @@ class CategoryManager {
             if (e.target.closest('.category-item-btn') && !e.target.closest('.category-edit-btn') && !e.target.closest('.category-delete-btn')) {
                 const categoryItem = e.target.closest('.category-item-btn');
                 const categoryId = categoryItem.dataset.category;
-                this.filterByCategory(categoryId);
+                window.viewFilter.setCategoryFilter(categoryId);
             }
         });
         
@@ -244,14 +244,6 @@ class CategoryManager {
         return { all, counts };
     }
     
-    // 按分类筛选
-    async filterByCategory(categoryId) {
-        this.setActiveCategory(categoryId);
-        // 重置「结果集从头开始」的状态与后续的取数/重绘都交给 ViewFilter 统一分发
-        window.viewFilter.categoryId = categoryId;
-        await window.viewFilter.commitChange();
-    }
-    
     // 设置激活的分类
     setActiveCategory(categoryId) {
         document.querySelectorAll('.category-item-btn').forEach(item => {
@@ -330,6 +322,8 @@ class CategoryManager {
 
                 // 重建列表项 → 广播，顺序有依赖
                 await this.refresh();
+                // 重命名的是当前筛选中的分类时，搜索框的分类 chip 要跟着换新名
+                window.viewFilter.syncCategoryChip();
                 window.App?.notifyDataChanged();
             },
             onError: (error) => Utils.showToast(window.languageManager.getText('operationFailed', '操作失败'), 'error'),
@@ -384,7 +378,7 @@ class CategoryManager {
                     // 删掉的正是当前选中的分类时切回"全部"——那一步已带过一次列表刷新
                     const switchedToAll = window.viewFilter.categoryId === categoryId;
                     if (switchedToAll) {
-                        await this.filterByCategory('all');
+                        await window.viewFilter.setCategoryFilter('all');
                     }
                     await this.refresh();
                     // skipList 承接上面那次刷新，避免重复取一次列表
