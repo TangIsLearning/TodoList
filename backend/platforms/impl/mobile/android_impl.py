@@ -29,6 +29,15 @@ class AndroidService(PlatformService):
     def get_app_icon(self, base_path: Path) -> Path:
         return base_path / 'todo_icon.ico'
 
+    def get_window_geometry(self) -> Dict[str, int]:
+        """移动端不返回任何几何参数
+
+        Android 下 pywebview 的 get_screens() 返回空列表，且 create_window 会忽略
+        x/y/width/height（WebView 由系统布局铺满屏幕），因此这里返回空字典，
+        调用方不会向 create_window 传入位置与尺寸参数。
+        """
+        return {}
+
     def is_ssl_enable(self) -> bool:
         # 移动端需要开启ssl，避免在移动端使用报错存在安全问题
         return True

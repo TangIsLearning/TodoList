@@ -26,6 +26,17 @@ class PlatformService(ABC):
         pass
 
     @abstractmethod
+    def get_window_geometry(self) -> Dict[str, int]:
+        """获取主窗口位置和尺寸参数的统一接口
+
+        返回的参数以 **kwargs 形式直接传给 webview.create_window：
+        - 桌面端：返回 x / y / width / height，按主屏幕尺寸居中并占屏 80%；
+        - 移动端：窗口由系统决定大小，且 pywebview 不支持 x/y/width/height，
+          此时应返回空字典，由调用方不传任何几何参数。
+        """
+        pass
+
+    @abstractmethod
     def is_ssl_enable(self) -> bool:
         """获取是否开启ssl的统一接口"""
         pass

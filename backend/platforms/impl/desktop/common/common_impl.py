@@ -11,6 +11,9 @@ from backend.utils.api_errors import CancelledError
 class DesktopCommonService(PlatformService):
     APP_NAME: str = 'TodoList'
 
+    # 无法获取屏幕信息时的兜底窗口尺寸
+    DEFAULT_WINDOW_SIZE: tuple = (1000, 700)
+
     # ---------- 系统操作钩子（子类实现） ----------
     def _enable_auto_start_impl(self) -> bool:
         raise NotImplementedError
@@ -141,6 +144,34 @@ class DesktopCommonService(PlatformService):
                 raise CancelledError('用户取消了保存')
         else:
             raise Exception(f'无法获取活动窗口')
+
+    def get_window_geometry(self) -> Dict[str, int]:
+        """桌面端：按主屏幕尺寸返回窗口几何参数（居中，占屏 80%）
+
+        极端环境下拿不到屏幕信息时，回退到默认尺寸，避免因 screens 为空导致启动失败。
+        """
+        import webview
+
+        try:
+            screens = webview.screens
+        except Exception as e:
+            screens = []
+            self.backend_logger().warning(f"获取屏幕信息失败，回退到默认窗口尺寸: {e}")
+
+        target_screen = screens[0] if screens else None
+        if not target_screen:
+            self.backend_logger().warning("未获取到任何屏幕信息，回退到默认窗口尺寸")
+            width, height = self.DEFAULT_WINDOW_SIZE
+            return {'width': int(width), 'height': int(height)}
+
+        screen_width = int(target_screen.width)
+        screen_height = int(target_screen.height)
+        return {
+            'x': int(screen_width * 0.1),
+            'y': int(screen_height * 0.1),
+            'width': int(screen_width * 0.8),
+            'height': int(screen_height * 0.8)
+        }
 
     def is_ssl_enable(self) -> bool:
         """获取是否开启ssl的统一接口"""
