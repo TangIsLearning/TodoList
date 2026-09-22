@@ -2,7 +2,8 @@
 // 统计视图管理模块（StatsManager）
 // 依赖后端 StatisticsApiMixin 提供的两个接口：
 //   - get_statistics_options(date_basis)
-//   - get_task_statistics(date_basis, scope, year, month, week, category_id)
+//   - get_task_statistics(date_basis, scope, year, month, week, category_id, tag_ids,
+//                          priority, search_query)
 // 图表使用纯 CSS/SVG 实现，无第三方图表库依赖，离线可用。
 // ============================================================
 
@@ -20,6 +21,9 @@ const STATS_SCOPE_LABELS = {
 };
 
 const WEEKDAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+// 顶部筛选栏共享维度在提示条里的展示名（'all' 已被 build() 折算成 null，不进这里）
+const STATS_PRIORITY_LABELS = { high: '高', medium: '中', low: '低', none: '无' };
 
 // ---------------- 工具 ----------------
 function statsPad(n) {
@@ -444,6 +448,10 @@ class StatsManager {
         }
     }
 
+    // 统计口径 = 视图内的时间维度 + 顶部筛选栏的部分共享维度。
+    // 两个维度刻意不传（对应下拉在统计视图也是置灰的）：
+    // - 日期快捷筛选：统计的时间范围已由 scope / 年 / 月 / 周 决定，两套并存分不清按哪个算
+    // - 状态：统计的价值恰是「已完成 vs 未完成」的对比，跟随状态会把其中一边筛掉
     _buildArgs() {
         const tagIds = this._currentTagIds();
         const args = [
@@ -454,6 +462,9 @@ class StatsManager {
         if (this.state.scope === 'year') args[2] = this.state.year || null;
         if (this.state.scope === 'month') args[3] = this.state.month || null;
         if (this.state.scope === 'week') args[4] = this.state.week || null;
+        // 共享维度统一走 ViewFilter.build()：'all' 已折算成 null，语义与列表一致
+        const shared = window.viewFilter?.build() ?? {};
+        args.push(shared.priority ?? null, shared.searchQuery ?? null);
         return args;
     }
 
@@ -514,7 +525,14 @@ class StatsManager {
         const tagText = tagNames.length
             ? ` · 标签：${tagNames.map(n => `#${n}`).join('、')}`
             : '';
-        hint.textContent = `口径：${basis} · 范围：${this._scopeDesc()} · ${this._currentCategoryName()}${tagText} · 共 ${this._lastTotal} 个任务`;
+        // 优先级 / 关键词同样来自共享筛选：展示出来，避免"改了筛选却看不出统计口径"
+        const shared = window.viewFilter?.build() ?? {};
+        const priorityText = shared.priority
+            ? ` · 优先级：${STATS_PRIORITY_LABELS[shared.priority] || shared.priority}`
+            : '';
+        const keyword = window.viewFilter?.searchInput?.value?.trim();
+        const keywordText = keyword ? ` · 关键词：${keyword}` : '';
+        hint.textContent = `口径：${basis} · 范围：${this._scopeDesc()} · ${this._currentCategoryName()}${priorityText}${keywordText}${tagText} · 共 ${this._lastTotal} 个任务`;
     }
 
     // ---------- 仪表板构造 ----------

@@ -8,11 +8,16 @@
     /* --stats-todo 定义在 global.css 的派生令牌区，此处不再重复定义 */
 }
 
-/* ===== 统计模式（顶部列表控件保持原位，仅置灰不可用） ===== */
-body.stats-mode .search-container,
-body.stats-mode #priority-filter,
-body.stats-mode #status-filter,
+/* ===== 统计模式 =====
+   两个下拉在统计视图不可选：
+   - 日期快捷筛选：统计的时间范围由视图内的 范围/年/月/周 决定，两套时间条件并存
+     会让人分不清到底按哪个算。
+   - 状态：统计的价值恰是「已完成 vs 未完成」的对比（完成率 / 状态分布），跟随状态
+     会把其中一边筛掉，图表自相矛盾，故统计恒按全部状态聚合。
+   搜索与优先级是全局共享筛选条件，统计与列表口径一致，保持可操作。
+   新建 / 导出在统计视图没有对应的内容区域，仍置灰。 */
 body.stats-mode #due-date-filter,
+body.stats-mode #status-filter,
 body.stats-mode #add-task-btn,
 body.stats-mode #export-tasks-btn,
 body.stats-mode #add-task-fab {

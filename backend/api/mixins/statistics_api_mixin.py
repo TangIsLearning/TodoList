@@ -34,6 +34,8 @@ class StatisticsApiMixin:
         week: Optional[str] = None,
         category_id: Optional[str] = None,
         tag_ids: Optional[list] = None,
+        priority: Optional[str] = None,
+        search_query: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """统计视图聚合查询，同时附带顶部统计条的全局指标。
 
@@ -49,6 +51,12 @@ class StatisticsApiMixin:
             week:       scope=week 时，所在周的周一日期，如 '2026-02-02'
             category_id: 分类过滤，'all'/None 为全部分类，'uncategorized' 为未分类
             tag_ids:    标签 id 列表，任务需同时命中全部标签才计入（与列表搜索的 AND 语义一致）
+            priority:   优先级 high/medium/low/none，'all'/None 为不限
+            search_query: 搜索条件（结构化 dict 或旧字符串协议），语义与列表搜索一致
+
+        两个维度不在入参之列，对应下拉在统计视图也保持不可选：
+        - 日期快捷筛选（today/week/overdue 等）：统计的时间范围由 scope/year/month/week 决定
+        - 状态：统计的价值恰是「已完成 vs 未完成」的对比，跟随状态会把其中一边筛掉
         """
         return self.db.get_task_statistics(
             date_basis=date_basis,
@@ -58,4 +66,6 @@ class StatisticsApiMixin:
             week=week,
             category_id=category_id,
             tag_ids=tag_ids,
+            priority=priority,
+            search_query=search_query,
         )

@@ -5,6 +5,7 @@
 - 时间口径：创建时间(created) / 截止时间(due) / 完成时间(completed)
 - 时间范围：全部 / 年 / 月 / 具体周
 - 分类筛选
+- 共享筛选维度（优先级 / 搜索），语义与任务列表共用同一套；状态恒按全部聚合
 
 为避免对历史数据分布做过强假设，聚合统一在 Python 侧基于
 TaskCrudMixin.get_all_tasks() 完成（当前数据规模在数千条内，性能可接受），
@@ -13,6 +14,8 @@ TaskCrudMixin.get_all_tasks() 完成（当前数据规模在数千条内，性�
 
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+from backend.database.query.filter import TaskFilter
 
 # 优先级展示顺序
 _PRIORITY_ORDER = ['high', 'medium', 'low', 'none']
@@ -203,6 +206,28 @@ class StatisticsCrudMixin:
             'weeks': weeks,
         }
 
+    def _statistics_matching_ids(
+        self,
+        priority: Optional[str],
+        search_query: Optional[Any],
+    ) -> Optional[set]:
+        """取「优先级 / 搜索」两个共享维度命中的任务 id 集合。
+
+        复用 TaskFilter 与列表查询的 WHERE 构建，保证同一份筛选条件在列表和统计里
+        筛出的是同一批任务，不必在统计侧重写一遍匹配规则（尤其是搜索的标签 /
+        父任务 / 关键词语义）。两个维度都不限时返回 None，调用方据此跳过判断。
+        """
+        f = TaskFilter(
+            priority=priority if priority not in (None, '', 'all') else None,
+            search_query=search_query,
+        )
+        if not (f.priority or f.search_query):
+            return None
+        where, params = self._build_list_where_clauses(f)
+        with self.query() as conn:
+            rows = conn.execute(f'SELECT id FROM tasks WHERE {where}', params).fetchall()
+        return {row[0] for row in rows}
+
     def get_task_statistics(
         self,
         date_basis: str = 'created',
@@ -212,6 +237,8 @@ class StatisticsCrudMixin:
         week: Optional[str] = None,
         category_id: Optional[str] = None,
         tag_ids: Optional[list] = None,
+        priority: Optional[str] = None,
+        search_query: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """统计查询主入口，返回统计视图所需的聚合数据。"""
         basis = date_basis if date_basis in ('created', 'due', 'completed') else 'created'
@@ -226,6 +253,9 @@ class StatisticsCrudMixin:
             norm = {str(t) for t in tag_ids if t is not None and str(t) not in ('', 'all')}
             if norm:
                 sel_tags = norm
+
+        # 优先级 / 搜索与列表共用同一套语义，借列表的 WHERE 先取一次命中 id
+        sel_ids = self._statistics_matching_ids(priority, search_query)
 
         all_tasks = self.get_all_tasks()
 
@@ -256,6 +286,9 @@ class StatisticsCrudMixin:
         pairs: List = []  # (task, basis_datetime)，保持与 included 一一对应
         due_dts: List[Optional[datetime]] = []  # 截止时间，与 included 一一对应，避免重复解析
         for task in all_tasks:
+            # 共享筛选维度已在 SQL 侧筛过一次，这里只认命中结果
+            if sel_ids is not None and task.get('id') not in sel_ids:
+                continue
             # 完成时间口径只统计已完成的任务（未完成没有完成时间）
             if basis == 'completed' and not task.get('completed'):
                 continue
