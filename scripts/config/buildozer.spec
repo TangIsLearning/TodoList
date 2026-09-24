@@ -4,10 +4,10 @@
 title = todoList
 
 # (str) Package name
-package.name = todoList
+package.name = todolist
 
 # (str) Package domain (needed for android/ios packaging)
-package.domain = com.pywebview.todos
+package.domain = com.tangstudy
 
 # (str) Source code where the main.py live
 source.dir = .
@@ -26,10 +26,10 @@ source.exclude_dirs = bin,build,dist,docs,logo,tests,pywebview.egg-info
 
 # (list) List of exclusions using pattern matching
 # Do not prefix with './'
-source.exclude_patterns = venv*/*/*
+source.exclude_patterns = venv*/*/*,backend/platforms/impl/desktop/*
 
 # (str) Application versioning (method 1)
-version = 0.1
+version = 2.0.0
 
 # (str) Application versioning (method 2)
 # version.regex = __version__ = ['"](.*)['"]
@@ -37,7 +37,8 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,pywebview,bottle,proxy-tools,typing_extensions,cryptography,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0,Pillow,pystray,desktop-notifier,pyjnius,android,jinja2,six
+android.python3 = /usr/bin/python3.10
+requirements = python3==3.10.12,hostpython3==3.10.12,kivy,pywebview,bottle,proxy-tools,typing_extensions,webdavclient3,lxml==6.0.2,python-dateutil==2.9.0.post0,pyjnius,android,jinja2,six
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -331,6 +332,13 @@ android.allow_backup = True
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
 #p4a.local_recipes =
+
+# 强制使用本地 python-for-android，跳过官方仓库校验
+p4a.local_recipes = /home/codeworker/TodoList/.buildozer/android/platform/python-for-android
+p4a.source_dir = /home/codeworker/TodoList/.buildozer/android/platform/python-for-android
+# 下载镜像切换国内镜像
+pip_index_url = https://pypi.tuna.tsinghua.edu.cn/simple
+pypi_mirror = https://pypi.tuna.tsinghua.edu.cn/simple
 
 # (str) Filename to the hook for p4a
 #p4a.hook =
