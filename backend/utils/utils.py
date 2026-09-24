@@ -8,10 +8,41 @@ import re
 import sys
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from backend import APP_ROOT
 
 if TYPE_CHECKING:
     from backend.platforms.interface.service import PlatformService
+
+# 平台目录下统一使用的应用名子目录
+APP_DIR_NAME = 'TodoList'
+
+def ensure_dir(path: Path) -> Path:
+    """创建目录（已存在则跳过）"""
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def first_writable_dir(*paths: Optional[Path]) -> Optional[Path]:
+    """按优先级创建并校验可写性，返回第一个成功者；全部失败返回 None
+
+    平台实现用它逐级降级：候选目录可能因为权限（Android 跨包名）、只读挂载点
+    （AppImage）或目录不存在而不可用，逐个试到能用的为止。
+    """
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            candidate = Path(path)
+            if not candidate.is_absolute():
+                continue
+            candidate.mkdir(parents=True, exist_ok=True)
+            if os.access(str(candidate), os.W_OK):
+                return candidate
+        except Exception:
+            continue
+    return None
 
 # 自定义强调色令牌：结构需与前端 js/utils/theme-colors.js 保持一致
 ACCENT_COLOR_KEYS = (
@@ -66,20 +97,11 @@ def normalize_accent_colors(value: Any) -> Optional[Dict[str, Any]]:
 
 def get_app_icon() -> str:
     """获取应用图标路径"""
-    # 判断是否为 PyInstaller 打包后的可执行文件
-    if getattr(sys, 'frozen', False):
-        # 打包后所有附加数据都会被解压到 sys._MEIPASS 临时目录
-        base_path = Path(sys._MEIPASS)
-        # --- 核心新增：如果 PyInstaller 将资源归类到了 _internal 目录，则自动追加该路径 ---
-        if (base_path / '_internal').exists():
-            base_path = base_path / '_internal'
-    else:
-        # 源码运行时，沿用你原来的相对路径查找逻辑（向上三级目录）
-        base_path = Path(__file__).resolve().parent.parent.parent
-
     from backend.platforms.core.factory import get_platform_service
+
     service = get_platform_service()
-    return service.get_app_icon(base_path)
+    # 资源根目录由平台决定：打包后是 _MEIPASS 解压目录，开发态是项目根
+    return str(service.get_app_icon(service.get_code_dir()))
 
 def str_to_bool(value: str) -> bool:
     """字符串(布尔值)转换"""
@@ -100,9 +122,8 @@ def get_app_path(platform_service: PlatformService) -> str:
                 app_path = sys.executable
             return app_path
         else:
-            # 开发环境
-            project_root = Path(__file__).parent.parent
-            app_path = str(project_root / 'main.py')
+            # 开发环境：main.py 位于应用根
+            app_path = str(APP_ROOT / 'main.py')
             return app_path
     except Exception as e:
         platform_service.backend_logger().error(f"获取应用路径失败: {e}")

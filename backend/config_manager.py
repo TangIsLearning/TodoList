@@ -7,13 +7,11 @@
 而不会反过来形成循环（storage → config_manager，单向）。
 """
 
-import os
 import json
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from backend.config import ANDROID_PRIMARY_USR_DIR, ANDROID_PRIMARY_DATA_DIR, ANDROID_EXTERNAL_DIR
-from backend.platforms.detection import is_android
 from backend.utils.logger import LogManager
 
 
@@ -22,41 +20,33 @@ class ConfigManager(LogManager):
 
     def __init__(self) -> None:
         super().__init__()
-        self.config_file: Path = self._get_config_file_path()
+        self.config_file: Path = self._resolve_config_file()
         self.config: Dict[str, Any] = self._load_config()
 
+    def _resolve_config_file(self) -> Path:
+        """确定配置文件位置；任何异常都不允许向外抛出
+
+        配置管理器在启动阶段被多处实例化（存储层、WebDAV 同步等），一旦抛异常
+        就是「应用起不来」级别的故障，因此这里做最终兜底，宁可丢配置也不中断启动。
+        """
+        try:
+            return self._get_config_file_path()
+        except Exception as e:
+            fallback = Path(tempfile.gettempdir()) / 'TodoList' / 'app_config.json'
+            try:
+                self.get_logger.error(f"配置文件目录解析失败，已退回临时目录: {e}", exc_info=True)
+                fallback.parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            return fallback
+
     def _get_config_file_path(self) -> Path:
-        """获取配置文件路径"""
-        # 在用户目录下创建配置文件，避免权限问题
-        if os.name == 'nt':  # Windows
-            config_dir = Path(os.environ.get('APPDATA', '')) / 'TodoList'
-        elif is_android():  # Android系统
-            # Android应用配置目录
-            android_config_dirs = [
-                Path(ANDROID_PRIMARY_USR_DIR + '/files/.config'),  # 私有存储
-                Path(ANDROID_EXTERNAL_DIR + '/files'),   # 外部存储
-                Path.home() / '.config'  # 备用方案
-            ]
+        """获取配置文件路径
 
-            # 尝试使用第一个可写的目录
-            config_dir = None
-            for dir_path in android_config_dirs:
-                try:
-                    dir_path.mkdir(parents=True, exist_ok=True)
-                    if os.access(dir_path, os.W_OK):
-                        config_dir = dir_path / 'TodoList'
-                        break
-                except:
-                    continue
-
-            # 如果都没有权限，则使用应用私有目录
-            if config_dir is None:
-                config_dir = Path(ANDROID_PRIMARY_DATA_DIR + '/shared_prefs') / 'TodoList'
-                config_dir.mkdir(parents=True, exist_ok=True)
-
-        else:  # Unix-like systems (Linux/macOS)
-            config_dir = Path.home() / '.config' / 'TodoList'
-
+        目录位置由平台决定（Windows 走 APPDATA、Unix 走 XDG、Android 走应用私有
+        目录并逐级降级），这里不再自行判断运行环境。
+        """
+        config_dir = Path(self.service.get_config_dir())
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / 'app_config.json'
 

@@ -1,5 +1,6 @@
 # impl/desktop/win_impl.py
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
@@ -37,14 +38,18 @@ class WindowsService(DesktopCommonService):
         # 强制终止 (SIGKILL)
         subprocess.run(f'taskkill /F /T /PID {pid}', shell=True, capture_output=True)
 
-    def get_log_directory(self) -> Path:
-        """返回可写的日志目录的统一接口"""
-        import sys
-        # Windows: exe 同级目录（用户通常有写权限）
-        exe_dir = Path(sys.executable).parent
-        log_dir = exe_dir / 'logs'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
+    def get_config_dir(self) -> Path:
+        """Windows 惯例：%APPDATA%/TodoList"""
+        from backend.utils.utils import APP_DIR_NAME, ensure_dir
+        return ensure_dir(Path(os.environ.get('APPDATA') or Path.home()) / APP_DIR_NAME)
+
+    def _packaged_data_dir(self) -> Path:
+        """打包后数据与配置同根，放 %APPDATA%/TodoList"""
+        return self.get_config_dir()
+
+    def _packaged_log_dir(self) -> Path:
+        """打包后写 exe 同级目录（用户通常对该目录有写权限）"""
+        return Path(sys.executable).parent / 'logs'
 
     def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""

@@ -9,10 +9,10 @@ import time
 import asyncio
 import platform
 from datetime import datetime
+from pathlib import Path
 from queue import Queue
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from backend.utils import utils
 from backend.database.todo_database import TodoDatabase
 from backend.utils.logger import LogManager
 
@@ -141,9 +141,12 @@ class TaskReminder(LogManager):
         asyncio.set_event_loop(self.loop)
         from desktop_notifier import DesktopNotifier, Icon
 
+        icon_path = Path(self.service.get_app_icon(self.service.get_code_dir()))
+        app_icon = Icon(path=icon_path) if icon_path.exists() else None
+
         self.notifier = DesktopNotifier(
             app_name="TodoList",
-            app_icon=Icon(utils.get_app_icon()),
+            app_icon=app_icon,
             notification_limit=5,
         )
         self.loop.run_forever()

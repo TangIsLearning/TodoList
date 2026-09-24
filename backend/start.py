@@ -23,17 +23,14 @@ backend_logger = service.backend_logger()
 
 def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，支持打包后的可执行文件"""
-    try:
-        # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = current_dir.parent
-    
+    # 资源根目录由平台决定：打包后指向 _MEIPASS，开发态指向项目根
+    base_path = service.get_code_dir()
+
     # 如果是前端文件，需要特殊处理
     if relative_path.startswith('frontend/'):
         resource_path = os.path.join(base_path, relative_path)
         if not os.path.exists(resource_path):
-            # 如果在临时目录中找不到，尝试在原目录结构中查找
+            # 如果在打包目录中找不到，尝试在源码目录结构中查找
             resource_path = os.path.join(current_dir.parent, relative_path)
     else:
         resource_path = os.path.join(base_path, relative_path)

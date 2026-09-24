@@ -15,16 +15,6 @@ if TYPE_CHECKING:
     from backend.platforms.interface.service import PlatformService
 
 
-def get_log_directory(platform_service: PlatformService) -> Path:
-    """根据运行环境返回可写的日志目录"""
-    # 1. 开发环境（未打包）
-    if not getattr(sys, 'frozen', False):
-        # 项目根目录：当前文件 backend/utils/logger.py -> 向上3级
-        return Path(__file__).parent.parent.parent / 'logs'
-
-    # 2. 打包后环境
-    return platform_service.get_log_directory()
-
 def setup_logger(platform_service: PlatformService, name: str = 'todolist',
                  level: int = logging.INFO, max_bytes: int = 10*1024*1024,
                  backup_count: int = 5) -> logging.Logger:
@@ -47,7 +37,8 @@ def setup_logger(platform_service: PlatformService, name: str = 'todolist',
     if logger.handlers:
         return logger
     
-    log_dir = get_log_directory(platform_service)
+    # 日志目录由平台决定：开发态落项目根，打包态落用户目录，Android 落应用私有目录
+    log_dir = Path(platform_service.get_log_dir())
     log_file = log_dir / f'{name}.log'
     log_dir.mkdir(parents=True, exist_ok=True)
     # 创建文件handler

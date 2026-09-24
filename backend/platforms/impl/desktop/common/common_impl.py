@@ -3,16 +3,79 @@ PlatformService的公共抽象基类，请勿实例化
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.platforms.interface.service import PlatformService
 from backend.utils.api_errors import CancelledError
+from backend.utils.utils import APP_DIR_NAME, ensure_dir
 
 class DesktopCommonService(PlatformService):
     APP_NAME: str = 'TodoList'
 
     # 无法获取屏幕信息时的兜底窗口尺寸
     DEFAULT_WINDOW_SIZE: tuple = (1000, 700)
+
+    # ---------- 路径（桌面端通用） ----------
+    # 桌面端有三种形态：开发态（源码运行）、PyInstaller 打包（sys.frozen）、
+    # AppImage。差异集中在「资源从哪读」和「打包后数据往哪写」，
+    # 真正需要子类定制的只有打包态日志目录，其余规则在这里统一实现。
+
+    def get_code_dir(self) -> Path:
+        """只读资源根：打包后是 _MEIPASS 解压目录，开发态是项目根"""
+        if getattr(sys, 'frozen', False):
+            base = Path(sys._MEIPASS)
+            # PyInstaller 6.x 会把资源归类到 _internal 子目录
+            if (base / '_internal').exists():
+                base = base / '_internal'
+            return base
+        return self.PROJECT_ROOT
+
+    def get_log_dir(self) -> Path:
+        """打包态由子类决定，开发态统一落在项目根/logs"""
+        if getattr(sys, 'frozen', False):
+            return ensure_dir(self._packaged_log_dir())
+        return ensure_dir(self.PROJECT_ROOT / 'logs')
+
+    def _packaged_log_dir(self) -> Path:
+        """打包态的日志目录；默认与开发态一致，由需要的平台覆盖"""
+        return self.PROJECT_ROOT / 'logs'
+
+    def get_config_dir(self) -> Path:
+        """可写配置目录；默认遵循 XDG 约定，Windows 覆盖为 %APPDATA%"""
+        return ensure_dir(Path.home() / '.config' / APP_DIR_NAME)
+
+    def _packaged_data_dir(self) -> Path:
+        """打包态的用户数据根（钩子，子类实现）
+
+        安装目录通常只读（Program Files、AppImage 挂载点、.app  bundle），
+        打包后数据必须落到用户目录，落到哪由各平台按自身惯例决定。
+        """
+        raise NotImplementedError
+
+    def get_writable_dirs(self) -> List[Path]:
+        """候选可写根目录
+
+        打包态走平台各自的用户数据根，开发态就是项目根。
+        """
+        if getattr(sys, 'frozen', False):
+            return [self._packaged_data_dir()]
+
+        return [self.PROJECT_ROOT]
+
+    def get_legacy_data_files(self) -> List[Path]:
+        """旧版本数据文件位置（按优先级排列）"""
+        candidates: List[Path] = []
+        if getattr(sys, 'frozen', False):
+            candidates.append(self._packaged_data_dir() / 'data' / 'todo.db')
+
+        candidates.append(self.get_fallback_data_file())
+        return candidates
+
+    def get_fallback_data_file(self) -> Path:
+        """沿用旧版布局 <项目根>/data/todo.db"""
+        return self.PROJECT_ROOT / 'data' / 'todo.db'
 
     # ---------- 系统操作钩子（子类实现） ----------
     def _enable_auto_start_impl(self) -> bool:

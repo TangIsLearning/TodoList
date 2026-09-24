@@ -2,7 +2,7 @@
 TodoList应用的配置文件
 """
 
-from pathlib import Path
+from backend import APP_ROOT
 
 # 应用配置
 APP_NAME = "Todo List"
@@ -31,14 +31,6 @@ PRIORITY_LEVELS = {
 # 数据文件配置
 DEFAULT_DATA_FILE = "data/todo.db"
 
-# Android配置
-ANDROID_PACKAGE_NAME = "com.pywebview.todos.todolist"
-ANDROID_PRIMARY_USR_DIR = "/data/user/0/com.pywebview.todos.todolist"
-ANDROID_PRIMARY_DATA_DIR = "/data/data/com.pywebview.todos.todolist"
-ANDROID_EXTERNAL_DIR = "/sdcard/Android/data/com.pywebview.todos.todolist"
-
 def get_default_data_file() -> str:
     """获取默认数据文件路径"""
-    # 获取项目根目录
-    project_root = Path(__file__).parent.parent
-    return str(project_root / DEFAULT_DATA_FILE)
+    return str(APP_ROOT / DEFAULT_DATA_FILE)

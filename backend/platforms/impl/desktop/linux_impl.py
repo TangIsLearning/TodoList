@@ -6,6 +6,18 @@ from typing import Any, Callable, Optional
 from backend.platforms.impl.desktop.common.common_impl import DesktopCommonService
 
 class LinuxService(DesktopCommonService):
+    def _packaged_data_dir(self) -> Path:
+        """打包后数据落 ~/.todolist
+
+        AppImage 挂载点只读；沿用历史目录名，避免旧版本数据迁移时找不到。
+        """
+        from backend.utils.utils import ensure_dir
+        return ensure_dir(Path.home() / '.todolist')
+
+    def _packaged_log_dir(self) -> Path:
+        """打包后日志同样落用户目录：AppImage 挂载点只读"""
+        return self._packaged_data_dir() / 'logs'
+
     def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         try:
             import backend.globals
@@ -28,27 +40,6 @@ class LinuxService(DesktopCommonService):
             while Gtk.events_pending():
                 Gtk.main_iteration()
             time.sleep(0.02)
-
-    def get_log_directory(self) -> Path:
-        """返回可写的日志目录的统一接口"""
-        # Linux (包括 AppImage)
-        # 检测是否为 AppImage 环境
-        is_appimage = os.environ.get('APPIMAGE') is not None
-        if is_appimage:
-            # AppImage 必须写入用户目录
-            xdg_data_home = os.environ.get('XDG_DATA_HOME')
-            if xdg_data_home:
-                base = Path(xdg_data_home)
-            else:
-                base = Path.home() / '.local' / 'share'
-            log_dir = base / 'TodoList' / 'logs'
-        else:
-            # 普通 Linux 可执行文件（如直接运行编译后的二进制）
-            # 也建议写入用户目录，避免权限问题
-            log_dir = Path.home() / '.local' / 'share' / 'TodoList' / 'logs'
-
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
 
     def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""

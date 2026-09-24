@@ -2,9 +2,14 @@
 from abc import ABC, abstractmethod
 from logging import Logger
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+from backend import APP_ROOT
 
 class PlatformService(ABC):
+    # 应用根（开发态项目根 / 打包态资源根），各平台实现共用
+    PROJECT_ROOT: Path = APP_ROOT
+
     @abstractmethod
     def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         """快捷键的统一接口"""
@@ -16,14 +21,52 @@ class PlatformService(ABC):
         pass
 
     @abstractmethod
-    def get_log_directory(self) -> Path:
-        """返回可写的日志目录的统一接口"""
-        pass
-
-    @abstractmethod
     def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""
         pass
+
+    @abstractmethod
+    def get_code_dir(self) -> Path:
+        """只读资源根：frontend、图标、模板等随包分发的文件所在目录"""
+        pass
+
+    @abstractmethod
+    def get_log_dir(self) -> Path:
+        """可写日志目录"""
+        pass
+
+    @abstractmethod
+    def get_config_dir(self) -> Path:
+        """可写配置目录（已包含应用名子目录）"""
+        pass
+
+    @abstractmethod
+    def get_writable_dirs(self) -> List[Path]:
+        """按优先级返回候选可写根目录（未做可写性校验）"""
+        pass
+
+    @abstractmethod
+    def get_legacy_data_files(self) -> List[Path]:
+        """旧版本数据文件位置（迁移探测用，按优先级排列，允许不存在）"""
+        pass
+
+    @abstractmethod
+    def get_fallback_data_file(self) -> Path:
+        """配置完全读不出来时的兜底数据文件位置"""
+        pass
+
+    def get_default_storage_dir(self) -> Path:
+        """用户未指定存储目录时的默认存储根（通用实现，暂无平台需要覆盖）
+
+        取候选目录里第一个真正可写的；全部不可写时退到配置目录——配置目录在各
+        平台都已经是用户级可写位置（桌面端 APPDATA / XDG、Android 应用私有目录），
+        比「进程当前目录」可靠：后者在桌面端取决于从哪里启动，可能是任意目录
+        甚至只读（p4a 下 cwd 恰好是应用私有目录，但那只是 Android 的巧合）。
+        """
+        from backend.utils.utils import first_writable_dir
+
+        chosen = first_writable_dir(*self.get_writable_dirs())
+        return chosen if chosen is not None else self.get_config_dir()
 
     @abstractmethod
     def get_window_geometry(self) -> Dict[str, int]:

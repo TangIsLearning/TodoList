@@ -7,6 +7,17 @@ from typing import Any, Callable, Optional, Tuple
 from backend.platforms.impl.desktop.common.common_impl import DesktopCommonService
 
 class MacService(DesktopCommonService):
+    def _packaged_data_dir(self) -> Path:
+        """macOS 惯例：~/Library/Application Support/TodoList
+        .app bundle 内不应写数据（只读分发、签名校验），必须落用户目录。
+        """
+        from backend.utils.utils import ensure_dir
+        return ensure_dir(Path.home() / 'Library' / 'Application Support' / self.APP_NAME)
+
+    def _packaged_log_dir(self) -> Path:
+        """macOS 约定：~/Library/Logs/<App>"""
+        return Path.home() / 'Library' / 'Logs' / self.APP_NAME
+
     def shortcut_handler(self, shortcut: str, handler: Callable[[], None]) -> Optional[Any]:
         from quickmachotkey import quickHotKey, mask
         from quickmachotkey.constants import (
@@ -150,14 +161,6 @@ class MacService(DesktopCommonService):
         subprocess.run(['kill', '-KILL', str(pid)])
         # 强制终止所有子进程，使用 pgrep -P 查找并传递给 kill -9[reference:5]
         subprocess.run(f'pgrep -P {pid} | xargs kill -9', shell=True)
-
-    def get_log_directory(self) -> Path:
-        """返回可写的日志目录的统一接口"""
-        # macOS: 使用 ~/Library/Logs/TodoList
-        home = Path.home()
-        log_dir = home / 'Library' / 'Logs' / 'TodoList'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir
 
     def get_app_icon(self, base_path: Path) -> Path:
         """获取应用图标的统一接口"""
