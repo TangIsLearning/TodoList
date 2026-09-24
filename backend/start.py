@@ -5,7 +5,6 @@ Todo List 桌面应用主程序
 """
 
 import os
-import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -43,6 +42,41 @@ chinese_localization = {
     'global.ok': '确定',
     'global.cancel': '取消'
 }
+
+def show_error_page(window: Any, message: str) -> None:
+    """启动失败时的兜底页面
+
+    初始化线程一旦中断，窗口会永远停在加载动画上，用户只能看到「正在加载中」却
+    无从得知原因。这里把失败原因直接渲染出来，便于现场排查。
+    """
+    escaped = (message or '未知错误').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    error_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ background-color: #f5f5f5; display: flex; justify-content: center; align-items: center;
+                   height: 100vh; font-family: sans-serif; color: #333; margin: 0; padding: 24px; }}
+            .container {{ max-width: 90%; text-align: left; background: #fff; border-radius: 8px;
+                         padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); word-break: break-all; }}
+            h3 {{ margin: 0 0 12px; color: #d9534f; }}
+            p {{ margin: 0; line-height: 1.6; font-size: 14px; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h3>应用启动失败</h3>
+            <p>{escaped}</p>
+        </div>
+    </body>
+    </html>
+    """
+    try:
+        window.load_html(error_html)
+    except Exception as e:
+        backend_logger.error(f"展示错误页面失败: {e}")
+
 
 def start_app(
     is_android: bool = False,
@@ -112,17 +146,22 @@ def start_app(
     def lazy_initialize(window: Any) -> None:
         backend_logger.info("异步后台：开始加载后端模块与初始化...")
 
-        # 在子线程中延时或直接导入耗时模块
-        from backend.api.todo_api import TodoApi
-        from backend.utils import utils
+        # 初始化失败也要继续：窗口必须离开加载页，否则用户永远停在「正在加载中」
+        api = None
+        sync_manager = None
+        try:
+            # 在子线程中延时或直接导入耗时模块
+            from backend.api.todo_api import TodoApi
+            from backend.features.webdav.webdav_data_sync import get_data_sync_manager
 
-        # 创建API实例
-        from backend.features.webdav.webdav_data_sync import get_data_sync_manager
-        sync_manager = get_data_sync_manager()
-        backend_logger.info("初始化TodoApi")
-        api = TodoApi(is_android, sync_manager)
-        backend_logger.info(f"数据库路径: {api.db.db_path}")
-        backend_logger.info("TodoApi 实例创建成功")
+            # 创建API实例
+            sync_manager = get_data_sync_manager()
+            backend_logger.info("初始化TodoApi")
+            api = TodoApi(is_android, sync_manager)
+            backend_logger.info(f"数据库路径: {api.db.db_path}")
+            backend_logger.info("TodoApi 实例创建成功")
+        except Exception as e:
+            backend_logger.error(f"后端初始化失败，将以降级模式继续启动: {e}", exc_info=True)
 
         # 设置同步回调，当云端数据更新时刷新前端
         def on_sync_complete() -> None:
@@ -138,29 +177,51 @@ def start_app(
             except Exception as e:
                 backend_logger.error(f"同步回调执行失败: {e}")
 
-        if sync_manager:
-            sync_manager.set_sync_callback(on_sync_complete)
-            # 启动自动同步
-            sync_manager.start_auto_sync()
-            # 保存全局变量，以便在 finally 中能够正常关闭
-            window.user_data = {'sync_manager': sync_manager}
+        # 自动同步属于可选能力（依赖外部配置），失败不应拖垮主流程
+        if api is not None and sync_manager is not None:
+            try:
+                sync_manager.set_sync_callback(on_sync_complete)
+                # 启动自动同步
+                sync_manager.start_auto_sync()
+                # 保存全局变量，以便在 finally 中能够正常关闭
+                window.user_data = {'sync_manager': sync_manager}
+            except Exception as e:
+                backend_logger.error(f"启动自动同步失败，已跳过: {e}", exc_info=True)
 
-        # 获取前端文件路径
-        frontend_path = get_resource_path('frontend/index.html')
-        backend_logger.info(f"前端文件路径: {frontend_path}")
-        # 重新绑定 API 并将窗口重定向到真正的业务前端文件
-        window.set_title('TodoList')
-        window.load_url(frontend_path)
+        # 无论初始化是否成功，都要把窗口切到真正的业务页面
+        try:
+            frontend_path = get_resource_path('frontend/index.html')
+            backend_logger.info(f"前端文件路径: {frontend_path}")
+            window.set_title('TodoList')
+            window.load_url(frontend_path)
+        except Exception as e:
+            backend_logger.error(f"加载前端页面失败: {e}", exc_info=True)
+            show_error_page(window, f"前端页面加载失败：{e}")
+            return
+
+        if api is None:
+            backend_logger.error("API 未初始化，跳过 API 绑定")
+            return
+
         # 动态绑定之前延迟初始化的后台 API
-        window._js_api = api
-        window.on_top = utils.str_to_bool(api.db.get_setting('window_on_top', False))
+        try:
+            from backend.utils import utils
+            window._js_api = api
+            window.on_top = utils.str_to_bool(api.db.get_setting('window_on_top', False))
+        except Exception as e:
+            backend_logger.error(f"绑定后台 API 失败: {e}", exc_info=True)
 
         # 快捷键功能(仅在桌面端启用)
         enabled = api.db.get_setting('shortcut_enabled', True)
         if not enabled:
             backend_logger.info("快捷操作功能已关闭，跳过快捷键注册")
+        elif start_keyboard is None:
+            backend_logger.info("当前平台未提供快捷键注册入口，跳过")
         else:
-            start_keyboard()
+            try:
+                start_keyboard()
+            except Exception as e:
+                backend_logger.error(f"注册快捷键失败: {e}", exc_info=True)
 
     backend_logger.info("启动webview...")
     try:
