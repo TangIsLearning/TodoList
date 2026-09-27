@@ -257,10 +257,6 @@ class AndroidService(PlatformService):
         """
         return {}
 
-    def is_ssl_enable(self) -> bool:
-        # 移动端需要开启ssl，避免在移动端使用报错存在安全问题
-        return True
-
     def is_default_hide(self) -> bool:
         return True
 
@@ -316,8 +312,7 @@ class AndroidService(PlatformService):
     def start_app(self) -> None:
         """启动应用的统一接口"""
         from backend import start
-        # 安卓端需要开启SSL，否则功能无法使用
-        start.start_app(True, True, None)
+        start.start_app(True, None)
 
     def frontend_logger(self) -> Any:
         """前端日志的统一接口"""

@@ -12,7 +12,6 @@ python-dateutil>=2.8.0  # 用于日期计算
 webdavclient3>=3.14.7  # WebDAV客户端
 lxml>=6.0.2
 desktop-notifier<=6.2.0  # 用于跨平台桌面通知
-cryptography>=46.0.1; sys_platform != 'darwin' # 仅开启SSL功能时需要，MacOS桌面端不支持
 pynput>=1.8.1; sys_platform != 'darwin' # 用于Windows和Linux桌面端快捷键
 quickmachotkey>=2025.7.28; sys_platform == 'darwin' # 用于MacOS桌面端快捷键
 pygobject<=3.42.2; sys_platform == 'linux' # Linux环境系统托盘功能需要

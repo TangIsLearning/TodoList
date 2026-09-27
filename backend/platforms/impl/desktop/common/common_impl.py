@@ -236,10 +236,6 @@ class DesktopCommonService(PlatformService):
             'height': int(screen_height * 0.8)
         }
 
-    def is_ssl_enable(self) -> bool:
-        """获取是否开启ssl的统一接口"""
-        return True
-
     def is_default_hide(self) -> bool:
         """获取是否隐藏快捷键窗口的统一接口"""
         return True
@@ -304,6 +300,12 @@ class DesktopCommonService(PlatformService):
     def remove_firewall_rule(self, port: int) -> Tuple[bool, str]:
         """移除防火墙策略规则的统一接口"""
         return True, "非Windows系统，无需操作防火墙"
+
+    def start_app(self) -> None:
+        """启动应用的统一接口"""
+        from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
+        manager = SystemTrayManager()
+        manager.start_app()
 
     def frontend_logger(self) -> Any:
         """前端日志的统一接口"""

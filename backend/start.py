@@ -80,7 +80,6 @@ def show_error_page(window: Any, message: str) -> None:
 
 def start_app(
     is_android: bool = False,
-    ssl_enable: bool = True,
     start_keyboard: Optional[Callable[[], None]] = None
 ) -> None:
     """启动TodoList桌面应用"""
@@ -228,7 +227,7 @@ def start_app(
         # 将 lazy_initialize 函数作为第一个参数传入
         # pywebview 启动窗口后会立即在后台启动一个线程执行此函数，解决Linux端窗口卡死问题
         webview.start(lazy_initialize, backend.globals.window,
-                      private_mode=False, ssl=ssl_enable, debug=False, localization=chinese_localization)
+                      private_mode=False, debug=False, localization=chinese_localization)
     finally:
         # 窗口关闭后，停止自动同步
         backend_logger.info("正在停止后台服务...")

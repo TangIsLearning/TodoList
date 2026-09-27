@@ -233,11 +233,5 @@ class WindowsService(DesktopCommonService):
             self.backend_logger().error(f"Windows禁用自启动失败: {e}")
             return False
 
-    def start_app(self) -> None:
-        """启动应用的统一接口"""
-        from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
-        manager = SystemTrayManager()
-        manager.start_app(True)
-
 # 用于给工厂注册的导出变量
 ExportService = WindowsService

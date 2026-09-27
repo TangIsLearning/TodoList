@@ -166,11 +166,6 @@ class MacService(DesktopCommonService):
         """获取应用图标的统一接口"""
         return base_path / 'todo_icon.icns'
 
-    def is_ssl_enable(self) -> bool:
-        """获取是否开启ssl的统一接口"""
-        # MacOS端开启后存在不影响使用的warning
-        return False
-
     def start_prepare(self) -> None:
         """应用启动前准备工作的统一接口"""
         # 强制在主线程预热 TIS API，防止后台线程后续并发调用导致崩溃
@@ -268,12 +263,6 @@ class MacService(DesktopCommonService):
         except Exception as e:
             self.backend_logger().error(f"macOS禁用自启动失败: {e}")
             return False
-
-    def start_app(self) -> None:
-        """启动应用的统一接口"""
-        from backend.platforms.impl.desktop.common.system_tray import SystemTrayManager
-        manager = SystemTrayManager()
-        manager.start_app(False) # Mac端开启SSL存在warning告警
 
 # 用于给工厂注册的导出变量
 ExportService = MacService
