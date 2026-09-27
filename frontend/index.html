@@ -1466,35 +1466,16 @@
                     <span class="more-menu-text" data-view-text="stats" data-i18n="statsView">统计视图</span>
                 </a>
             </li>
-            <li class="group-divider"></li> <!-- 分割线 -->
-            <li class="more-menu-item">
-                <a href="#" class="more-menu-link" data-action="filter-all">
-                    <span class="more-menu-icon">📜</span>
-                    <span class="more-menu-text" data-i18n="moreMenuFilterAll">显示所有任务</span>
-                </a>
-            </li>
-            <li class="more-menu-item">
-                <a href="#" class="more-menu-link" data-action="filter-uncompleted">
-                    <span class="more-menu-icon">⏳</span>
-                    <span class="more-menu-text" data-i18n="moreMenuFilterUncompleted">显示未完成任务</span>
-                </a>
-            </li>
-            <li class="more-menu-item">
-                <a href="#" class="more-menu-link" data-action="filter-overdue">
-                    <span class="more-menu-icon">⚠️</span>
-                    <span class="more-menu-text" data-i18n="moreMenuFilterOverdue">显示已逾期任务</span>
-                </a>
-            </li>
-            <li class="more-menu-item">
-                <a href="#" class="more-menu-link" data-action="filter-today">
-                    <span class="more-menu-icon">☀️</span>
-                    <span class="more-menu-text" data-i18n="moreMenuFilterToday">仅显示今天任务</span>
-                </a>
-            </li>
-            <li class="more-menu-item">
-                <a href="#" class="more-menu-link" data-action="filter-tag">
-                    <span class="more-menu-icon">🏷️</span>
-                    <span class="more-menu-text" data-i18n="moreMenuFilterTag">显示含标签任务</span>
+            <li class="group-divider" id="filter-group-top-divider"></li> <!-- 分割线 -->
+            <!-- 单一开关项：在"只看未完成"与"全部（含已完成）"之间切换，文案由 ViewManager 同步 -->
+            <li class="more-menu-item" id="filter-toggle-completed">
+                <a href="#" class="more-menu-link" data-action="toggle-completed">
+                    <span class="more-menu-icon">✅</span>
+                    <span class="more-menu-text">
+                        <!-- 两种文案都在 DOM 里，切语言时由静态翻译统一覆盖，JS 只切显隐 -->
+                        <span id="toggle-completed-show" data-i18n="moreMenuShowCompleted">展示已完成项</span>
+                        <span id="toggle-completed-hide" data-i18n="moreMenuHideCompleted" style="display: none;">隐藏已完成项</span>
+                    </span>
                 </a>
             </li>
             <li class="group-divider" style="display: none;" id="filter-group-divider"></li> <!-- 分割线 -->

@@ -470,14 +470,13 @@ const Languages = {
         // 更多选项
         moreOptions: "更多选项",
 
-        // 小屏更多菜单的快捷筛选项
-        moreMenuFilterAll: "显示所有任务",
-        moreMenuFilterUncompleted: "显示未完成任务",
-        moreMenuFilterOverdue: "显示已逾期任务",
-        moreMenuFilterToday: "仅显示今天任务",
-        moreMenuFilterTag: "显示含标签任务",
+        // 小屏更多菜单：单一开关在"只看未完成 / 全部（含已完成）"间切换，上下月为日历视图专属
+        moreMenuShowCompleted: "展示已完成项",
+        moreMenuHideCompleted: "隐藏已完成项",
         moreMenuPrevMonthTasks: "上一个月任务",
         moreMenuNextMonthTasks: "下一个月任务",
+        filteredUncompleted: "已筛选未完成任务",
+        filteredAll: "已显示所有任务",
         optional: "可选",
         required: "必填",
 
@@ -1002,14 +1001,13 @@ const Languages = {
         // 更多选项
         moreOptions: "More Options",
 
-        // 小屏更多菜单的快捷筛选项
-        moreMenuFilterAll: "Show All Tasks",
-        moreMenuFilterUncompleted: "Show Uncompleted Tasks",
-        moreMenuFilterOverdue: "Show Overdue Tasks",
-        moreMenuFilterToday: "Show Today's Tasks Only",
-        moreMenuFilterTag: "Show Tagged Tasks",
+        // 小屏更多菜单：单一开关在"只看未完成 / 全部（含已完成）"间切换，上下月为日历视图专属
+        moreMenuShowCompleted: "Show Completed Items",
+        moreMenuHideCompleted: "Hide Completed Items",
         moreMenuPrevMonthTasks: "Previous Month's Tasks",
         moreMenuNextMonthTasks: "Next Month's Tasks",
+        filteredUncompleted: "Filtered uncompleted tasks",
+        filteredAll: "Showing all tasks",
         optional: "Optional",
         parentTask: "Parent Task",
         parentTaskPlaceholder: "Click to select or search uncompleted tasks",

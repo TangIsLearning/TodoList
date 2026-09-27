@@ -22,6 +22,7 @@ class ViewManager {
     init() {
         this.bindEvents();
         this.syncViewIndicators(this.currentView);
+        this.updateMoreMenuFilterGroups(this.currentView);
     }
 
     // 月历按钮由 CalendarManager 自行绑定
@@ -43,9 +44,6 @@ class ViewManager {
         const pagination = document.getElementById('pagination');
         const calendarView = document.getElementById('calendar-view');
         const dueDateFilter = document.getElementById('due-date-filter');
-        const prevMonthFilter = document.getElementById('filter-prev-month');
-        const nextMonthFilter = document.getElementById('filter-next-month');
-        const groupDividerFilter = document.getElementById('filter-group-divider');
         const timelineView = document.getElementById('timeline-view');
         const statsView = document.getElementById('stats-view');
 
@@ -89,15 +87,14 @@ class ViewManager {
         // 先更新视图状态，保证后续异步加载（分页渲染等）基于新视图执行
         this.currentView = targetView;
         this.syncViewIndicators(targetView);
+        // 小屏菜单的筛选区随视图一并切换，避免展示对当前视图无意义的快捷项
+        this.updateMoreMenuFilterGroups(targetView);
 
         switch (targetView) {
             case 'calendar': {
                 if (calendarView) calendarView.style.display = 'flex';
                 this.prepareViewEnter(calendarView);
                 this.setDueDateFilterState(dueDateFilter, true);
-                if (prevMonthFilter) prevMonthFilter.style.display = 'block';
-                if (nextMonthFilter) nextMonthFilter.style.display = 'block';
-                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 if (window.todoManager) {
                     // 日历按整月展示，先丢掉单日条件（截止时间 chip），否则日历只剩那一天
                     window.viewFilter.clearDueDateChip();
@@ -111,9 +108,6 @@ class ViewManager {
                 if (timelineView) timelineView.style.display = 'flex';
                 this.prepareViewEnter(timelineView);
                 this.setDueDateFilterState(dueDateFilter, true);
-                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
-                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
-                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 if (window.timelineManager) await window.timelineManager.renderTimeline();
                 break;
             }
@@ -121,9 +115,6 @@ class ViewManager {
                 if (statsView) statsView.style.display = 'block';
                 this.prepareViewEnter(statsView);
                 this.setDueDateFilterState(dueDateFilter, true);
-                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
-                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
-                if (groupDividerFilter) groupDividerFilter.style.display = 'block';
                 document.body.classList.add('stats-mode');
                 if (window.statsManager) window.statsManager.onViewEnter();
                 break;
@@ -134,9 +125,6 @@ class ViewManager {
                 this.prepareViewEnter(tasksView);
                 if (pagination) pagination.style.display = 'flex';
                 this.setDueDateFilterState(dueDateFilter, false);
-                if (prevMonthFilter) prevMonthFilter.style.display = 'none';
-                if (nextMonthFilter) nextMonthFilter.style.display = 'none';
-                if (groupDividerFilter) groupDividerFilter.style.display = 'none';
                 const filterPageSize = 10;
                 if (window.todoManager) {
                     window.todoManager.pageSize = filterPageSize;
@@ -185,6 +173,44 @@ class ViewManager {
     clearViewSkeleton() {
         this._viewSkeleton?.remove();
         this._viewSkeleton = null;
+    }
+
+    // 小屏菜单的筛选区按视图裁剪：每个组都带上自己上方的分割线，同进同退不留悬空线。
+    // 统计视图展示的是全量统计，不按完成状态切分，故不需要状态筛选；
+    // 上下月翻页则只有日历有"月"的概念。
+    updateMoreMenuFilterGroups(viewName) {
+        const groups = {
+            // 完成状态开关组（展示 / 隐藏已完成项）
+            status: viewName !== 'stats',
+            // 上下月翻页组
+            monthNav: viewName === 'calendar'
+        };
+        const groupIds = {
+            status: ['filter-group-top-divider', 'filter-toggle-completed'],
+            monthNav: ['filter-group-divider', 'filter-prev-month', 'filter-next-month']
+        };
+
+        for (const [group, ids] of Object.entries(groupIds)) {
+            const display = groups[group] ? 'block' : 'none';
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = display;
+            });
+        }
+
+        this.syncCompletedToggle();
+    }
+
+    // 小屏菜单的"展示/隐藏已完成项"：当前已是全部任务时才提示"隐藏"，否则提示"展示"。
+    // 两种文案都写在 HTML 上（带 data-i18n），这里只切显隐，切语言时由静态翻译统一覆盖。
+    syncCompletedToggle() {
+        const showEl = document.getElementById('toggle-completed-show');
+        const hideEl = document.getElementById('toggle-completed-hide');
+        if (!showEl || !hideEl) return;
+
+        const showingAll = window.viewFilter?.status === 'all';
+        showEl.style.display = showingAll ? 'none' : 'inline';
+        hideEl.style.display = showingAll ? 'inline' : 'none';
     }
 
     setDueDateFilterState(dueDateFilter, disabled) {

@@ -344,6 +344,8 @@ class App {
     showMoreMenu() {
         const modal = document.getElementById('more-menu-modal');
         if (modal) {
+            // 顶部下拉框也可能改过状态筛选，打开菜单时按当前条件对齐开关文案
+            window.viewManager?.syncCompletedToggle();
             modal.classList.remove('is-closing');
             modal.classList.add('show');
             document.body.style.overflow = 'hidden';
@@ -377,21 +379,19 @@ class App {
                 // 兼容旧的“切换日历视图”动作
                 await this.switchView('calendar');
                 break;
-            case 'filter-uncompleted':
-                await this.filterTasks('uncompleted', 'all', '', '已筛选未完成任务');
+            case 'toggle-completed': {
+                // 已在看全部任务就收回只看未完成，反之放开到全部（含已完成）
+                const showingAll = window.viewFilter?.status === 'all';
+                await this.filterTasks(
+                    showingAll ? 'uncompleted' : 'all',
+                    'all',
+                    '',
+                    showingAll ? 'filteredUncompleted' : 'filteredAll',
+                    showingAll ? '已筛选未完成任务' : '已显示所有任务'
+                );
+                window.viewManager?.syncCompletedToggle(); // 开关文案跟着新状态走
                 break;
-            case 'filter-overdue':
-                await this.filterTasks('overdue', 'all', '', '已筛选已逾期任务');
-                break;
-            case 'filter-all':
-                await this.filterTasks('all', 'all', '', '已显示所有任务');
-                break;
-            case 'filter-today':
-                await this.filterTasks('all', 'today', '', '已筛选今天任务');
-                break;
-            case 'filter-tag':
-                await this.filterTasks('all', 'all', '#', '已筛选含标签任务');
-                break;
+            }
             case 'filter-prev-month':
                 if (window.calendarManager) window.calendarManager.previousMonth();
                 break;
@@ -423,13 +423,16 @@ class App {
     }
 
     // 条件改写与控件回写都归 ViewFilter，这里只做命令分发与结果提示
-    async filterTasks(statusValue, dueDateValue, tagValue, toastMsg) {
+    async filterTasks(statusValue, dueDateValue, tagValue, toastKey, toastFallback) {
         await window.viewFilter.applyQuickFilter({
             status: statusValue,
             dueDateFilter: dueDateValue,
             tag: tagValue
         });
-        Utils.showToast(toastMsg, 'success');
+        const msg = toastKey
+            ? window.languageManager.getText(toastKey, toastFallback)
+            : toastFallback;
+        Utils.showToast(msg, 'success');
     }
 }
 
