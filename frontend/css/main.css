@@ -914,8 +914,10 @@ input:checked + .slider:before {
     display: none;
 }
 
+/* 仅 Windows 桌面端展示的条目：不能用 !important，
+   否则会盖过 media.css 中 .mobile-unshown-item 的移动端隐藏规则 */
 .only-windows {
-  display: block !important;
+  display: block;
 }
 
 /* 小屏幕更多按钮 */

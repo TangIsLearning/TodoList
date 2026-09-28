@@ -1044,7 +1044,15 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-                <!-- 主题设置（模式选择已移至下方"主题配色"区块） -->
+                <!-- 主题模式设置（点击后打开主题配色二级弹窗） -->
+                <div class="setting-item is-clickable" id="theme-mode-btn">
+                    <div class="setting-label">
+                        <span class="setting-icon">🎨</span>
+                        <span class="setting-text" data-i18n="settingsThemeMode">主题模式</span>
+                    </div>
+                    <span class="setting-item-value" id="theme-mode-value"
+                          data-i18n="settingsThemeModeDefault">默认模式</span>
+                </div>
                 <!-- 语言设置 -->
                 <div class="setting-item">
                     <div class="setting-label">
@@ -1089,18 +1097,6 @@
                         <button id="smart-key-apply" class="btn btn--primary-color setting-config-btn"
                                 data-i18n="settingsApply">应用</button>
                     </div>
-                </div>
-            </div>
-
-            <!-- 主题配色：入口行，点击打开二级弹窗 -->
-            <div class="setting-section">
-                <h3 data-i18n="settingsThemeColors">主题配色</h3>
-                <div class="setting-item is-clickable" id="theme-mode-btn">
-                    <div class="setting-label">
-                        <span class="setting-icon">🎨</span>
-                        <span class="setting-text" data-i18n="settingsThemeMode">主题模式</span>
-                    </div>
-                    <span class="setting-item-value" id="theme-mode-value">默认模式</span>
                 </div>
             </div>
 
@@ -1510,16 +1506,16 @@
                 <div class="setting-label">
                     <span class="setting-icon">🎨</span>
                     <span class="setting-text" data-i18n="settingsThemeMode">主题模式</span>
-                    </div>
-                    </div>
-                    <div class="theme-mode-group" id="theme-mode-group">
-                    <button type="button" class="theme-mode-option active" data-theme-mode="default"
+                </div>
+            </div>
+            <div class="theme-mode-group" id="theme-mode-group">
+                <button type="button" class="theme-mode-option active" data-theme-mode="default"
                         data-i18n="settingsThemeModeDefault">默认模式</button>
-                    <button type="button" class="theme-mode-option" data-theme-mode="dark"
+                <button type="button" class="theme-mode-option" data-theme-mode="dark"
                         data-i18n="settingsThemeModeDark">深色模式</button>
-                    <button type="button" class="theme-mode-option" data-theme-mode="custom"
+                <button type="button" class="theme-mode-option" data-theme-mode="custom"
                         data-i18n="settingsThemeModeCustom">自定义模式</button>
-                    </div>
+            </div>
 
             <!-- 自定义强调色：仅"自定义模式"下可编辑 -->
             <div class="setting-item-config theme-color-editor is-locked" id="theme-color-editor">

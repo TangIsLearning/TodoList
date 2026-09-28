@@ -187,7 +187,7 @@ class LanguageManager {
             ['页面标题', () => this.updatePageTitle(lang)],
             ['主界面', () => this.updateMainInterface(lang)],
             ['模态框', () => this.updateModals(lang)],
-            ['设置中心', () => this.updateSettings(lang)],
+            ['设置中心', () => this.updateSettings()],
             ['日期选择器', () => this.updateDatePicker(lang)]
         ];
 
