@@ -152,7 +152,11 @@ android.ndk_api = 21
 
 # (str) Extra xml to write directly inside the <manifest><application> tag of AndroidManifest.xml
 # use that parameter to provide a filename from where to load your custom XML arguments:
-#android.extra_manifest_application_arguments = ./interop/android/extra_manifest_application_arguments.xml
+# 应用内所有页面/资源都由 pywebview 内置服务器经 http://127.0.0.1 回环提供，
+# 而 Android 9+（android.api = 33）默认拦截明文 HTTP，不开启会白屏并报
+# net::ERR_CLEARTEXT_NOT_PERMITTED，故这里显式放行明文流量（仅回环地址会用到）。
+# 注意：Buildozer 1.5.0 等较旧版本中会存在转义问题导致xml文件中的配置报错，因而请使用高版本Buildozer构建
+android.extra_manifest_application_arguments = extra_manifest_application_arguments.xml
 
 # (str) Full name including package path ofa the Java class that implements Python Service
 # use that parameter to set custom Java class which extends PythonService
@@ -357,9 +361,7 @@ pypi_mirror = https://pypi.tuna.tsinghua.edu.cn/simple
 #p4a.setup_py = false
 
 # (str) extra command line arguments to pass when invoking pythonforandroid.toolchain
-#p4a.extra_args =
-
-
+p4a.extra_args = --allow-minsdk-ndkapi-mismatch
 
 #
 # iOS specific
