@@ -75,6 +75,19 @@ class DataExportManager(LogManager):
         except:
             return str(s)
 
+    @staticmethod
+    def _query_rows(cursor: sqlite3.Cursor, sql: str, columns: tuple) -> List[Dict[str, Any]]:
+        """查询指定列并封装为字典列表。
+
+        历史库可能尚未建某些表（如后加的 tags），此时回退为空列表，
+        避免因单张表缺失导致整次导出失败。
+        """
+        try:
+            cursor.execute(sql)
+        except sqlite3.OperationalError:
+            return []
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
     def export_data(self, include_attachments: bool = True) -> Optional[Dict[str, Any]]:
         """导出数据库中的所有数据
 
@@ -84,8 +97,9 @@ class DataExportManager(LogManager):
 
         Returns:
             包含所有数据的字典，结构为
-            {'tasks': [...], 'categories': [...], 'attachments': [...],
-             'attachment_files': {...}, 'settings': {...}}
+            {'tasks': [...], 'categories': [...], 'tags': [...],
+             'task_tags': [...], 'task_relations': [...],
+             'attachments': [...], 'attachment_files': {...}, 'settings': {...}}
         """
         try:
             self.get_logger.info("路径查询：%s", self.db_path)
@@ -129,6 +143,22 @@ class DataExportManager(LogManager):
                     }
                     categories.append(category_dict)
 
+                # 导出标签本体
+                tags: List[Dict[str, Any]] = []
+                for tag in self._query_rows(cursor, 'SELECT id, name, color, created_at FROM tags',
+                                            ('id', 'name', 'color', 'created_at')):
+                    tag['name'] = self._clean_str(tag['name'])
+                    tags.append(tag)
+
+                # 导出任务-标签关联（task_tags 是多对多关联表，缺失会导致标签全部丢失）
+                task_tags = self._query_rows(
+                    cursor, 'SELECT task_id, tag_id FROM task_tags', ('task_id', 'tag_id'))
+
+                # 导出父子任务关联（区别于 tasks.parent_task_id，后者仅用于周期性任务）
+                task_relations = self._query_rows(
+                    cursor, 'SELECT sub_task_id, main_task_id, created_at FROM task_relations',
+                    ('sub_task_id', 'main_task_id', 'created_at'))
+
                 # 导出设置
                 cursor.execute('SELECT * FROM settings')
                 settings = {}
@@ -169,10 +199,14 @@ class DataExportManager(LogManager):
             self.get_logger.info("导出数据无异常")
 
             result: Dict[str, Any] = {
-                'version': '1.0',
+                # 1.1：补齐 tags / task_tags / task_relations
+                'version': '1.1',
                 'export_time': str(Path(self.db_path).stat().st_mtime),
                 'tasks': tasks,
                 'categories': categories,
+                'tags': tags,
+                'task_tags': task_tags,
+                'task_relations': task_relations,
                 'attachments': attachments,
                 'settings': settings,
                 'include_attachments': include_attachments
@@ -227,8 +261,11 @@ class DataExportManager(LogManager):
 
                 # 确保目标库结构完整（可能是尚未初始化的全新文件），再清空现有数据
                 schema.create_all(cursor)
+                # 外键已开启，按「先子表后父表」顺序清空，保证覆盖式导入后无残留
                 cursor.execute('DELETE FROM attachments')
                 cursor.execute('DELETE FROM task_tags')
+                cursor.execute('DELETE FROM task_relations')
+                cursor.execute('DELETE FROM tags')
                 cursor.execute('DELETE FROM tasks')
                 cursor.execute('DELETE FROM categories')
                 cursor.execute('DELETE FROM settings')
@@ -273,6 +310,60 @@ class DataExportManager(LogManager):
                         task['updated_at'],
                         task.get('recurrence_rule')
                     ))
+
+                # 实际落库的任务集合：后续关联表只挂载存在的任务，避免外键报错
+                valid_task_ids = {task['id'] for task in data.get('tasks', []) if task.get('id')}
+
+                # 导入标签：tags.name 有唯一约束，重名脏数据按名称归并到首个标签，
+                # 并把被归并的 tag_id 映射到保留下来的 id，供 task_tags 回写
+                tag_id_map: Dict[str, str] = {}
+                name_to_id: Dict[str, str] = {}
+                for tag in data.get('tags', []) or []:
+                    tag_id = tag.get('id')
+                    tag_name = self._clean_str(tag.get('name'))
+                    if not tag_id or not tag_name:
+                        continue
+                    canonical_id = name_to_id.get(tag_name)
+                    if canonical_id is None:
+                        canonical_id = tag_id
+                        name_to_id[tag_name] = canonical_id
+                        cursor.execute('''
+                            INSERT INTO tags (id, name, color, created_at)
+                            VALUES (?, ?, ?, ?)
+                        ''', (
+                            canonical_id,
+                            tag_name,
+                            tag.get('color') or '#6c757d',
+                            tag.get('created_at')
+                        ))
+                    tag_id_map[tag_id] = canonical_id
+
+                # 导入任务-标签关联
+                for relation in data.get('task_tags', []) or []:
+                    task_id = relation.get('task_id')
+                    tag_id = tag_id_map.get(relation.get('tag_id'))
+                    if not task_id or not tag_id or task_id not in valid_task_ids:
+                        continue
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO task_tags (task_id, tag_id) VALUES (?, ?)
+                    ''', (task_id, tag_id))
+
+                # 导入父子任务关联
+                for relation in data.get('task_relations', []) or []:
+                    sub_task_id = relation.get('sub_task_id')
+                    main_task_id = relation.get('main_task_id')
+                    if (not sub_task_id or not main_task_id
+                            or sub_task_id not in valid_task_ids
+                            or main_task_id not in valid_task_ids):
+                        continue
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO task_relations (sub_task_id, main_task_id, created_at)
+                        VALUES (?, ?, ?)
+                    ''', (sub_task_id, main_task_id, relation.get('created_at')))
+
+                # calendar_events 记录的是本设备系统日历的事件 ID，跨设备无意义，故不随同步写入；
+                # 但任务已被整体替换，这里清掉指向已不存在任务的残留行
+                cursor.execute('DELETE FROM calendar_events WHERE task_id NOT IN (SELECT id FROM tasks)')
 
                 # 导入设置
                 for key, value in data.get('settings', {}).items():
@@ -349,6 +440,13 @@ class DataExportManager(LogManager):
                 cursor.execute('SELECT COUNT(*) FROM categories')
                 total_categories = cursor.fetchone()[0]
 
+                # 统计标签数（历史库可能无此表，缺失时按 0 处理）
+                try:
+                    cursor.execute('SELECT COUNT(*) FROM tags')
+                    total_tags = cursor.fetchone()[0]
+                except sqlite3.OperationalError:
+                    total_tags = 0
+
                 # 获取最后更新时间
                 cursor.execute('SELECT MAX(updated_at) FROM tasks')
                 last_updated = cursor.fetchone()[0]
@@ -357,6 +455,7 @@ class DataExportManager(LogManager):
                     'total_tasks': total_tasks,
                     'completed_tasks': completed_tasks,
                     'total_categories': total_categories,
+                    'total_tags': total_tags,
                     'last_updated': last_updated
                 }
             finally:

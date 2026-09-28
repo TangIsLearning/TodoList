@@ -133,6 +133,7 @@ class DataTransfer {
                         <p><strong>${window.languageManager.getText('statsCompletedTasks', '已完成')}:</strong> ${summary.completed_tasks}</p>
                         <p><strong>${window.languageManager.getText('statsUnCompletedTasks', '未完成')}:</strong> ${summary.total_tasks - summary.completed_tasks}</p>
                         <p><strong>${window.languageManager.getText('statsCategories', '分类数')}:</strong> ${summary.total_categories}</p>
+                        <p><strong>${window.languageManager.getText('statsTags', '标签数')}:</strong> ${summary.total_tags || 0}</p>
                         <p><strong>${window.languageManager.getText('statsLastUpdateTime', '最后更新')}:</strong> ${summary.last_updated || '无'}</p>
                     `;
                 }
@@ -284,6 +285,8 @@ class DataTransfer {
     displayReceivedData(data) {
         const tasks = data.tasks || [];
         const categories = data.categories || [];
+        const tags = data.tags || [];
+        const taskRelations = data.task_relations || [];
         const attachmentCount = (data.attachments || []).length;
         const attachmentFileCount = data.attachment_file_count || 0;
 
@@ -292,6 +295,9 @@ class DataTransfer {
             <p><strong>导出时间:</strong> ${data.export_time || '未知'}</p>
             <p><strong>任务数:</strong> ${tasks.length}</p>
             <p><strong>分类数:</strong> ${categories.length}</p>
+            <p><strong>标签数:</strong> ${tags.length}</p>
+            <p><strong>任务标签关联:</strong> ${(data.task_tags || []).length}</p>
+            <p><strong>父子任务关联:</strong> ${taskRelations.length}</p>
             <p><strong>设置项:</strong> ${Object.keys(data.settings || {}).length}</p>
             <p><strong>${window.languageManager.getText('attachmentRecords', '附件记录数')}:</strong> ${attachmentCount}</p>
             <p><strong>${window.languageManager.getText('attachmentFiles', '附件文件数')}:</strong> ${attachmentFileCount}</p>

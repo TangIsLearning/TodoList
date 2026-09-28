@@ -94,6 +94,7 @@ const Languages = {
         statsTodayCompletedTasks: "今日已完成",
         statsOverDueDateTasks: "已逾期",
         statsCategories: "分类数",
+        statsTags: "标签数",
         statsAllTime: "全部时间",
         
         // 分类管理
@@ -624,6 +625,7 @@ const Languages = {
         statsTodayCompletedTasks: "Completed Today",
         statsOverDueDateTasks: "Overdue",
         statsCategories: "Total Categories",
+        statsTags: "Total Tags",
         statsAllTime: "All Time",
         
         // 分类管理
