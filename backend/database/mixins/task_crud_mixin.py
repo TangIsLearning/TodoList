@@ -673,8 +673,12 @@ class TaskCrudMixin:
         children = self._build_recurring_children(parent_task)
         all_tasks = [parent_task] + children
 
+        tag_names = parent_task_data.get('tags') or []
+
         with self.tx() as conn:
             conn.executemany(_INSERT_TASK_SQL, [self._task_to_params(t) for t in all_tasks])
+            for t in all_tasks:
+                self._replace_tags(conn, t.id, tag_names)
             rows = conn.execute(
                 f'{_TASK_SELECT} WHERE id IN ({placeholders(len(all_tasks))})',
                 tuple(t.id for t in all_tasks)
