@@ -1398,9 +1398,12 @@ input:checked + .slider:before {
 
 /* 日历视图样式 */
 .calendar-container {
+    position: relative;  /* 背景月份数字的定位基准：日历视图本身而非整个窗口 */
     flex: 1;
-    overflow-y: auto;
     display: flex;
+    /* 滚动下移到 .calendar-main-content，避免水印随滚动条偏移 */
+    overflow: hidden;
+    min-height: 0;
 }
 
 .calendar-prev-month, .calendar-next-month {
@@ -1418,23 +1421,43 @@ input:checked + .slider:before {
 
 .calendar-main-content {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
     display: flex;
     flex-direction: column;
     padding-bottom: var(--spacing-sm);
 }
 
-.calendar-background-month {
+/* 背景月份水印层：铺满日历视图，负责居中裁剪，数字永远不会被撑出视图边界 */
+.calendar-background-layer {
     position: absolute;
-    top: 50%;
-    left: 60%;
-    transform: translate(-50%, -50%); /* 实现居中 */
-    font-size: 400px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;        /* 数字尺寸再大也只在日历视图内裁切 */
+    pointer-events: none;    /* 让点击穿透给下层日期格 */
+    z-index: 1;
+    container-type: size;    /* 供内部文字按视图实际尺寸自适应字号 */
+}
+
+.calendar-background-month {
+    font-size: min(400px, 40vw, 45vh);    /* 兜底：不支持容器查询时按窗口尺寸缩放 */
+    font-size: min(400px, 42cqw, 55cqh);  /* 以日历视图自身宽高为基准缩放，大屏小屏都不溢出 */
+    line-height: 1;
     font-weight: bold;
     color: rgba(var(--danger-rgb), 0.19); /* 半透明水印文字 */
     letter-spacing: 4px;
+    /* letter-spacing 会在末位字符后多留一份间距，靠左补等量留白抵消，视觉上真正居中 */
+    padding-left: 4px;
+    white-space: nowrap;
     pointer-events: none;         /* 让点击穿透给按钮 */
     user-select: none;            /* 让文字不能被鼠标选中（更干净） */
-    z-index: 1;
 }
 
 .calendar-days::before {

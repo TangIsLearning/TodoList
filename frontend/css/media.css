@@ -685,10 +685,6 @@
         display: none;
     }
 
-    .calendar-background-month {
-        left: 50%;
-    }
-
     /* 移动端加载更多指示器 */
     .loading-more {
         padding: var(--spacing-md);
@@ -941,10 +937,6 @@
     .more-options-section {
         margin-top: 2px;
         padding-top: 2px;
-    }
-
-    .calendar-background-month {
-        left: 50%;
     }
 }
 
