@@ -687,8 +687,7 @@ class TodoManager {
                     <div class="task-content">
                         <h3 class="task-title">
                             <span class="task-title-text">${Utils.escapeHtml(task.title)}</span>
-                            ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
-                            ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                            ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                             <span class="subtask-count" data-task-id="${task.id}" data-task-title="${Utils.escapeHtml(task.title)}" style="display: none; cursor: pointer;">📋 <span class="count">0</span></span>
                             ${this.createTaskCopyButton(task)}
                         </h3>

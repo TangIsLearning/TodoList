@@ -322,7 +322,6 @@ const Languages = {
 
         // 周期性任务
         recurringTask: "周期性任务",
-        recurrenceType: "重复周期",
         recurrenceCount: "循环次数*",
         recurrenceDaily: "每天",
         recurrenceWeekly: "每周",
@@ -853,7 +852,6 @@ const Languages = {
 
         // 周期性任务
         recurringTask: "Recurring Task",
-        recurrenceType: "Recurrence",
         recurrenceCount: "Repeat Count",
         recurrenceDaily: "Daily",
         recurrenceWeekly: "Weekly",

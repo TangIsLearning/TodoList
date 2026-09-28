@@ -327,8 +327,7 @@ Object.assign(TodoManager.prototype, {
                 <div style="margin-bottom: 20px;">
                     <h3 style="font-size: 20px; color: var(--text-primary); margin-bottom: 10px;">
                         ${Utils.escapeHtml(task.title)}
-                        ${task.isRecurring ? `<span class="recurring-badge">${window.languageManager.getText('recurrenceType', '周期性')}</span>` : ''}
-                        ${task.parentTaskId ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
+                        ${(task.parentTaskId || task.isRecurring) ? `<span class="recurring-badge">${window.languageManager.getText('recurringTask', '周期任务')}</span>` : ''}
                     </h3>
                     <p class="task-detail-description">${task.description
                         ? Utils.escapeHtml(task.description.replace(/\r\n/g, '\n'))
