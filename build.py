@@ -205,22 +205,24 @@ def create_dmg():
         return False
 
 def get_arch_info():
-    """检测当前主机架构，返回 (arch_str, runtime_name, compression)"""
+    """检测当前主机架构，返回 (arch_str, runtime_name)"""
     machine = platform.machine().lower()
     if machine in ('x86_64', 'amd64'):
-        # x86_64 环境使用 zstd 压缩，以兼容新版 FUSE
-        return 'x86_64', 'runtime-x86_64', 'zstd'
+        return 'x86_64', 'runtime-x86_64'
     elif machine in ('aarch64', 'arm64'):
-        # ARM 环境使用 xz 压缩，以兼容旧版 FUSE
-        return 'aarch64', 'runtime-aarch64', 'xz'
+        return 'aarch64', 'runtime-aarch64'
     else:
         print(f" ⚠️ 未知架构 {machine}，回退到 x86_64")
-        return 'x86_64', 'runtime-x86_64', 'zstd'
+        return 'x86_64', 'runtime-x86_64'
 
 def create_appimage():
-    """创建 AppImage 包，自动适配 x86_64 和 aarch64，使用系统 mksquashfs 进行 xz 压缩"""
-    arch, runtime_name, compression = get_arch_info()
-    print(f"🐧 创建 AppImage 包 (架构: {arch}, 压缩: {compression})...")
+    """
+    创建 AppImage 包，自动适配 x86_64 和 aarch64。
+    在 Linux 下会同时生成 xz、gzip、zstd 三种压缩格式的 AppImage。
+    返回生成的 AppImage 文件路径列表，失败返回 False。
+    """
+    arch, runtime_name = get_arch_info()
+    print(f"🐧 创建 AppImage 包 (架构: {arch})...")
 
     # 1. 准备 AppDir 目录结构
     appdir = Path('build/AppDir')
@@ -231,7 +233,7 @@ def create_appimage():
     # 创建标准目录结构
     (appdir / 'usr/bin').mkdir(parents=True)
 
-    # 复制可执行文件：兼容 PyInstaller 目录/单文件模式拷贝
+    # 2. 复制 PyInstaller 生成的可执行文件（兼容目录模式和单文件模式）
     dist_src = Path('dist/TodoList')
     if dist_src.is_dir():
         # 如果是 COLLECT 生成的文件夹，将其内容全量搬运
@@ -244,7 +246,7 @@ def create_appimage():
         # 如果是单文件模式，走原有的单文件拷贝
         shutil.copy2(dist_src, appdir / 'usr/bin/TodoList')
 
-    # 【修改点 1】严格确保 Name 字段、Icon 字段与文件名在大小写上完美统一
+    # 3. 创建 .desktop 文件
     desktop_content = """[Desktop Entry]
 Name=TodoList
 Comment=A simple todo list app
@@ -262,23 +264,17 @@ StartupWMClass=TodoList
     (appdir / 'usr/share/applications').mkdir(parents=True, exist_ok=True)
     (appdir / 'usr/share/applications/todolist.desktop').write_text(desktop_content)
 
-    # 处理图标
+    # 4. 处理图标
     icon_src = Path('todo_icon.png')
     if not icon_src.exists():
         print(" ⚠️ 未找到 todo_icon.png，请先运行 create_icon.py 生成")
         return False
 
-    # 复制到标准图标目录
     icons_dir = appdir / 'usr/share/icons/hicolor/256x256/apps'
     icons_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(icon_src, icons_dir / 'todolist.png')
+    shutil.copy(icon_src, appdir / 'todolist.png')
 
-    # 复制到根目录，保持全小写
-    root_icon = appdir / 'todolist.png'
-    shutil.copy(icon_src, root_icon)
-    print(f" ✅ 图标已复制到标准目录: {icons_dir}/todolist.png")
-
-    # 【修改点 2】在根目录下显式创建符合 AppImage 规范的 .DirIcon 软链接
     dir_icon = appdir / '.DirIcon'
     if dir_icon.exists():
         dir_icon.unlink()
@@ -286,7 +282,7 @@ StartupWMClass=TodoList
     os.symlink('todolist.png', dir_icon)
     print(" ✅ 已成功创建 .DirIcon 规范软链接")
 
-    # 创建 AppRun 脚本 (保持你原有的逻辑不变)
+    # 5. 创建 AppRun 启动脚本
     apprun_content = """#!/bin/bash
 SELF=$(readlink -f "$0")
 HERE=${SELF%/*}
@@ -304,49 +300,62 @@ exec $HERE/usr/bin/TodoList "$@"
     (appdir / 'AppRun').write_text(apprun_content)
     (appdir / 'AppRun').chmod(0o755)
 
-    # 使用系统 mksquashfs 生成 squashfs 镜像
-    print(f"   -> 使用系统 mksquashfs 生成 squashfs 镜像 ({compression} 压缩)...")
-    squashfs_file = Path('build/TodoList.squashfs')
-    if squashfs_file.exists():
-        squashfs_file.unlink()
-
-    mksquashfs_cmd = [
-        'mksquashfs', str(appdir), str(squashfs_file),
-        '-comp', compression, '-noappend'  # 使用动态的 compression
-    ]
-    try:
-        subprocess.run(mksquashfs_cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"   ❌ mksquashfs 执行失败: {e}")
-        return False
-    except FileNotFoundError:
-        print("   ❌ 未找到 mksquashfs，请安装 squashfs-tools：sudo apt install squashfs-tools")
-        return False
-
-    # 指定 runtime 文件（如果存在）
+    # 6. 查找 runtime 文件
     runtime_file = Path(runtime_name)
     if not runtime_file.exists():
-        print(f"   ⚠️ 未找到 runtime 文件 {runtime_name}，请下载并放到项目根目录")
+        alt_runtime = Path(f'/home/ubuntu24/TodoList/{runtime_name}')
+        if alt_runtime.exists():
+            runtime_file = alt_runtime
+        else:
+            print(f"   ⚠️ 未找到 runtime 文件 {runtime_name}，请下载并放到项目根目录")
+            return False
+
+    # 7. 循环三种压缩格式生成多个 AppImage
+    compressions = ['xz', 'gzip', 'zstd']
+    generated_files = []
+
+    for comp in compressions:
+        print(f"   -> 使用 {comp} 压缩生成 squashfs...")
+        squashfs_file = Path(f'build/TodoList-{comp}.squashfs')
+        if squashfs_file.exists():
+            squashfs_file.unlink()
+
+        mksquashfs_cmd = [
+            'mksquashfs', str(appdir), str(squashfs_file),
+            '-comp', comp, '-noappend'
+        ]
+        try:
+            subprocess.run(mksquashfs_cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(f"   ❌ {comp} 压缩失败: {e}")
+            if e.stderr:
+                print(f"      错误输出: {e.stderr.decode()}")
+            continue
+        except FileNotFoundError:
+            print("   ❌ 未找到 mksquashfs，请安装 squashfs-tools：sudo apt install squashfs-tools")
+            return False
+
+        # 拼接 runtime 与 squashfs
+        output = Path('dist') / f'TodoList-{arch}-{comp}.AppImage'
+        if output.exists():
+            output.unlink()
+
+        with open(output, 'wb') as f_out:
+            with open(runtime_file, 'rb') as f_runtime:
+                shutil.copyfileobj(f_runtime, f_out)
+            with open(squashfs_file, 'rb') as f_squashfs:
+                shutil.copyfileobj(f_squashfs, f_out)
+
+        output.chmod(0o755)
+        squashfs_file.unlink()
+        generated_files.append(output)
+        print(f"   ✅ 已生成: {output}")
+
+    if not generated_files:
+        print("   ❌ 未能生成任何 AppImage 文件")
         return False
 
-    # 拼接 runtime 与 squashfs 为最终 AppImage
-    print("   -> 拼接 runtime 与 squashfs...")
-    output = Path('dist') / f'TodoList-{arch}.AppImage'
-    if output.exists():
-        output.unlink()
-
-    with open(output, 'wb') as f_out:
-        with open(runtime_file, 'rb') as f_runtime:
-            shutil.copyfileobj(f_runtime, f_out)
-        with open(squashfs_file, 'rb') as f_squashfs:
-            shutil.copyfileobj(f_squashfs, f_out)
-
-    # 9. 赋予执行权限并清理临时文件
-    output.chmod(0o755)
-    squashfs_file.unlink()
-
-    print(f"   ✅ AppImage 已生成: {output}")
-    return True
+    return generated_files
 
 def main():
     """主函数"""
@@ -380,19 +389,21 @@ def main():
     if sys.platform == 'darwin':
         create_dmg()
     elif sys.platform.startswith('linux'):
-        if create_appimage():
-            print("💡 正在为当前系统注册桌面图标...")
+        generated_appimages = create_appimage()
+        if generated_appimages:
+            arch, _ = get_arch_info()
+            # 默认使用第一个生成的文件（例如 xz 版本）注册桌面图标
+            default_appimage = generated_appimages[0]
+            appimage_name = default_appimage.name
+
+            print(f"💡 正在为当前系统注册桌面图标（使用 {appimage_name}）...")
             try:
                 home_dir = Path.home()
                 apps_dir = home_dir / '.local/share/applications'
                 apps_dir.mkdir(parents=True, exist_ok=True)
 
-                # 自动检测架构以生成正确的 AppImage 文件名
-                arch, _, _ = get_arch_info()
-                appimage_name = f'TodoList-{arch}.AppImage'
-                appimage_path = (Path('dist') / appimage_name).resolve()
+                appimage_path = default_appimage.resolve()
 
-                # 图标可以复制到用户本地图标目录，让 GNOME 能够全局识别
                 user_icons_dir = home_dir / '.local/share/icons/hicolor/256x256/apps'
                 user_icons_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copy('todo_icon.png', user_icons_dir / 'todolist.png')
@@ -434,13 +445,16 @@ def main():
         print("   1. 将dist文件夹复制到目标电脑")
         print("   2. 双击TodoList.exe运行应用")
     else:
-        arch, _, _ = get_arch_info()
-        print("🐧 Linux 可执行文件位置: dist/TodoList")
-        print("\n🎉 TodoList 应用已成功打包为AppImage程序!")
-        print("📝 使用说明:")
-        print(f"     1. 应用分发：将 TodoList-{arch}.AppImage 发送给用户")
-        print("     2. 本地使用：进入 dist 目录, 运行 ./TodoList（确保已具有可执行权限）")
-        print("\n💡 提示：如果提示权限不足，请执行 chmod +x TodoList")
+        arch, _ = get_arch_info()
+        print(f"🐧 Linux 可执行文件位置: dist/TodoList")
+        print(f"\n🎉 TodoList 应用已成功打包为 AppImage 程序!")
+        print("📝 生成的文件：")
+        if 'generated_appimages' in locals() and generated_appimages:
+            for f in generated_appimages:
+                print(f"     - {f}")
+        else:
+            print("     (无)")
+        print("\n💡 提示：如果提示权限不足，请执行 chmod +x <文件名>")
 
 if __name__ == '__main__':
     main()
