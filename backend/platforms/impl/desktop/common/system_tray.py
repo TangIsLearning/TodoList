@@ -62,7 +62,7 @@ class SystemTrayManager(LogManager):
             icon.run_detached()
 
             # 主线程运行 WebView（阻塞直到窗口被 destroy）
-            start.start_app(False, self.service.start_keyboard)
+            start.start_app(self.service.start_keyboard)
             self.get_logger.info("77777: WebView 窗口已关闭（通常是用户点击了窗口的 [X]）")
 
             # 如果主线程运行到这里，说明主窗口被关闭了，我们需要同步将托盘和进程连带一起关闭

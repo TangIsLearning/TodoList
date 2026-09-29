@@ -312,7 +312,7 @@ class AndroidService(PlatformService):
     def start_app(self) -> None:
         """启动应用的统一接口"""
         from backend import start
-        start.start_app(True, None)
+        start.start_app()
 
     def frontend_logger(self) -> Any:
         """前端日志的统一接口"""

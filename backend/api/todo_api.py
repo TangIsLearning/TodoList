@@ -11,6 +11,7 @@ from backend.storage.data_export import DataExportManager
 from backend.features.p2p.p2p_server import P2PServer
 from backend.features.p2p.p2p_client import P2PClient
 from backend.api.mixins import AllApiMixins
+from backend.platforms.core.factory import is_mobile_platform
 from backend.utils.logger import LogManager
 
 # 确保能找到database模块
@@ -22,10 +23,10 @@ if str(backend_dir) not in sys.path:
 class TodoApi(AllApiMixins, LogManager):
     """TodoList应用的API类，提供前后端通信接口"""
     
-    def __init__(self, is_android: bool, sync_manager: Any) -> None:
+    def __init__(self, sync_manager: Any) -> None:
         super().__init__()
         self.db = TodoDatabase()
-        self.is_android = is_android
+        self.is_android = is_mobile_platform()
         self.sync_manager = sync_manager
         self._received_data: Any = None
         self._exported_data: Any = None

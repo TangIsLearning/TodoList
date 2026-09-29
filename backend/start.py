@@ -16,7 +16,7 @@ current_dir = Path(__file__).parent
 # 设置默认窗口置顶为false
 window_on_top = False
 
-from backend.platforms.core.factory import get_platform_service
+from backend.platforms.core.factory import get_platform_service, is_mobile_platform
 service = get_platform_service()
 backend_logger = service.backend_logger()
 
@@ -78,18 +78,15 @@ def show_error_page(window: Any, message: str) -> None:
         backend_logger.error(f"展示错误页面失败: {e}")
 
 
-def start_app(
-    is_android: bool = False,
-    start_keyboard: Optional[Callable[[], None]] = None
-) -> None:
-    """启动TodoList桌面应用"""
+def start_app(start_keyboard: Optional[Callable[[], None]] = None) -> None:
+    """启动TodoList应用"""
 
     def on_closing() -> bool:
         """窗口关闭点击事件：仅首次关闭弹窗提醒"""
         from backend.database.todo_database import TodoDatabase
         settings_db = TodoDatabase()
         confirm_close = settings_db.get_setting('confirm_close', True)
-        if is_android:
+        if is_mobile_platform():
             backend.globals.window.confirm_close = False
         elif confirm_close:
             backend.globals.window.confirm_close = True
@@ -156,7 +153,7 @@ def start_app(
             # 创建API实例
             sync_manager = get_data_sync_manager()
             backend_logger.info("初始化TodoApi")
-            api = TodoApi(is_android, sync_manager)
+            api = TodoApi(sync_manager)
             backend_logger.info(f"数据库路径: {api.db.db_path}")
             backend_logger.info("TodoApi 实例创建成功")
         except Exception as e:
