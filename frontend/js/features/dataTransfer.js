@@ -45,6 +45,7 @@ class DataTransfer {
         this.shareDataSummary = document.getElementById('share-data-summary');
         this.scanDevicesBtn = document.getElementById('scan-devices-btn');
         this.includeAttachmentsCheckbox = document.getElementById('include-attachments-checkbox');
+        this.mobileAttachmentNotice = document.getElementById('mobile-attachment-notice');
         this.deviceListSection = document.getElementById('device-list-section');
         this.deviceList = document.getElementById('device-list');
         this.receiveDataPreviewSection = document.getElementById('receive-data-preview-section');
@@ -88,6 +89,7 @@ class DataTransfer {
             this.modal.classList.remove('is-closing');
             this.modal.style.display = 'flex';
             this.loadDataSummary();
+            this.updateAttachmentOption();
         } else {
             logger.error('模态框未找到！');
             Utils.showToast(window.languageManager.getText('initializationFailed', '应用初始化失败'), 'error');
@@ -119,6 +121,20 @@ class DataTransfer {
             this.shareModeBtn.classList.remove('active');
             this.receiveModePanel.classList.add('active');
             this.shareModePanel.classList.remove('active');
+        }
+
+        this.updateAttachmentOption();
+    }
+
+    updateAttachmentOption() {
+        // 移动端作为发送端不支持启用附件传输：禁用勾选并提示，避免用户尝试无效操作
+        const isMobileSender = Utils.isMobilePlatform() && this.currentMode === 'share';
+        if (this.includeAttachmentsCheckbox) {
+            this.includeAttachmentsCheckbox.disabled = isMobileSender;
+            if (isMobileSender) this.includeAttachmentsCheckbox.checked = false;
+        }
+        if (this.mobileAttachmentNotice) {
+            this.mobileAttachmentNotice.style.display = isMobileSender ? 'block' : 'none';
         }
     }
 
@@ -288,9 +304,11 @@ class DataTransfer {
         const tags = data.tags || [];
         const taskRelations = data.task_relations || [];
         const attachmentCount = (data.attachments || []).length;
-        const attachmentFileCount = data.attachment_file_count || 0;
+        // 移动端不接收附件实体，实体文件数统一按 0 展示（关联信息仍正常展示）
+        const isMobileReceiver = Utils.isMobilePlatform();
+        const attachmentFileCount = isMobileReceiver ? 0 : (data.attachment_file_count || 0);
 
-        this.receiveDataSummary.innerHTML = `
+        let html = `
             <p><strong>版本:</strong> ${data.version || '未知'}</p>
             <p><strong>导出时间:</strong> ${data.export_time || '未知'}</p>
             <p><strong>任务数:</strong> ${tasks.length}</p>
@@ -302,6 +320,13 @@ class DataTransfer {
             <p><strong>${window.languageManager.getText('attachmentRecords', '附件记录数')}:</strong> ${attachmentCount}</p>
             <p><strong>${window.languageManager.getText('attachmentFiles', '附件文件数')}:</strong> ${attachmentFileCount}</p>
         `;
+
+        // 移动端作为接收端仅接收附件关联信息，不接收/导入附件实体文件，给出明确提示
+        if (isMobileReceiver) {
+            html += `<p class="transfer-notice"><strong>${window.languageManager.getText('notice', '提示')}：</strong>${window.languageManager.getText('mobileReceiveAttachmentNotice', '移动端仅接收附件关联信息，不接收/导入附件实体文件')}</p>`;
+        }
+
+        this.receiveDataSummary.innerHTML = html;
     }
 
     async confirmImport() {

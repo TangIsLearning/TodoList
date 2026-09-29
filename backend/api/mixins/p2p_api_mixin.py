@@ -67,6 +67,10 @@ class P2PApiMixin:
         self._received_data = self._p2p_client.receive_data(ip)
         if not self._received_data:
             raise Exception(f'接收数据失败')
+        # 移动端作为接收端不支持附件实体数据：直接丢弃实体文件，仅保留附件关联信息
+        # （attachments 元信息），既避免预览误显示实体数量，也避免大体积数据常驻内存
+        if getattr(self, 'is_android', False) and isinstance(self._received_data, dict):
+            self._received_data.pop('attachment_files', None)
         return self._build_received_summary(self._received_data)
 
     @api_handler
@@ -80,8 +84,14 @@ class P2PApiMixin:
 
         Args:
             include_attachments: 是否同时打包附件数据（元信息 + 实体文件），
-                默认 False，即不传输任何附件数据
+                默认 False，即不传输任何附件数据；
+                移动端作为发送端时不支持附件传输，统一按 False 处理
         """
+        # 移动端（Android）作为发送端不支持附件传输：强制关闭，仅保留任务等基础数据
+        if getattr(self, 'is_android', False) and include_attachments:
+            self.get_logger.info('移动端作为发送端不支持附件传输，已忽略 include_attachments 选项')
+            include_attachments = False
+
         self._exported_data = self._data_manager.export_data(include_attachments=include_attachments)
         if not self._exported_data:
             raise Exception(f'导出数据失败')
@@ -100,8 +110,12 @@ class P2PApiMixin:
         """导入数据"""
         merged = data if isinstance(data, dict) else {}
         cached = self._received_data if isinstance(self._received_data, dict) else {}
-        # 前端传入的是摘要（不含附件实体文件），此处补全后端缓存的实体文件
-        if 'attachment_files' not in merged and cached.get('attachment_files'):
+        # 前端传入的是摘要（不含附件实体文件），此处补全后端缓存的实体文件；
+        # 移动端作为接收端不支持附件实体数据，仅保留附件关联信息（attachments 元信息），
+        # 故不补全 attachment_files，避免导入无法使用的实体文件
+        if (not getattr(self, 'is_android', False)
+                and 'attachment_files' not in merged
+                and cached.get('attachment_files')):
             merged = {**merged, 'attachment_files': cached['attachment_files']}
         success = self._data_manager.import_data(merged)
         if not success:
