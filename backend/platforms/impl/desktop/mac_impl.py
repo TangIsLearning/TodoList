@@ -179,10 +179,43 @@ class MacService(DesktopCommonService):
         except Exception:
             pass
 
+        # 单实例保护：开机自启动（LaunchAgent）与系统"重新登录时恢复窗口"可能先后拉起两个
+        # 进程，这里让后启动的那个直接退出，避免双开抢同一个数据库
+        lock_dir = Path.home() / 'Library' / 'Application Support' / self.APP_NAME
+        if not self.acquire_single_instance_lock(lock_dir):
+            self.backend_logger().info("检测到已有实例正在运行，激活已有实例后退出本实例")
+            self.activate_existing_window()
+            sys.exit(0)
+
+    def _get_app_bundle_path(self) -> Optional[Path]:
+        """返回当前应用的 .app 包路径；非 .app 环境（如开发态）返回 None"""
+        if not getattr(sys, 'frozen', False):
+            return None
+        # .../<App>.app/Contents/MacOS/<App> —— 逐级上溯找到 .app 这一层
+        for parent in Path(sys.executable).parents:
+            if parent.suffix == '.app':
+                return parent
+        return None
+
+    def activate_existing_window(self) -> bool:
+        """激活已运行实例的统一接口"""
+        import subprocess
+
+        bundle_path = self._get_app_bundle_path()
+        if not bundle_path:
+            self.backend_logger().warning("无法定位 .app 包，跳过激活已有实例")
+            return False
+        try:
+            # open 走 LaunchServices：应用已在运行时只会激活它，不会再开一个新实例
+            subprocess.run(['open', '-a', str(bundle_path)], timeout=5)
+            return True
+        except Exception as e:
+            self.backend_logger().error(f"激活已有实例失败: {e}")
+            return False
+
     def _enable_auto_start_impl(self) -> bool:
         """macOS平台启用自启动"""
         from backend.utils import utils
-        app_path = utils.get_app_path(self)
         try:
             # LaunchAgents目录
             launch_agents_dir = Path.home() / 'Library' / 'LaunchAgents'
@@ -192,49 +225,64 @@ class MacService(DesktopCommonService):
             plist_file = launch_agents_dir / f"com.{self.APP_NAME.lower()}.plist"
 
             # 日志目录
-            log_dir = Path.home() / '.local' / 'var' / 'log'
-            log_dir.mkdir(parents=True, exist_ok=True)
+            from backend.utils.utils import ensure_dir
+            log_dir = ensure_dir(self._packaged_log_dir())
 
-            # 直接启动应用
-            # plist文件内容
+            # 打包后优先用 open 拉起 .app：走 LaunchServices 时应用若已在运行只会激活它，
+            # 不会重复开第二个进程；开发态则直接用解释器执行入口脚本
+            bundle_path = self._get_app_bundle_path()
+            if bundle_path:
+                program_arguments = (
+                    '    <string>/usr/bin/open</string>\n'
+                    '    <string>-a</string>\n'
+                    f'    <string>{bundle_path}</string>'
+                )
+                launch_target = str(bundle_path)
+            else:
+                app_path = utils.get_app_path(self)
+                program_arguments = (
+                    f'    <string>{sys.executable}</string>\n'
+                    f'    <string>{app_path}</string>'
+                )
+                launch_target = app_path
+
+            # 只保留 RunAtLoad：额外写 StartInterval 会让 launchd 周期性重复拉起本任务，
+            # 登录时就会出现两个实例
             plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-    <plist version="1.0">
-    <dict>
-    <key>Label</key>
-    <string>com.{self.APP_NAME.lower()}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{sys.executable}</string>
-        <string>{app_path}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <false/>
-    <key>StandardOutPath</key>
-    <string>{log_dir}/{self.APP_NAME}.out.log</string>
-    <key>StandardErrorPath</key>
-    <string>{log_dir}/{self.APP_NAME}.err.log</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin</string>
-    </dict>
-    <key>WorkingDirectory</key>
-    <string>{Path(app_path).parent}</string>
-    <key>StartInterval</key>
-    <integer>0</integer>
-    <key>LaunchOnlyOnce</key>
-    <true/>
-    </dict>
-    </plist>
-    """
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>Label</key>
+<string>com.{self.APP_NAME.lower()}</string>
+<key>ProgramArguments</key>
+<array>
+{program_arguments}
+</array>
+<key>RunAtLoad</key>
+<true/>
+<key>KeepAlive</key>
+<false/>
+<key>LaunchOnlyOnce</key>
+<true/>
+<key>StandardOutPath</key>
+<string>{log_dir}/{self.APP_NAME}.out.log</string>
+<key>StandardErrorPath</key>
+<string>{log_dir}/{self.APP_NAME}.err.log</string>
+<key>EnvironmentVariables</key>
+<dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin</string>
+</dict>
+<key>WorkingDirectory</key>
+<string>{Path.home()}</string>
+</dict>
+</plist>
+"""
 
             with open(plist_file, 'w', encoding='utf-8') as f:
                 f.write(plist_content)
 
-            self.backend_logger().info(f"macOS开机自启动已启用: {plist_file}")
+            self.backend_logger().info(f"macOS开机自启动已启用: {plist_file} -> {launch_target}")
             return True
 
         except Exception as e:

@@ -1,5 +1,6 @@
 # impl/desktop/linux_impl.py
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -68,6 +69,12 @@ class LinuxService(DesktopCommonService):
         # 【针对 Ubuntu 24.04 虚拟机的环境变量优化】
         # 必须在导入任何 GUI/Webview 组件前设置，消除无障碍总线和沙盒卡顿
         os.environ["NO_AT_BRIDGE"] = "1"
+
+        # 单实例保护：自启动 .desktop 与用户手动启动叠加时只保留一个实例
+        lock_dir = Path.home() / '.local' / 'share' / self.APP_NAME
+        if not self.acquire_single_instance_lock(lock_dir):
+            self.backend_logger().info("检测到已有实例正在运行，退出本实例")
+            sys.exit(0)
 
     def _enable_auto_start_impl(self) -> bool:
         """Linux平台启用自启动"""

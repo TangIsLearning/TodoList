@@ -3,6 +3,7 @@ PlatformService的公共抽象基类，请勿实例化
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -10,6 +11,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from backend.platforms.interface.service import PlatformService
 from backend.utils.api_errors import CancelledError
 from backend.utils.utils import APP_DIR_NAME, ensure_dir
+
+import backend.globals
 
 class DesktopCommonService(PlatformService):
     APP_NAME: str = 'TodoList'
@@ -91,6 +94,42 @@ class DesktopCommonService(PlatformService):
             return self._enable_auto_start_impl()
         else:
             return self._disable_auto_start_impl()
+
+    # ---------- 单实例保护 ----------
+    def acquire_single_instance_lock(self, lock_dir: Path) -> bool:
+        """用文件锁保证同一时间只有一个应用实例。
+
+        Windows 走内核互斥体（见 win_impl.start_prepare），POSIX 平台改用 flock：
+        锁绑定在文件描述符上，进程退出（含被强杀）时由内核自动释放，不会留下
+        需要清理的陈旧锁。
+
+        返回 True 表示抢到锁（本进程是首个实例）；False 表示已有实例在运行。
+        """
+        import fcntl
+
+        try:
+            ensure_dir(lock_dir)
+            lock_file = lock_dir / '.instance.lock'
+            fd = os.open(str(lock_file), os.O_RDWR | os.O_CREAT, 0o644)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                # 锁已被占用：说明已有实例在运行
+                os.close(fd)
+                return False
+
+            # fd 交给全局持有，进程存活期间不得关闭，否则锁会失效
+            backend.globals.instance_lock_fd = fd
+            try:
+                os.ftruncate(fd, 0)
+                os.write(fd, str(os.getpid()).encode('utf-8'))
+            except OSError:
+                pass
+            return True
+        except Exception as e:
+            # 与 Windows 保持一致：加锁失败不阻止启动，最多是多实例
+            self.backend_logger().error(f"单实例锁创建失败，本次允许启动: {e}")
+            return True
 
     def export_tasks_excel(self, db: Any = None, priority: Optional[str] = None,
                           status: Optional[str] = None, year: Optional[int] = None,
