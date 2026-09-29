@@ -111,6 +111,8 @@ window.Utils = {
     bindBackdropClose,
     confirmDialog,
     detectOS,
+    loadPlatformInfo,
+    isMobilePlatform,
     loadPywebviewApi,
     apiCall,
     animateNumber,

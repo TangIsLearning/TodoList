@@ -1649,6 +1649,17 @@
     flex: 1;
 }
 
+/* 移动端附件只读提示 */
+.attachment-mobile-notice {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+}
+
 /* 任务详情中的附件 */
 .detail-attachment-list {
     display: flex;
@@ -1676,4 +1687,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* 移动端详情页：附件只展示信息，不可点击 */
+.detail-attachment-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    padding: 2px 0;
 }

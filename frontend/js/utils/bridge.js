@@ -16,6 +16,30 @@ function detectOS() {
     return 'Unknown';
 }
 
+// 运行平台标记：移动端（Android）由后端权威判定（is_android），
+// 前端据此限制依赖本地文件能力的附件操作，避免用屏幕宽度误判窄窗口桌面端
+let _isMobilePlatform = false;
+
+// 启动时拉取一次并缓存；失败时保守按桌面端处理，保证桌面端功能不受影响
+async function loadPlatformInfo() {
+    await apiCall({
+        apiMethod: 'get_platform_info',
+        onSuccess: (response) => {
+            _isMobilePlatform = !!(response && response.data && response.data.is_mobile);
+            logger.info(`运行平台: ${_isMobilePlatform ? '移动端' : '桌面端'}`);
+        },
+        onError: () => {
+            _isMobilePlatform = false;
+            logger.warning('获取运行平台信息失败，按桌面端处理');
+        }
+    });
+    return _isMobilePlatform;
+}
+
+function isMobilePlatform() {
+    return _isMobilePlatform;
+}
+
 // 加载pywebview的api
 async function loadPywebviewApi(maxRetries = 20, interval = 300) {
     for (let i = 0; i < maxRetries; i++) {

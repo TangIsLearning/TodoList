@@ -15,6 +15,9 @@ class App {
         try {
             if (!this.checkEnvironment()) return;
 
+            // 平台信息先于各模块初始化：附件等能力限制依赖它，后续模块打开弹窗时才能拿到正确状态
+            await Utils.loadPlatformInfo();
+
             await BusinessUtils.ThemeManager.init();
             
             this.bindGlobalEvents();

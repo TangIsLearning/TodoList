@@ -173,8 +173,9 @@ Object.assign(TodoManager.prototype, {
         // 加载标签选择器
         this.tagManager.loadSelector();
 
-        // 附件：复制任务时按源任务重建（后端各自生成副本），普通新建则清空
-        if (sourceTask) this.attachmentManager?.loadCopyFromTask(sourceTask);
+        // 附件：复制任务时按源任务重建（后端各自生成副本），普通新建则清空。
+        // 移动端一律走 reset（内部置为只读），带附件的复制已由 copyTask 提前拦截，这里是兜底
+        if (!Utils.isMobilePlatform() && sourceTask) this.attachmentManager?.loadCopyFromTask(sourceTask);
         else this.attachmentManager?.reset();
 
         Utils.ModalManager.show('task-modal');
@@ -438,6 +439,15 @@ Object.assign(TodoManager.prototype, {
             return;
         }
 
+        // 移动端不支持附件操作，复制出来的新任务不会带附件，直接拦在打开弹窗之前
+        if (Utils.isMobilePlatform() && (task.attachments || []).length > 0) {
+            Utils.showToast(
+                window.languageManager.getText('mobileCopyTaskWithAttachmentUnsupported', '移动端不支持复制带附件的任务，请在桌面端操作'),
+                'warning'
+            );
+            return;
+        }
+
         await this.showAddTaskModal({ sourceTask: task });
         Utils.showToast(
             window.languageManager.getText('taskCopied', '已复制任务信息，确认后即可保存为新任务'),
@@ -453,6 +463,15 @@ Object.assign(TodoManager.prototype, {
         // 如果是周期性任务，禁用编辑
         if (task.isRecurring || task.parentTaskId) {
             Utils.showToast(window.languageManager.getText('periodicTaskEditFailed', '周期性任务不支持编辑，请删除后重新创建'), 'warning');
+            return;
+        }
+
+        // 移动端不支持附件操作，带附件的任务编辑后附件会被静默清空，直接拦在打开弹窗之前
+        if (Utils.isMobilePlatform() && (task.attachments || []).length > 0) {
+            Utils.showToast(
+                window.languageManager.getText('mobileEditTaskWithAttachmentUnsupported', '移动端不支持编辑带附件的任务，请在桌面端操作'),
+                'warning'
+            );
             return;
         }
         
@@ -837,7 +856,16 @@ Object.assign(TodoManager.prototype, {
     async deleteTask(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
-        
+
+        // 移动端不能操作附件，删除会连带删掉附件文件，先拦住避免误删
+        if (Utils.isMobilePlatform() && (task.attachments || []).length > 0) {
+            Utils.showToast(
+                window.languageManager.getText('mobileDeleteTaskWithAttachmentUnsupported', '移动端不支持删除带附件的任务，请在桌面端操作'),
+                'warning'
+            );
+            return;
+        }
+
         // 检查是否有子任务
         let checkChildrenFailed = false;
         await Utils.apiCall({

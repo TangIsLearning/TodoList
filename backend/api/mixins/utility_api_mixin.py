@@ -15,6 +15,14 @@ class UtilityApiMixin:
         return self.service.check_calendar_permission()
 
     @api_handler
+    def get_platform_info(self) -> Dict[str, Any]:
+        """获取运行平台信息
+
+        移动端（Android）没有本地文件选择/打开能力，前端据此限制附件相关操作。
+        """
+        return {'is_mobile': bool(getattr(self, 'is_android', False))}
+
+    @api_handler
     def log(self, level: str, message: str, source: str = 'frontend') -> None:
         """从前端记录日志
 

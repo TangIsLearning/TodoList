@@ -10,8 +10,21 @@ class AttachmentManager {
         // items: 已存在附件(含 id) 或 待新增附件(含 tempId)
         this.items = [];
         this._tempSeq = 0;
+        // 移动端（Android）没有本地文件选择/打开能力，表单里的附件区域整体只读
+        this.readonly = false;
         this.cacheDomRefs();
         this.bindEvents();
+    }
+
+    // 移动端：附件不可增删，只能提示到桌面端操作
+    isMobile() {
+        return typeof Utils.isMobilePlatform === 'function' ? Utils.isMobilePlatform() : false;
+    }
+
+    // 移动端拦截统一入口：返回 true 表示已提示，调用方直接放弃后续操作
+    blockOnMobile(messageKey, fallback) {
+        Utils.showToast(this.getText(messageKey, fallback), 'warning');
+        return true;
     }
 
     getText(key, fallback) {
@@ -21,6 +34,7 @@ class AttachmentManager {
     cacheDomRefs() {
         this.listEl = document.getElementById('attachment-list');
         this.countEl = document.getElementById('attachment-count');
+        this.mobileNoticeEl = document.getElementById('attachment-mobile-notice');
         this.addFileBtn = document.getElementById('attachment-add-file-btn');
         this.addLinkBtn = document.getElementById('attachment-add-link-btn');
         this.addFolderBtn = document.getElementById('attachment-add-folder-btn');
@@ -54,10 +68,18 @@ class AttachmentManager {
     reset() {
         this.items = [];
         this._tempSeq = 0;
+        // 移动端不支持附件操作：新建（含复制）一律只读
+        this.setReadonly(this.isMobile());
+    }
+
+    // 切换表单附件区域的只读态（移动端只读，桌面端可编辑）
+    setReadonly(readonly) {
+        this.readonly = !!readonly;
         this.renderFormList();
     }
 
     loadFromTask(task) {
+        this.readonly = false;
         this.items = (task && task.attachments ? task.attachments : []).map(att => ({
             id: att.id,
             type: att.type,
@@ -75,6 +97,7 @@ class AttachmentManager {
     // 保存时后端按 copyFrom 生成新记录，并复制一份实体文件，避免两个任务共用同一份附件
     // （共用会导致删除其中一个任务时，另一个任务的附件被一并删掉）。
     loadCopyFromTask(task) {
+        this.readonly = false;
         this._tempSeq = 0;
         this.items = (task && task.attachments ? task.attachments : []).map(att => ({
             copyFrom: att.id,
@@ -92,11 +115,13 @@ class AttachmentManager {
     }
 
     removeItem(key) {
+        if (this.readonly && this.blockOnMobile('mobileAttachmentUnsupported', '移动端不支持操作附件，如需配置附件请在桌面端操作')) return;
         this.items = this.items.filter(item => this._itemKey(item) !== key);
         this.renderFormList();
     }
 
     async addFiles() {
+        if (this.readonly && this.blockOnMobile('mobileAttachmentUnsupported', '移动端不支持操作附件，如需配置附件请在桌面端操作')) return;
         if (this.items.length >= ATTACHMENT_MAX_COUNT) {
             Utils.showToast(this.getText('attachmentMaxReached', '最多只能添加 {count} 个附件').replace('{count}', ATTACHMENT_MAX_COUNT), 'warning');
             return;
@@ -136,6 +161,7 @@ class AttachmentManager {
     }
 
     async addFolder() {
+        if (this.readonly && this.blockOnMobile('mobileAttachmentUnsupported', '移动端不支持操作附件，如需配置附件请在桌面端操作')) return;
         if (this.items.length >= ATTACHMENT_MAX_COUNT) {
             Utils.showToast(this.getText('attachmentMaxReached', '最多只能添加 {count} 个附件').replace('{count}', ATTACHMENT_MAX_COUNT), 'warning');
             return;
@@ -168,6 +194,7 @@ class AttachmentManager {
     }
 
     openLinkModal() {
+        if (this.readonly && this.blockOnMobile('mobileAttachmentUnsupported', '移动端不支持操作附件，如需配置附件请在桌面端操作')) return;
         if (this.items.length >= ATTACHMENT_MAX_COUNT) {
             Utils.showToast(this.getText('attachmentMaxReached', '最多只能添加 {count} 个附件').replace('{count}', ATTACHMENT_MAX_COUNT), 'warning');
             return;
@@ -209,8 +236,10 @@ class AttachmentManager {
         if (this.items.length === 0) {
             this.listEl.innerHTML = `<div class="attachment-empty">${this.getText('attachmentEmpty', '暂无附件')}</div>`;
         } else {
+            // 移动端只读：不渲染删除按钮，只展示已有的附件信息
+            const removeBtn = item => this.readonly ? '' : `
+                        <button type="button" class="attachment-remove" data-key="${this._itemKey(item)}" title="${this.getText('delete', '删除')}">&times;</button>`;
             this.listEl.innerHTML = this.items.map(item => {
-                const key = this._itemKey(item);
                 const icon = this._itemIcon(item);
                 const sizeText = item.type === 'file' && item.size
                     ? ` <span class="attachment-size">${this.formatSize(item.size)}</span>` : '';
@@ -218,8 +247,7 @@ class AttachmentManager {
                     <div class="attachment-item">
                         <span class="attachment-item-icon">${icon}</span>
                         <span class="attachment-item-name" title="${Utils.escapeHtml(item.name)}">${Utils.escapeHtml(item.name)}</span>
-                        ${sizeText}
-                        <button type="button" class="attachment-remove" data-key="${key}" title="${this.getText('delete', '删除')}">&times;</button>
+                        ${sizeText}${removeBtn(item)}
                     </div>
                 `;
             }).join('');
@@ -228,13 +256,19 @@ class AttachmentManager {
         if (this.countEl) {
             this.countEl.textContent = `${this.items.length}/${ATTACHMENT_MAX_COUNT}`;
         }
-        const reached = this.items.length >= ATTACHMENT_MAX_COUNT;
-        if (this.addFileBtn) this.addFileBtn.disabled = reached;
-        if (this.addLinkBtn) this.addLinkBtn.disabled = reached;
-        if (this.addFolderBtn) this.addFolderBtn.disabled = reached;
+        // 移动端只读时所有操作按钮一并禁用，避免给用户可点的错觉
+        const disabled = this.readonly || this.items.length >= ATTACHMENT_MAX_COUNT;
+        if (this.addFileBtn) this.addFileBtn.disabled = disabled;
+        if (this.addLinkBtn) this.addLinkBtn.disabled = disabled;
+        if (this.addFolderBtn) this.addFolderBtn.disabled = disabled;
+        if (this.mobileNoticeEl) {
+            this.mobileNoticeEl.style.display = this.readonly ? 'block' : 'none';
+        }
     }
 
     getAttachments() {
+        // 移动端只读态下不提交任何附件，避免保存出无法在移动端管理的任务
+        if (this.readonly) return [];
         return this.items.map(item => {
             if (item.id) {
                 return {
@@ -287,6 +321,8 @@ class AttachmentManager {
 
     buildDetailHtml(task) {
         const attachments = task && task.attachments ? task.attachments : [];
+        // 移动端没有打开本地文件/文件夹的能力：只展示附件信息，不渲染可点击的链接
+        const viewOnly = this.isMobile();
         let inner;
         if (attachments.length === 0) {
             inner = `<span style="color: var(--text-secondary);">${this.getText('noTaskAttachments', '无附件')}</span>`;
@@ -294,10 +330,16 @@ class AttachmentManager {
             inner = attachments.map(att => {
                 const sizeText = att.type === 'file' && att.size
                     ? ` <span class="attachment-size">(${this.formatSize(att.size)})</span>` : '';
+                const icon = `<span class="attachment-item-icon">${this._itemIcon(att)}</span>`;
+                const name = `<span class="detail-attachment-name">${Utils.escapeHtml(att.name)}</span>${sizeText}`;
+                if (viewOnly) {
+                    return `
+                    <div class="detail-attachment-item">${icon}${name}</div>
+                `;
+                }
                 return `
                     <a href="javascript:void(0)" class="detail-attachment-link" data-attachment-id="${att.id}">
-                        <span class="attachment-item-icon">${this._itemIcon(att)}</span>
-                        <span class="detail-attachment-name">${Utils.escapeHtml(att.name)}</span>${sizeText}
+                        ${icon}${name}
                     </a>
                 `;
             }).join('');
@@ -314,6 +356,8 @@ class AttachmentManager {
     }
 
     bindDetailEvents(task) {
+        // 移动端详情里的附件只展示信息，不绑定打开行为
+        if (this.isMobile()) return;
         const attachments = task && task.attachments ? task.attachments : [];
         document.querySelectorAll('.detail-attachment-link[data-attachment-id]').forEach(el => {
             el.onclick = () => {
@@ -324,6 +368,8 @@ class AttachmentManager {
     }
 
     openAttachment(att) {
+        // 统一兜底：移动端一律不允许打开附件（详情页与列表入口共用此入口）
+        if (this.isMobile() && this.blockOnMobile('mobileAttachmentViewOnly', '移动端不支持打开附件，请在桌面端查看')) return;
         if (att.type === 'link') {
             this.openExternal(att);
             return;
