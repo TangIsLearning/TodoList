@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from datetime import datetime
 from backend.features.webdav.webdav_config import get_webdav_config, is_webdav_enabled, set_webdav_config
 from backend.features.webdav.webdav_client import WebDAVClient, get_webdav_client
+from backend.platforms.core.factory import is_mobile_platform
 from backend.utils.logger import LogManager
 from backend.utils.api_errors import (
     ConflictError, DatabaseError, NotFoundError, ValidationError)
@@ -27,6 +28,15 @@ class DataSyncManager(LogManager):
     def set_sync_callback(self, callback: Callable[[], None]) -> None:
         """设置同步回调函数"""
         self.on_sync_callback = callback
+
+    @property
+    def syncs_attachment_files(self) -> bool:
+        """是否同步附件实体文件
+
+        移动端不支持附件实体文件同步（无本地文件能力、且避免大文件占空间），
+        但附件的关联信息仍随 todo.db 一起同步。
+        """
+        return not is_mobile_platform()
     
     def start_auto_sync(self) -> None:
         """启动自动同步"""
@@ -92,7 +102,7 @@ class DataSyncManager(LogManager):
         self.is_syncing = True
         try:
             self.get_logger.info("开始从云端同步数据...")
-            client.download_app_dir(local_dir, is_overwrite)
+            client.download_app_dir(local_dir, is_overwrite, self.syncs_attachment_files)
             self.last_sync_time = datetime.now()
             self.get_logger.info("云端数据同步成功")
             if self.on_sync_callback:
@@ -110,7 +120,7 @@ class DataSyncManager(LogManager):
             self.get_logger.info("开始上传数据到云端...")
             if not os.path.exists(local_dir):
                 raise NotFoundError(f'本地数据目录不存在: {local_dir}')
-            client.upload_app_dir(local_dir)
+            client.upload_app_dir(local_dir, self.syncs_attachment_files)
             self.last_sync_time = datetime.now()
             self.get_logger.info("数据上传到云端成功")
         finally:

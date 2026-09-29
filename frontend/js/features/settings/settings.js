@@ -96,6 +96,7 @@ class SettingsUIManager {
         this.webdavTestBtn = document.getElementById('webdav-test-btn');
         this.webdavSaveBtn = document.getElementById('webdav-save-btn');
         this.webdavStatusDiv = document.getElementById('webdav-status');
+        this.webdavMobileAttachmentNotice = document.getElementById('webdav-mobile-attachment-notice');
 
         this.autoStartToggle = document.getElementById('auto-start-toggle');
 

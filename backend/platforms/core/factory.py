@@ -14,6 +14,9 @@ PLATFORM_MAPPING = {
     'android': 'backend.platforms.impl.mobile.android_impl',
 }
 
+# 移动端平台集合：这些平台不支持附件实体文件的同步，只能同步附件的关联信息
+MOBILE_PLATFORMS = frozenset({'android'})
+
 # 平台服务在进程内复用，避免每次调用都重新探测一次环境
 _service: Optional[PlatformService] = None
 
@@ -28,6 +31,14 @@ def current_platform() -> str:
     if hasattr(sys, 'getandroidapilevel') or 'ANDROID_ARGUMENT' in os.environ:
         return 'android'
     return sys.platform
+
+
+def is_mobile_platform(platform_key: Optional[str] = None) -> bool:
+    """当前（或指定）平台是否为移动端
+
+    移动端缺少本地文件系统能力，因此只同步附件的关联信息，不同步实体文件。
+    """
+    return (platform_key or current_platform()) in MOBILE_PLATFORMS
 
 
 def get_platform_service() -> PlatformService:

@@ -23,6 +23,16 @@ DB_FILE_NAME = 'todo.db'
 ATTACHMENT_DIR_NAME = 'attachment'
 
 
+def is_attachment_path(relative_path: str) -> bool:
+    """相对应用数据目录的路径是否位于附件目录下
+
+    移动端不同步附件实体文件，但附件的关联信息（名称、路径、链接等）仍随
+    todo.db 一起同步，因此这里只需在同步时把 attachment/ 下的文件过滤掉。
+    """
+    parts = str(relative_path).replace('\\', '/').strip('/').split('/')
+    return bool(parts) and parts[0] == ATTACHMENT_DIR_NAME
+
+
 def _parse_webdav_time(time_str: str) -> float:
     """
     解析WebDAV返回的两种常见时间格式：
@@ -194,8 +204,14 @@ class WebDAVClient(LogManager):
         self.client.upload_sync(remote_path=remote_file, local_path=local_file)
         self.get_logger.info(f"文件上传成功: {local_file} -> {remote_file}")
 
-    def upload_app_dir(self, local_dir: str) -> None:
-        """将本地应用数据目录（todo.db + attachment）整体上传到远程同步目录"""
+    def upload_app_dir(self, local_dir: str, include_attachments: bool = True) -> None:
+        """将本地应用数据目录（todo.db + attachment）整体上传到远程同步目录
+
+        Args:
+            local_dir: 本地应用数据目录
+            include_attachments: 是否上传附件实体文件；为 False 时只上传 todo.db
+                （附件关联信息仍随数据库同步，仅实体文件不参与同步）
+        """
         local_path = Path(local_dir)
         if not local_path.exists():
             raise NotFoundError(f'本地数据目录不存在: {local_dir}')
@@ -204,14 +220,21 @@ class WebDAVClient(LogManager):
             self._ensure_remote_directory(self.remote_dir)
 
         uploaded = 0
+        skipped = 0
         for file in local_path.rglob('*'):
             if not file.is_file():
                 continue
             rel = file.relative_to(local_path).as_posix()
+            if not include_attachments and is_attachment_path(rel):
+                skipped += 1
+                continue
             remote_file = self._remote_join(rel)
             self.upload_file(remote_file, str(file))
             uploaded += 1
-        self.get_logger.info(f"数据目录上传完成，共 {uploaded} 个文件")
+        self.get_logger.info(
+            f"数据目录上传完成，共 {uploaded} 个文件"
+            + (f"，跳过附件实体文件 {skipped} 个" if skipped else '')
+        )
 
     # ==================== 下载 ====================
 
@@ -249,11 +272,18 @@ class WebDAVClient(LogManager):
         self.client.download_sync(remote_path=remote_file, local_path=local_file)
         return True
 
-    def download_app_dir(self, local_dir: str, is_overwrite: bool = False) -> None:
+    def download_app_dir(self, local_dir: str, is_overwrite: bool = False,
+                         include_attachments: bool = True) -> None:
         """从远程同步目录整体下载到本地应用数据目录
 
         - todo.db：按版本（修改时间）判断，避免覆盖较新的本地数据
         - attachment 附件：文件不可变（文件名含唯一标识），仅下载本地缺失的文件
+
+        Args:
+            local_dir: 本地应用数据目录
+            is_overwrite: 是否强制用远程数据覆盖本地
+            include_attachments: 是否下载附件实体文件；为 False 时只拉取 todo.db
+                （附件关联信息仍随数据库同步，仅实体文件不参与同步）
         """
         local_path = Path(local_dir)
         local_path.mkdir(parents=True, exist_ok=True)
@@ -264,10 +294,14 @@ class WebDAVClient(LogManager):
 
         remote_files = self._list_files_recursive(self.remote_dir)
         base = self.remote_dir.rstrip('/')
+        skipped = 0
 
         for remote_file in remote_files:
             rel = remote_file[len(base):].lstrip('/')
             if not rel:
+                continue
+            if not include_attachments and is_attachment_path(rel):
+                skipped += 1
                 continue
             local_file = local_path / rel
 
@@ -290,7 +324,10 @@ class WebDAVClient(LogManager):
                 except Exception as e:
                     self.get_logger.error(f"下载附件失败 {remote_file}: {e}")
 
-        self.get_logger.info("数据目录下载完成")
+        self.get_logger.info(
+            "数据目录下载完成"
+            + (f"，跳过附件实体文件 {skipped} 个" if skipped else '')
+        )
 
 
 # 全局WebDAV客户端实例

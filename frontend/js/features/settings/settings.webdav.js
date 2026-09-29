@@ -51,6 +51,11 @@ Object.assign(SettingsUIManager.prototype, {
         // 切换WebDAV配置面板显示
         const isEnabled = this.webdavEnableToggle.checked;
         if (this.webdavConfigPanel) this.webdavConfigPanel.style.display = isEnabled ? 'block' : 'none';
+        // 移动端只同步附件的关联信息，实体文件不参与同步，需明确告知
+        if (this.webdavMobileAttachmentNotice) {
+            const isMobile = typeof Utils.isMobilePlatform === 'function' ? Utils.isMobilePlatform() : false;
+            this.webdavMobileAttachmentNotice.style.display = (isEnabled && isMobile) ? 'block' : 'none';
+        }
     },
 
     async testWebDAVConnection() {
