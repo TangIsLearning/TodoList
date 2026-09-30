@@ -613,7 +613,7 @@
                             <i class="ri-calendar-line"></i> 2026年
                         </span>
                         <span class="article-meta-item">
-                            <i class="ri-code-line"></i> <a href="https://github.com/TangIsLearning/TodoList/releases" target="_blank"> v1.1.2 </a>
+                            <i class="ri-code-line"></i> <a href="https://github.com/TangIsLearning/TodoList/releases" target="_blank"> v1.2.0 </a>
                         </span>
                         <span class="article-meta-item">
                             <i class="ri-github-line"></i> <a href="https://github.com/TangIsLearning/TodoList" target="_blank">开源项目</a>
@@ -622,7 +622,7 @@
                 </header>
 
                 <div class="article-body">
-                    <p>TodoList，是一款极简待办软件，目前已正式推出 <strong><a href="https://github.com/TangIsLearning/TodoList/releases" target="_blank"> v1.1.2 </a></strong> 版本。参考借鉴了 Microsoft Todo，主打极简、无广告、无需登录、零门槛上手使用。数据全部存储本地，隐私无需担心。</p>
+                    <p>TodoList，是一款极简待办软件，目前已正式推出 <strong><a href="https://github.com/TangIsLearning/TodoList/releases" target="_blank"> v1.2.0 </a></strong> 版本。参考借鉴了 Microsoft Todo，主打极简、无广告、无需登录、零门槛上手使用。数据全部存储本地，隐私无需担心。</p>
 
                     <h2 id="add-todo">添加待办</h2>
 
@@ -649,6 +649,10 @@
                     <p>新版本直接在左侧菜单栏把<strong>所有标签罗列出来</strong>，点哪个就自动联动搜索，一目了然，再也不用靠脑子记了。</p>
                     <img src="asset/电脑端-标签管理.png" alt="标签管理">
                     <blockquote>💡 小彩蛋：实现多标签搜索时，其实是顺带做了<strong>多条件"或"搜索</strong>——你在搜索栏输入多个关键词，只要满足其中一个，结果就会出来，非常灵活。</blockquote>
+
+                    <h3 id="tag-edit">v1.2.0新增特性：标签编辑</h3>
+                    <p>老版本不支持标签编辑功能，在v1.2.0版本也给补充上了。</p>
+                    <img src="asset/电脑端-编辑标签.png" alt="编辑标签">
 
                     <h3 id="todo-priority">待办优先级</h3>
                     <p>待办任务有4种优先级供选择，默认是无优先级。</p>
@@ -692,6 +696,14 @@
                     </blockquote>
                     <img src="asset/电脑端-更多操作.png" alt="更多操作">
 
+                    <p>在v1.2.0版本，对周期性待办任务进行增强，支持更加灵活的周期配置：</p>
+                    <ol>
+                        <li>周期模式支持：每天多时间点提醒、每天间隔提醒、每周多日提醒、每月和每年的具体日期提醒</li>
+                        <li>周期次数支持：按照结束日期结束周期、按照次数结束周期、习惯类任务(永不截止)</li>
+                        <li>对于更细分场景的周期配置，也提供了对cron表达式的支持</li>
+                    </ol>
+                    <img src="asset/电脑端-更灵活的周期性任务.png" alt="更灵活的周期性任务">
+
                     <h3 id="task-relation">任务关联（子任务）</h3>
                     <p>这个功能在v1.1.0版本引入，是<strong>网友留言强烈要求的</strong>——确实有不少场景需要拆分子任务。感谢大家的反馈，合理的需求唐叔都会认真考虑。</p>
                     <p>现在你可以为任务添加子任务，而且<strong>支持嵌套</strong>：A 下面挂 B，B 下面还能挂 C。</p>
@@ -703,6 +715,10 @@
                     <p>当然，任务详情页里也能看到完整的关联信息。</p>
                     <img src="asset/电脑端-子任务-详情.png" alt="任务详情">
 
+                    <h3 id="task-attachment">任务关联（附件）</h3>
+                    <p>这个功能在v1.2.0版本引入，也是<strong>网友留言强烈要求的</strong>——主要适配了桌面端的附件操作。</p>
+                    <p>附件关联支持包括文件实体、文件夹和在线链接三类内容。</p>
+                    <img src="asset/电脑端-关联附件.png" alt="关联附件">
 
                     <h3 id="quick-op">快捷操作</h3>
                     <p>除了上述常规的「新建待办任务」方式外，应用也支持通过快捷键【Ctrl + Space】进行快捷创建待办任务。</p>
@@ -745,6 +761,10 @@
                     <img src="asset/电脑端-时间轴.png" alt="时间轴视图">
                     <blockquote>⚡ 在这个视图里，<strong>直接拖拽任务卡片</strong>就能快速修改截止时间，旁边的「x」一点即删，操作效率拉满。</blockquote>
 
+                    <h3 id="stats-view">统计视图</h3>
+                    <p>该特性是在v1.2.0版本引入，此前有网友让做导出功能，以便做个人数据统计。于是就有了<strong>统计视图</strong>，你直接可以在todolist中进行统计分析。</p>
+                    <img src="asset/电脑端-统计视图.png" alt="统计视图">
+
                     <h2 id="app-features">应用特色</h2>
                     <p>TodoList除了上述功能外，通过设置中心，还可以配置其他特色功能。</p>
                     <img src="asset/电脑端-设置中心.png" alt="设置中心">
@@ -753,13 +773,16 @@
                     <p>开启窗口置顶，则应用将始终保持在所有应用的最顶层。</p>
                     <img src="asset/电脑端-窗口置顶.png" alt="窗口置顶">
 
-                    <h3 id="dark-mode">深色模式</h3>
+                    <h3 id="custom-mode">自定义主题</h3>
                     <p>深色模式适用于夜间使用。</p>
-                    <img src="asset/桌面端-深色模式.png" alt="深色模式">
+                    <img src="asset/电脑端-深色模式.png" alt="深色模式">
+
+                    <p>除了原来的深色模式，在v1.2.0版本引入了对自定义主题的支持。</p>
+                    <img src="asset/电脑端-自定义颜色.png" alt="自定义颜色">
 
                     <h3 id="lang-switch">中英文切换</h3>
                     <p>支持中英文切换，对外国友人体验更好。</p>
-                    <img src="asset/桌面端-中英文切换.png" alt="中英文切换">
+                    <img src="asset/电脑端-中英文切换.png" alt="中英文切换">
 
                     <h3 id="boot-start">开机启动</h3>
                     <p>支持配置开机自启动。</p>
@@ -846,7 +869,10 @@
                                 <a href="#todo-recurring" class="toc-link">周期性待办</a>
                             </li>
                             <li class="toc-item level-2">
-                                <a href="#task-relation" class="toc-link">任务关联</a>
+                                <a href="#task-relation" class="toc-link">任务关联（子任务）</a>
+                            </li>
+                            <li class="toc-item level-2">
+                                <a href="#task-attachment" class="toc-link">任务关联（附件）</a>
                             </li>
                             <li class="toc-item level-2">
                                 <a href="#quick-op" class="toc-link">快捷操作</a>
@@ -879,6 +905,9 @@
                             <li class="toc-item level-2">
                                 <a href="#timeline-view" class="toc-link">时间轴视图</a>
                             </li>
+                            <li class="toc-item level-2">
+                                <a href="#stats-view" class="toc-link">统计视图</a>
+                            </li>
                         </ul>
                     </li>
                     <li class="toc-item">
@@ -888,7 +917,7 @@
                                 <a href="#window-top" class="toc-link">窗口置顶</a>
                             </li>
                             <li class="toc-item level-2">
-                                <a href="#dark-mode" class="toc-link">深色模式</a>
+                                <a href="#custom-mode" class="toc-link">自定义主题</a>
                             </li>
                             <li class="toc-item level-2">
                                 <a href="#lang-switch" class="toc-link">中英文切换</a>
